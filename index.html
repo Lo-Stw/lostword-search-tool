@@ -957,7 +957,7 @@ function initAbilities(){
   ${abnormalChipsHtml("convDefAbnormal")}
   <label><input type="checkbox" id="convSpeed" ${conv.speedRank?"checked":""}> Rank上昇：速力・命中・回避</label>
   ${abnormalChipsHtml("convSpeedAbnormal")}
-  <label><input type="checkbox" id="convSpirit" ${conv.spirit?"checked":""}> 霊力上昇：結界異常にかからずに霊力上昇</label>
+  <label><input type="checkbox" id="convSpirit" ${conv.spirit?"checked":""}> 霊力上昇：結界異常にかかずに霊力上昇</label>
   ${abnormalChipsHtml("convSpiritAbnormal")}
   <input id="convSpiritValue" class="input" type="number" step="0.01" placeholder="霊力上昇量" value="${esc(conv.spiritValue||"")}">
   <label><input type="checkbox" id="convHeal" ${conv.heal?"checked":""}> 体力回復：結界異常にかからずに体力回復</label>
@@ -1081,8 +1081,7 @@ function setTargetButtons(on,off){
    つよさ上昇/低下 (バフ/デバフ) UI生成関数（複数対応）
 ========================================================= */
 
-function renderBuffDebuffFields(prefix, targetObj) {
- // 互換性考慮：旧データ(buff/debuff単体オブジェクト)があればbuffs/debuffs配列に移行
+function renderBuffDebuffFields(prefix, targetObj, title) {
  if (targetObj.buff && !targetObj.buffs) {
   targetObj.buffs = targetObj.buff.stat ? [targetObj.buff] : [];
   delete targetObj.buff;
@@ -1095,21 +1094,25 @@ function renderBuffDebuffFields(prefix, targetObj) {
  if (!targetObj.buffs) targetObj.buffs = [];
  if (!targetObj.debuffs) targetObj.debuffs = [];
 
- let html = `<div style="margin-top:8px;">`;
+ let html = '';
+ if (title) {
+  html += `<div class="mini">${title}</div>`;
+ }
+ html += `<div style="margin-top:4px;">`;
 
  // バフ（上昇）一覧
  html += `<div style="font-size:13px; font-weight:700; color:#004085; margin-bottom:4px;">つよさ上昇 / 自身</div>`;
  targetObj.buffs.forEach((b, idx) => {
   html += `
-   <div style="background:#f0f7ff; border:1px solid #cce5ff; border-radius:8px; padding:8px; margin-bottom:6px;" data-buff-box="${prefix}-${idx}">
+   <div style="background:#f0f7ff; border:1px solid #cce5ff; border-radius:8px; padding:8px; margin-bottom:6px;">
     <button type="button" class="btn-del" onclick="removeBuffItem('${prefix}', ${idx})">削除</button>
     <div class="row3" style="margin-top:4px;">
-     <select class="select" id="${prefix}-buff-stat-${idx}" onchange="updateBuffItem('${prefix}', ${idx}, 'stat', this.value)">
+     <select class="select" onchange="updateBuffItem('${prefix}', ${idx}, 'stat', this.value)">
       <option value="">ステータス選択</option>
       ${STAT_TARGETS.map(s => `<option ${b.stat===s?"selected":""}>${s}</option>`).join("")}
      </select>
-     <input class="input" type="number" id="${prefix}-buff-rate-${idx}" placeholder="確率 %" value="${esc(b.rate||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rate', this.value)">
-     <input class="input" type="number" id="${prefix}-buff-rank-${idx}" placeholder="ランク数" value="${esc(b.rank||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rank', this.value)">
+     <input class="input" type="number" placeholder="確率 %" value="${esc(b.rate||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rate', this.value)">
+     <input class="input" type="number" placeholder="ランク数" value="${esc(b.rank||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rank', this.value)">
     </div>
    </div>
   `;
@@ -1120,15 +1123,15 @@ function renderBuffDebuffFields(prefix, targetObj) {
  html += `<div style="font-size:13px; font-weight:700; color:#721c24; margin-top:12px; margin-bottom:4px;">つよさ低下 / 対象</div>`;
  targetObj.debuffs.forEach((d, idx) => {
   html += `
-   <div style="background:#fff0f0; border:1px solid #ffcdd2; border-radius:8px; padding:8px; margin-bottom:6px;" data-debuff-box="${prefix}-${idx}">
+   <div style="background:#fff0f0; border:1px solid #ffcdd2; border-radius:8px; padding:8px; margin-bottom:6px;">
     <button type="button" class="btn-del" onclick="removeDebuffItem('${prefix}', ${idx})">削除</button>
     <div class="row3" style="margin-top:4px;">
-     <select class="select" id="${prefix}-debuff-stat-${idx}" onchange="updateDebuffItem('${prefix}', ${idx}, 'stat', this.value)">
+     <select class="select" onchange="updateDebuffItem('${prefix}', ${idx}, 'stat', this.value)">
       <option value="">ステータス選択</option>
       ${STAT_TARGETS.map(s => `<option ${d.stat===s?"selected":""}>${s}</option>`).join("")}
      </select>
-     <input class="input" type="number" id="${prefix}-debuff-rate-${idx}" placeholder="確率 %" value="${esc(d.rate||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rate', this.value)">
-     <input class="input" type="number" id="${prefix}-debuff-rank-${idx}" placeholder="ランク数" value="${esc(d.rank||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rank', this.value)">
+     <input class="input" type="number" placeholder="確率 %" value="${esc(d.rate||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rate', this.value)">
+     <input class="input" type="number" placeholder="ランク数" value="${esc(d.rank||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rank', this.value)">
     </div>
    </div>
   `;
@@ -1139,7 +1142,7 @@ function renderBuffDebuffFields(prefix, targetObj) {
  return html;
 }
 
-// ターゲットオブジェクトを取得するヘルパー (attack または bullet)
+// ターゲットオブジェクトを取得するヘルパー
 function getTargetObjectByPrefix(prefix) {
  if (prefix.startsWith("att-")) {
   const key = prefix.replace("att-", "");
@@ -1204,13 +1207,10 @@ function updateDebuffItem(prefix, idx, key, value) {
 function refreshBuffDebuffContainer(prefix) {
  const obj = getTargetObjectByPrefix(prefix);
  if (!obj) return;
- // DOM内の該当エリアを特定して再描画
- let containerEl = document.getElementById(`buff-container-${prefix}`);
- if (!containerEl) {
-  // 動的に探す
-  const selector = prefix.startsWith("att-") ? `#addPage` : `#bullets-container-${prefix.split("-")[1]}`;
-  // 簡易的にエディタ全体を再描画するか、該当部分だけ更新
-  initEditors(); // エディタ全体を再描画するのが最も確実かつシンプル
+ const containerEl = document.getElementById(`buff-container-${prefix}`);
+ if (containerEl) {
+  const title = prefix.startsWith("att-") ? "ショット・スペカ全体のつよさ変化" : "つよさ変化";
+  containerEl.innerHTML = renderBuffDebuffFields(prefix, obj, title);
  }
 }
 
@@ -1298,8 +1298,7 @@ function initEditors(){
    </div>
 
    <div class="section" id="buff-container-att-${key}">
-    <div class="mini">ショット・スペカ全体のつよさ変化</div>
-    ${renderBuffDebuffFields(`att-${key}`, a)}
+    ${renderBuffDebuffFields(`att-${key}`, a, "ショット・スペカ全体のつよさ変化")}
    </div>
 
    <div class="section">
@@ -1424,8 +1423,7 @@ function buildBulletsEditorUI(attackKey){
     </div>
 
     <div style="margin-top:10px;" id="buff-container-${prefix}">
-     <div class="mini">つよさ変化</div>
-     ${renderBuffDebuffFields(prefix, bulletObj)}
+     ${renderBuffDebuffFields(prefix, bulletObj, "つよさ変化")}
     </div>
 
     <div style="margin-top:10px;">
@@ -1561,7 +1559,6 @@ function search() {
 ========================================================= */
 
 function getBuffDebuffHtml(obj) {
- // 旧データ(buff/debuff)対応
  let buffs = obj.buffs || (obj.buff && obj.buff.stat ? [obj.buff] : []);
  let debuffs = obj.debuffs || (obj.debuff && obj.debuff.stat ? [obj.debuff] : []);
 
