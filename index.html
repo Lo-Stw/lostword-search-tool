@@ -5,275 +5,1670 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>東方ロストワード 弾幕検索</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
-header{background:#242424;color:#fff;padding:20px 14px;text-align:center}header h1{margin:0;font-size:22px}header p{margin:7px 0 0;font-size:13px;opacity:.8}
-.container{max-width:900px;margin:auto;padding:10px}.tabs{display:flex;gap:8px;margin-bottom:10px}.tab{flex:1;padding:13px;border:0;border-radius:12px;background:#fff;font-weight:700}.tab.active{background:#333;color:#fff}
-.box{background:#fff;border-radius:15px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #00000012}.section{margin-bottom:18px}.title{font-weight:700;font-size:15px;margin-bottom:8px}
-.input,.select{width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;font-size:16px;background:#fafafa}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.buttons{display:flex;flex-wrap:wrap;gap:6px}.filter{padding:8px 11px;border:1px solid #ccc;border-radius:20px;background:#fff;font-size:13px}.filter.selected{background:#333;color:#fff;border-color:#333}
-.range{display:flex;gap:8px}.range button{flex:1;padding:10px;border:1px solid #ccc;background:#fff;border-radius:8px}.range button.selected{background:#333;color:#fff}
-.main{width:100%;padding:12px;border:0;border-radius:9px;background:#333;color:#fff;font-size:15px;font-weight:700}.sub{width:100%;padding:10px;border:0;border-radius:9px;background:#e7e7e7;margin-top:8px}
-.hidden{display:none}.result-count{font-weight:700;margin:14px 0 8px}.result{background:#fff;border-radius:13px;padding:14px;margin-bottom:10px;box-shadow:0 2px 6px #0000000d}.char{font-size:18px;font-weight:700}.muted{color:#777;font-size:12px}.tag{display:inline-block;padding:4px 7px;margin:3px 2px;border-radius:5px;font-size:11px;background:#eee}.attr{background:#fff1b8}.bullet{background:#dceeff}.attack{background:#f6f6f6;border-radius:10px;padding:10px;margin-top:10px}.attack h4{margin:0 0 5px}.editor{background:#f6f6f6;border-radius:12px;padding:12px;margin-bottom:12px}.editor h3{margin:0 0 10px;font-size:16px}.special-grid{display:grid;grid-template-columns:1fr;gap:8px}.special-row{background:#fff;border:1px solid #ddd;border-radius:9px;padding:9px}.special-head{display:flex;gap:6px;align-items:center}.special-head button{flex:1;padding:8px;border:1px solid #ccc;background:#fff;border-radius:8px}.special-head button.on{background:#333;color:#fff}.special-detail{display:none;margin-top:8px}.special-detail.show{display:block}.mini{font-size:12px;color:#666;margin-bottom:5px}.switch{display:flex;gap:6px}.switch button{flex:1;padding:8px;border:1px solid #ccc;background:#fff;border-radius:8px}.switch button.on{background:#333;color:#fff}.msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;white-space:pre-wrap}.ok{background:#e4f6e7}.err{background:#ffe5e5}.loading{text-align:center;padding:30px;color:#777}.small{font-size:12px}.danger{color:#a22}
-@media(max-width:600px){.row,.row3{grid-template-columns:1fr}.container{padding:8px}}
+*{box-sizing:border-box}
+body{margin:0;background:#f3f4f6;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
+header{background:#242424;color:#fff;padding:20px 14px;text-align:center}
+header h1{margin:0;font-size:22px}
+header p{margin:7px 0 0;font-size:13px;opacity:.8}
+.container{max-width:900px;margin:auto;padding:10px}
+.tabs{display:flex;gap:8px;margin-bottom:10px}
+.tab{flex:1;padding:13px;border:0;border-radius:12px;background:#fff;font-weight:700}
+.tab.active{background:#333;color:#fff}
+.box{background:#fff;border-radius:15px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #00000012}
+.section{margin-bottom:18px}
+.title{font-weight:700;font-size:15px;margin-bottom:8px}
+.input,.select{width:100%;padding:11px;border:1px solid #ccc;border-radius:9px;font-size:16px;background:#fafafa}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.buttons{display:flex;flex-wrap:wrap;gap:6px}
+.filter{padding:8px 11px;border:1px solid #ccc;border-radius:20px;background:#fff;font-size:13px}
+.filter.selected{background:#333;color:#fff;border-color:#333}
+.range{display:flex;gap:8px}
+.range button{flex:1;padding:10px;border:1px solid #ccc;background:#fff;border-radius:8px}
+.range button.selected{background:#333;color:#fff}
+.main{width:100%;padding:12px;border:0;border-radius:9px;background:#333;color:#fff;font-size:15px;font-weight:700}
+.sub{width:100%;padding:10px;border:0;border-radius:9px;background:#e7e7e7;margin-top:8px}
+.hidden{display:none}
+.result-count{font-weight:700;margin:14px 0 8px}
+.result{background:#fff;border-radius:13px;padding:14px;margin-bottom:10px;box-shadow:0 2px 6px #0000000d}
+.char{font-size:18px;font-weight:700}
+.muted{color:#777;font-size:12px}
+.tag{display:inline-block;padding:4px 7px;margin:3px 2px;border-radius:5px;font-size:11px;background:#eee}
+.attr{background:#fff1b8}
+.bullet{background:#dceeff}
+.attack{background:#f6f6f6;border-radius:10px;padding:10px;margin-top:10px}
+.attack h4{margin:0 0 5px}
+.editor{background:#f6f6f6;border-radius:12px;padding:12px;margin-bottom:12px}
+.editor h3{margin:0 0 10px;font-size:16px}
+.special-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.special-row{background:#fff;border:1px solid #ddd;border-radius:9px;padding:10px}
+.special-head{display:flex;gap:8px;align-items:center}
+.special-head b{flex:1}
+.special-head button{padding:8px 14px;border:1px solid #ccc;background:#fff;border-radius:8px;font-weight:700}
+.special-head button.on{background:#333;color:#fff}
+.special-detail{display:none;margin-top:8px}
+.special-detail.show{display:block}
+.mini{font-size:12px;color:#666;margin-bottom:5px}
+.switch{display:flex;gap:6px}
+.switch button{flex:1;padding:8px;border:1px solid #ccc;background:#fff;border-radius:8px}
+.switch button.on{background:#333;color:#fff}
+.change-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.change-option{position:relative}
+.change-option input{position:absolute;opacity:0}
+.change-option label{display:block;padding:11px 10px;border:1px solid #ccc;border-radius:9px;background:#fff;text-align:center;font-size:13px}
+.change-option input:checked+label{background:#333;color:#fff;border-color:#333}
+.msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;white-space:pre-wrap}
+.ok{background:#e4f6e7}
+.err{background:#ffe5e5}
+.loading{text-align:center;padding:30px;color:#777}
+.small{font-size:12px}
+.danger{color:#a22}
+.required{color:#c33;font-size:11px;margin-left:4px}
+@media(max-width:600px){
+.row,.row3{grid-template-columns:1fr}
+.change-grid{grid-template-columns:1fr}
+.container{padding:8px}
+}
 </style>
 </head>
+
 <body>
-<header><h1>東方ロストワード</h1><p>弾幕・スペルカード検索ツール</p></header>
+
+<header>
+<h1>東方ロストワード</h1>
+<p>弾幕・スペルカード検索ツール</p>
+</header>
+
 <div class="container">
-<div class="tabs"><button id="tabSearch" class="tab active">🔍 検索</button><button id="tabAdd" class="tab">➕ キャラ追加</button></div>
+
+<div class="tabs">
+<button id="tabSearch" class="tab active">🔍 検索</button>
+<button id="tabAdd" class="tab">➕ キャラ追加</button>
+</div>
+
+<!-- ==================== 検索 ==================== -->
 
 <section id="searchPage">
+
 <div class="box">
-<div class="section"><div class="title">キャラクター・スペカ検索</div><input id="q" class="input" placeholder="キャラ名・スペカ名"></div>
-<div class="section"><div class="title">汎異記号</div><input id="qSymbol" class="input" placeholder="汎異記号を入力"></div>
-<div class="section"><div class="title">式</div><div id="fType" class="buttons"></div></div>
-<div class="section"><div class="title">攻撃種</div><div id="fAttack" class="buttons"></div></div>
-<div class="section"><div class="title">全体・単体</div><div id="fRange" class="buttons"></div></div>
-<div class="section"><div class="title">属性</div><div id="fAttr" class="buttons"></div></div>
-<div class="section"><div class="title">弾種</div><div id="fBullet" class="buttons"></div></div>
-<div class="section"><div class="title">特殊弾・効果</div><div id="fSpecial" class="buttons"></div></div>
-<div class="section"><div class="title">キャラ特性</div><div id="fChar" class="buttons"></div></div>
-<div class="section"><div class="title">ステータス検索（以上 / 以下）</div>
-<div class="row"><select id="statName" class="select"><option value="">ステータスを選択</option><option value="power">総合つよさ</option><option value="hp">体力</option><option value="speed">速力</option><option value="yangAtk">陽攻</option><option value="yinAtk">陰攻</option><option value="yangDef">陽防</option><option value="yinDef">陰防</option></select><input id="statValue" type="number" class="input" placeholder="数値"></div>
-<div class="range" style="margin-top:8px"><button id="statMin">以上</button><button id="statMax">以下</button></div>
+
+<div class="section">
+<div class="title">キャラクター・スペカ検索</div>
+<input id="q" class="input" placeholder="キャラ名・スペカ名">
 </div>
-<div class="section"><div class="title">複数条件</div><div class="range"><button id="andBtn" class="selected">AND</button><button id="orBtn">OR</button></div></div>
+
+<div class="section">
+<div class="title">汎異記号</div>
+<input id="qSymbol" class="input" placeholder="汎異記号を入力">
+</div>
+
+<div class="section">
+<div class="title">式</div>
+<div id="fType" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">攻撃種</div>
+<div id="fAttack" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">全体・単体</div>
+<div id="fRange" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">属性</div>
+<div id="fAttr" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">弾種</div>
+<div id="fBullet" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">特殊弾・効果</div>
+<div id="fSpecial" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">キャラ特性</div>
+<div id="fChar" class="buttons"></div>
+</div>
+
+<div class="section">
+
+<div class="title">ステータス検索（以上 / 以下）</div>
+
+<div class="row">
+<select id="statName" class="select">
+<option value="">ステータスを選択</option>
+<option value="power">総合つよさ</option>
+<option value="hp">体力</option>
+<option value="speed">速力</option>
+<option value="yangAtk">陽攻</option>
+<option value="yinAtk">陰攻</option>
+<option value="yangDef">陽防</option>
+<option value="yinDef">陰防</option>
+</select>
+
+<input id="statValue" type="number" class="input" placeholder="数値">
+</div>
+
+<div class="range" style="margin-top:8px">
+<button id="statMin">以上</button>
+<button id="statMax">以下</button>
+</div>
+
+</div>
+
+<div class="section">
+
+<div class="title">複数条件</div>
+
+<div class="range">
+<button id="andBtn" class="selected">AND</button>
+<button id="orBtn">OR</button>
+</div>
+
+</div>
+
 <button id="reset" class="sub">条件をリセット</button>
+
 </div>
-<div id="results"><div class="loading">データを読み込んでいます……</div></div>
+
+<div id="results">
+<div class="loading">データを読み込んでいます……</div>
+</div>
+
 </section>
+
+<!-- ==================== キャラ追加 ==================== -->
 
 <section id="addPage" class="hidden">
+
 <div class="box">
-<div class="section"><div class="title">キャラクター名</div><input id="aCharacter" class="input" placeholder="例：霧雨魔理沙"></div>
-<div class="section"><div class="title">汎異記号</div><input id="aSymbol" class="input" placeholder="例：A6"></div>
-<div class="section"><div class="title">式</div><select id="aType" class="select"><option value="">選択してください</option><option>攻撃式</option><option>技巧式</option><option>速攻式</option><option>破壊式</option><option>防御式</option><option>支援式</option><option>回復式</option><option>妨害式</option></select></div>
-<div class="section"><div class="title">ステータス</div><div class="row3">
-<input id="sPower" type="number" class="input" placeholder="総合つよさ"><input id="sHp" type="number" class="input" placeholder="体力"><input id="sSpeed" type="number" class="input" placeholder="速力">
-<input id="sYangAtk" type="number" class="input" placeholder="陽攻"><input id="sYinAtk" type="number" class="input" placeholder="陰攻"><input id="sYangDef" type="number" class="input" placeholder="陽防">
+
+<div class="section">
+<div class="title">キャラクター名</div>
+<input id="aCharacter" class="input" placeholder="例：霧雨魔理沙">
+</div>
+
+<div class="section">
+<div class="title">汎異記号</div>
+<input id="aSymbol" class="input" placeholder="例：A6">
+</div>
+
+<div class="section">
+<div class="title">式</div>
+
+<select id="aType" class="select">
+<option value="">選択してください</option>
+<option>攻撃式</option>
+<option>技巧式</option>
+<option>速攻式</option>
+<option>破壊式</option>
+<option>防御式</option>
+<option>支援式</option>
+<option>回復式</option>
+<option>妨害式</option>
+</select>
+
+</div>
+
+<div class="section">
+
+<div class="title">ステータス</div>
+
+<div class="row3">
+<input id="sPower" type="number" class="input" placeholder="総合つよさ">
+<input id="sHp" type="number" class="input" placeholder="体力">
+<input id="sSpeed" type="number" class="input" placeholder="速力">
+
+<input id="sYangAtk" type="number" class="input" placeholder="陽攻">
+<input id="sYinAtk" type="number" class="input" placeholder="陰攻">
+<input id="sYangDef" type="number" class="input" placeholder="陽防">
+
 <input id="sYinDef" type="number" class="input" placeholder="陰防">
-</div></div>
 </div>
 
-<div class="box"><div class="title">キャラ特性</div>
+</div>
+
+</div>
+
+<!-- キャラ特性 -->
+
+<div class="box">
+
+<div class="title">キャラ特性</div>
+
 <div id="characterOptions"></div>
+
 </div>
 
-<div class="box"><div class="title">能力</div>
-<div class="section"><div class="mini">結界異常耐性</div><div id="resistances" class="buttons"></div></div>
-<div class="section"><div class="mini">有利属性</div><div id="goodAttrs" class="buttons"></div></div>
-<div class="section"><div class="mini">不利属性</div><div id="badAttrs" class="buttons"></div></div>
-<div class="section"><div class="mini">チェンジ特性</div><div id="changeTraits" class="buttons"></div></div>
+<!-- 能力 -->
+
+<div class="box">
+
+<div class="title">能力</div>
+
+<div class="section">
+<div class="mini">結界異常耐性</div>
+<div id="resistances" class="buttons"></div>
 </div>
 
-<div class="box"><div class="title">ショット・スペルカード</div><div id="attackEditors"></div></div>
-<div class="box"><button id="save" class="main">☁️ Supabaseに保存</button><div id="message"></div></div>
+<div class="section">
+<div class="mini">有利属性</div>
+<div id="goodAttrs" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="mini">不利属性</div>
+<div id="badAttrs" class="buttons"></div>
+</div>
+
+<div class="section">
+
+<div class="mini">
+チェンジ特性
+<span class="required">必須・1つのみ</span>
+</div>
+
+<div id="changeTraits" class="change-grid"></div>
+
+</div>
+
+</div>
+
+<!-- 攻撃 -->
+
+<div class="box">
+
+<div class="title">ショット・スペルカード</div>
+
+<div id="attackEditors"></div>
+
+</div>
+
+<!-- 保存 -->
+
+<div class="box">
+
+<button id="save" class="main">☁️ Supabaseに保存</button>
+
+<div id="message"></div>
+
+</div>
+
 </section>
+
 </div>
 
 <script>
+
 const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
 
-const TYPES=["攻撃式","技巧式","速攻式","破壊式","防御式","支援式","回復式","妨害式"];
-const ATTR=["日","月","火","水","木","金","土","星"];
-const BULLETS=["通常弾","光弾","レーザー弾","質量弾","エネルギー弾","流体弾","尖弾","御札弾","斬撃弾","肉弾","ミサイル弾"];
+const TYPES=[
+"攻撃式","技巧式","速攻式","破壊式",
+"防御式","支援式","回復式","妨害式"
+];
+
+const ATTR=[
+"日","月","火","水","木","金","土","星"
+];
+
+const BULLETS=[
+"通常弾","光弾","レーザー弾","質量弾",
+"エネルギー弾","流体弾","尖弾","御札弾",
+"斬撃弾","肉弾","ミサイル弾"
+];
+
 const RANGES=["全体","単体"];
-const ATTACKS=[["spread","拡散ショット"],["focus","集中ショット"],["spell1","スペルカード1"],["spell2","スペルカード2"],["lastWord","ラストワード"]];
-const SPECIALS=["硬質弾","斬裂弾","貫通弾","必中弾","鏡面弾","弾性弾","爆破弾","特効弾","粘着弾","衝撃弾","吸収弾","反動弾","焼却弾","氷解弾","放電弾","過毒弾","閃光弾"];
-const CHAR_OPTIONS=["ファスト","チャージ","特殊バフ","RANKⅡバフ","畜力","蓄積","共鳴","X-Change"];
-const CHANGE_TRAITS=["アタック連携","ガード連携","スピード連携","パワー連携","シールド連携","バイタル連携"];
 
-let data=[], mode="AND";
-const selected={type:[],attack:[],range:[],attr:[],bullet:[],special:[],char:[]};
+const ATTACKS=[
+["spread","拡散ショット"],
+["focus","集中ショット"],
+["spell1","スペルカード1"],
+["spell2","スペルカード2"],
+["lastWord","ラストワード"]
+];
+
+const SPECIALS=[
+"硬質弾","斬裂弾","貫通弾","必中弾","鏡面弾",
+"弾性弾","爆破弾","特効弾","粘着弾","衝撃弾",
+"吸収弾","反動弾","焼却弾","氷解弾","放電弾",
+"過毒弾","閃光弾"
+];
+
+const CHAR_OPTIONS=[
+"ファスト","チャージ","特殊バフ","RANKⅡバフ",
+"畜力","蓄積","共鳴","X-Change"
+];
+
+const CHANGE_TRAITS=[
+"アタック連携",
+"ガード連携",
+"スピード連携",
+"パワー連携",
+"シールド連携",
+"バイタル連携"
+];
+
+let data=[];
+let mode="AND";
+
+const selected={
+type:[],
+attack:[],
+range:[],
+attr:[],
+bullet:[],
+special:[],
+char:[]
+};
+
 let statMode="";
-const attackData={};
-ATTACKS.forEach(([key,label])=>attackData[key]={name:"",range:"全体",attributes:[],bulletTypes:[],specials:{},hardRatio:"",sharpRatio:"",stickyRate:"",impactRate:"",absorbRatio:"",recoilRatio:""});
-SPECIALS.forEach(x=>ATTACKS.forEach(([key])=>attackData[key].specials[x]=false));
 
-const characterData={fast:false,charge:false,specialBuff:false,rank2:false,rank2Ratio:"",power:false,powerRatio:"",accumulate:false,accumulateRatio:"",resonance:false,resonanceRatio:"",condition:"",xchange:false,xchangeEffect:""};
+function createSpecialData(){
 
-function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;")}
-function val(v){return esc(v)}
+const obj={};
+
+SPECIALS.forEach(x=>{
+
+obj[x]={
+enabled:false,
+value:""
+};
+
+});
+
+return obj;
+
+}
+
+function createAttackData(){
+
+const obj={};
+
+ATTACKS.forEach(([key])=>{
+
+obj[key]={
+name:"",
+range:"全体",
+attributes:[],
+bulletTypes:[],
+specials:createSpecialData()
+};
+
+});
+
+return obj;
+
+}
+
+let attackData=createAttackData();
+
+let characterData={
+fast:false,
+charge:false,
+specialBuff:false,
+rank2:false,
+rank2Ratio:"",
+power:false,
+powerRatio:"",
+accumulate:false,
+accumulateRatio:"",
+resonance:false,
+resonanceRatio:"",
+condition:"",
+xchange:false,
+xchangeEffect:""
+};
+
+let abilities={
+resistance:[],
+good:[],
+bad:[]
+};
+
+let changeTrait="";
+
+function esc(v){
+
+return String(v??"")
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;");
+
+}
 
 function chips(id,arr,sel,fn){
- const e=document.getElementById(id); e.innerHTML="";
- arr.forEach(x=>{const b=document.createElement("button");b.className="filter"+(sel.includes(x)?" selected":"");b.textContent=x;b.onclick=()=>fn(x,b);e.appendChild(b)})
-}
-function toggle(arr,x,b){const i=arr.indexOf(x);if(i>=0){arr.splice(i,1);b.classList.remove("selected")}else{arr.push(x);b.classList.add("selected")}search()}
-function buildFilters(){
- chips("fType",TYPES,selected.type,(x,b)=>toggle(selected.type,x,b));
- chips("fAttack",ATTACKS.map(x=>x[1]),selected.attack,(x,b)=>toggle(selected.attack,x,b));
- chips("fRange",RANGES,selected.range,(x,b)=>toggle(selected.range,x,b));
- chips("fAttr",ATTR,selected.attr,(x,b)=>toggle(selected.attr,x,b));
- chips("fBullet",BULLETS,selected.bullet,(x,b)=>toggle(selected.bullet,x,b));
- chips("fSpecial",SPECIALS,selected.special,(x,b)=>toggle(selected.special,x,b));
- chips("fChar",CHAR_OPTIONS,selected.char,(x,b)=>toggle(selected.char,x,b));
+
+const e=document.getElementById(id);
+
+e.innerHTML="";
+
+arr.forEach(x=>{
+
+const b=document.createElement("button");
+
+b.className="filter"+(sel.includes(x)?" selected":"");
+
+b.textContent=x;
+
+b.onclick=()=>fn(x,b);
+
+e.appendChild(b);
+
+});
+
 }
 
-function initEditors(){
- const e=document.getElementById("attackEditors");e.innerHTML="";
- ATTACKS.forEach(([key,label])=>{
-  const a=attackData[key], d=document.createElement("div");d.className="editor";
-  d.innerHTML=`<h3>${label}</h3>
-  <div class="section"><div class="mini">名前</div><input class="input" value="${val(a.name)}" data-k="${key}" data-p="name"></div>
-  <div class="section"><div class="mini">全体・単体</div><select class="select" data-k="${key}" data-p="range"><option ${a.range==="全体"?"selected":""}>全体</option><option ${a.range==="単体"?"selected":""}>単体</option></select></div>
-  <div class="section"><div class="mini">属性（複数選択）</div><div id="aa-${key}" class="buttons"></div></div>
-  <div class="section"><div class="mini">弾種（複数選択）</div><div id="ab-${key}" class="buttons"></div></div>
-  <div class="section"><div class="mini">弾種の有無（ありを選んだものだけ詳細入力）</div>
-  <div id="as-${key}" class="special-grid"></div></div>`;
-  e.appendChild(d);
-  chips("aa-"+key,ATTR,a.attributes,(x,b)=>{const i=a.attributes.indexOf(x);if(i>=0){a.attributes.splice(i,1);b.classList.remove("selected")}else{a.attributes.push(x);b.classList.add("selected")}});
-  buildBulletControls(key);
-  chips("as-"+key,SPECIALS,Object.keys(a.specials).filter(x=>a.specials[x]),(x,b)=>{a.specials[x]=!a.specials[x];b.classList.toggle("selected")});
- });
- document.querySelectorAll("[data-p]").forEach(el=>el.oninput=()=>{attackData[el.dataset.k][el.dataset.p]=el.value});
+function toggle(arr,x,b){
+
+const i=arr.indexOf(x);
+
+if(i>=0){
+
+arr.splice(i,1);
+b.classList.remove("selected");
+
+}else{
+
+arr.push(x);
+b.classList.add("selected");
+
 }
+
+search();
+
+}
+
+function buildFilters(){
+
+chips("fType",TYPES,selected.type,
+(x,b)=>toggle(selected.type,x,b));
+
+chips("fAttack",ATTACKS.map(x=>x[1]),selected.attack,
+(x,b)=>toggle(selected.attack,x,b));
+
+chips("fRange",RANGES,selected.range,
+(x,b)=>toggle(selected.range,x,b));
+
+chips("fAttr",ATTR,selected.attr,
+(x,b)=>toggle(selected.attr,x,b));
+
+chips("fBullet",BULLETS,selected.bullet,
+(x,b)=>toggle(selected.bullet,x,b));
+
+chips("fSpecial",SPECIALS,selected.special,
+(x,b)=>toggle(selected.special,x,b));
+
+chips("fChar",CHAR_OPTIONS,selected.char,
+(x,b)=>toggle(selected.char,x,b));
+
+}
+
+/* ====================
+   特殊弾入力
+==================== */
+
+function specialLabel(x){
+
+const map={
+"硬質弾":"倍率",
+"斬裂弾":"倍率",
+"粘着弾":"発動率",
+"衝撃弾":"発動率",
+"吸収弾":"倍率",
+"反動弾":"倍率"
+};
+
+return map[x]||"";
+
+}
+
+function buildSpecialControls(key){
+
+const a=attackData[key];
+const e=document.getElementById("as-"+key);
+
+e.innerHTML="";
+
+SPECIALS.forEach(x=>{
+
+const d=a.specials[x]||{
+enabled:false,
+value:""
+};
+
+a.specials[x]=d;
+
+const row=document.createElement("div");
+
+row.className="special-row";
+
+const detailLabel=specialLabel(x);
+
+row.innerHTML=`
+
+<div class="special-head">
+
+<b>${x}</b>
+
+<button type="button"
+class="${d.enabled?"on":""}">
+${d.enabled?"あり":"なし"}
+</button>
+
+</div>
+
+<div class="special-detail ${d.enabled&&detailLabel?"show":""}">
+
+${detailLabel?`
+
+<input
+class="input"
+type="number"
+placeholder="${detailLabel} ${detailLabel==="倍率"?"%":"%"}"
+value="${esc(d.value)}"
+>
+
+`:""}
+
+</div>
+
+`;
+
+e.appendChild(row);
+
+const btn=row.querySelector("button");
+const detail=row.querySelector(".special-detail");
+const input=row.querySelector("input");
+
+btn.onclick=()=>{
+
+d.enabled=!d.enabled;
+
+btn.classList.toggle("on",d.enabled);
+
+btn.textContent=d.enabled?"あり":"なし";
+
+if(detailLabel){
+
+detail.classList.toggle("show",d.enabled);
+
+}
+
+};
+
+if(input){
+
+input.oninput=()=>{
+
+d.value=input.value;
+
+};
+
+}
+
+});
+
+}
+
+/* ====================
+   弾種
+==================== */
 
 function buildBulletControls(key){
- const a=attackData[key], e=document.getElementById("ab-"+key);
- e.innerHTML="";
- BULLETS.forEach(x=>{
-  const b=document.createElement("button"); b.className="filter"+(a.bulletTypes.includes(x)?" selected":""); b.textContent=x+"："+(a.bulletTypes.includes(x)?"あり":"なし");
-  b.onclick=()=>{const i=a.bulletTypes.indexOf(x);if(i>=0){a.bulletTypes.splice(i,1)}else{a.bulletTypes.push(x)};b.classList.toggle("selected",a.bulletTypes.includes(x));b.textContent=x+"："+(a.bulletTypes.includes(x)?"あり":"なし")};
-  e.appendChild(b);
- });
+
+const a=attackData[key];
+
+const e=document.getElementById("ab-"+key);
+
+e.innerHTML="";
+
+if(!a.bulletTypes)a.bulletTypes=[];
+
+BULLETS.forEach(x=>{
+
+const enabled=a.bulletTypes.includes(x);
+
+const b=document.createElement("button");
+
+b.className="filter"+(enabled?" selected":"");
+
+b.textContent=x+"："+(enabled?"あり":"なし");
+
+b.onclick=()=>{
+
+const i=a.bulletTypes.indexOf(x);
+
+if(i>=0){
+
+a.bulletTypes.splice(i,1);
+
+}else{
+
+a.bulletTypes.push(x);
+
 }
-function buildSpecialControls(key){
- const a=attackData[key], e=document.getElementById("as-"+key);
- e.innerHTML="";
- SPECIALS.forEach(x=>{
-  const row=document.createElement("div"); row.className="special-row";
-  const safe=x.replace(/[^\w\u3040-\u30ff\u3400-\u9fff]/g,"");
-  row.innerHTML=`<div class="special-head"><b>${x}</b><button type="button" class="${a.specials[x]?"on":""}" id="sp-${key}-${safe}">${a.specials[x]?"あり":"なし"}</button></div><div class="special-detail ${a.specials[x]?"show":""}" id="sd-${key}-${safe}"></div>`;
-  e.appendChild(row);
-  const btn=row.querySelector("button"), detail=row.querySelector(".special-detail");
-  btn.onclick=()=>{
-   a.specials[x]=!a.specials[x]; btn.classList.toggle("on",a.specials[x]); btn.textContent=a.specials[x]?"あり":"なし"; detail.classList.toggle("show",a.specials[x]);
-  };
-  if(x==="硬質弾") detail.innerHTML=`<input class="input" type="number" placeholder="倍率 %" value="${val(a.hardRatio)}">`;
-  else if(x==="斬裂弾") detail.innerHTML=`<input class="input" type="number" placeholder="倍率 %" value="${val(a.sharpRatio)}">`;
-  else if(x==="粘着弾") detail.innerHTML=`<input class="input" type="number" placeholder="発動率 %" value="${val(a.stickyRate)}">`;
-  else if(x==="衝撃弾") detail.innerHTML=`<input class="input" type="number" placeholder="発動率 %" value="${val(a.impactRate)}">`;
-  else if(x==="吸収弾") detail.innerHTML=`<input class="input" type="number" placeholder="倍率" value="${val(a.absorbRatio)}">`;
-  else if(x==="反動弾") detail.innerHTML=`<input class="input" type="number" placeholder="倍率" value="${val(a.recoilRatio)}">`;
-  const input=detail.querySelector("input");
-  if(input){
-   const prop={硬質弾:"hardRatio",斬裂弾:"sharpRatio",粘着弾:"stickyRate",衝撃弾:"impactRate",吸収弾:"absorbRatio",反動弾:"recoilRatio"}[x];
-   input.oninput=()=>a[prop]=input.value;
-  }
- });
-} 
+
+const on=a.bulletTypes.includes(x);
+
+b.classList.toggle("selected",on);
+
+b.textContent=x+"："+(on?"あり":"なし");
+
+};
+
+e.appendChild(b);
+
+});
+
+}
+
+/* ====================
+   攻撃入力
+==================== */
+
+function initEditors(){
+
+const e=document.getElementById("attackEditors");
+
+e.innerHTML="";
+
+ATTACKS.forEach(([key,label])=>{
+
+const a=attackData[key];
+
+const d=document.createElement("div");
+
+d.className="editor";
+
+d.innerHTML=`
+
+<h3>${label}</h3>
+
+<div class="section">
+
+<div class="mini">名前</div>
+
+<input
+class="input"
+value="${esc(a.name)}"
+data-k="${key}"
+data-p="name"
+>
+
+</div>
+
+<div class="section">
+
+<div class="mini">全体・単体</div>
+
+<select
+class="select"
+data-k="${key}"
+data-p="range">
+
+<option ${a.range==="全体"?"selected":""}>全体</option>
+<option ${a.range==="単体"?"selected":""}>単体</option>
+
+</select>
+
+</div>
+
+<div class="section">
+
+<div class="mini">属性（複数選択）</div>
+
+<div id="aa-${key}" class="buttons"></div>
+
+</div>
+
+<div class="section">
+
+<div class="mini">弾種</div>
+
+<div id="ab-${key}" class="buttons"></div>
+
+</div>
+
+<div class="section">
+
+<div class="mini">特殊弾・効果</div>
+
+<div id="as-${key}" class="special-grid"></div>
+
+</div>
+
+`;
+
+e.appendChild(d);
+
+chips(
+"aa-"+key,
+ATTR,
+a.attributes,
+(x,b)=>{
+
+const i=a.attributes.indexOf(x);
+
+if(i>=0){
+
+a.attributes.splice(i,1);
+b.classList.remove("selected");
+
+}else{
+
+a.attributes.push(x);
+b.classList.add("selected");
+
+}
+
+}
+);
+
+buildBulletControls(key);
+buildSpecialControls(key);
+
+});
+
+document.querySelectorAll("[data-p]").forEach(el=>{
+
+el.oninput=()=>{
+
+attackData[el.dataset.k][el.dataset.p]=el.value;
+
+};
+
+});
+
+}
+
+/* ====================
+   キャラ特性
+==================== */
+
+function toggleHtml(k,label){
+
+return `
+
+<div class="switch" style="margin:6px 0">
+
+<button
+id="c-${k}"
+class="${characterData[k]?"on":""}"
+type="button">
+
+${label}：${characterData[k]?"あり":"なし"}
+
+</button>
+
+</div>
+
+`;
+
+}
+
 function initCharOptions(){
- const e=document.getElementById("characterOptions");e.innerHTML="";
- e.innerHTML=`
- ${toggleHtml("fast","ファスト")} ${toggleHtml("charge","チャージ")}
- ${toggleHtml("specialBuff","特殊バフ")} ${toggleHtml("rank2","RANKⅡバフ")}
- <div class="row"><input id="rank2Ratio" class="input" placeholder="RANKⅡバフ倍率 %" value="${val(characterData.rank2Ratio)}"><input id="powerRatio" class="input" placeholder="畜力倍率 %" value="${val(characterData.powerRatio)}"></div>
- ${toggleHtml("power","畜力")} ${toggleHtml("accumulate","蓄積")} ${toggleHtml("resonance","共鳴")} ${toggleHtml("xchange","X-Change")}
- <div class="row"><input id="accumulateRatio" class="input" placeholder="蓄積倍率" value="${val(characterData.accumulateRatio)}"><input id="resonanceRatio" class="input" placeholder="共鳴倍率" value="${val(characterData.resonanceRatio)}"></div>
- <div class="section"><div class="mini">特殊バフ・畜力・蓄積・共鳴などの条件</div><input id="condition" class="input" placeholder="条件を入力" value="${val(characterData.condition)}"></div>
- <div class="section"><div class="mini">X-Changeの効果</div><input id="xchangeEffect" class="input" placeholder="効果を入力" value="${val(characterData.xchangeEffect)}"></div>`;
- ["fast","charge","specialBuff","rank2","power","accumulate","resonance","xchange"].forEach(k=>document.getElementById("c-"+k).onclick=()=>{characterData[k]=!characterData[k];document.getElementById("c-"+k).classList.toggle("on")});
- ["rank2Ratio","powerRatio","accumulateRatio","resonanceRatio","condition","xchangeEffect"].forEach(k=>document.getElementById(k).oninput=()=>characterData[k]=document.getElementById(k).value);
+
+const e=document.getElementById("characterOptions");
+
+e.innerHTML=`
+
+${toggleHtml("fast","ファスト")}
+${toggleHtml("charge","チャージ")}
+${toggleHtml("specialBuff","特殊バフ")}
+${toggleHtml("rank2","RANKⅡバフ")}
+
+<div class="row">
+
+<input
+id="rank2Ratio"
+class="input"
+placeholder="RANKⅡバフ倍率 %"
+value="${esc(characterData.rank2Ratio)}"
+>
+
+<input
+id="powerRatio"
+class="input"
+placeholder="畜力倍率 %"
+value="${esc(characterData.powerRatio)}"
+>
+
+</div>
+
+${toggleHtml("power","畜力")}
+${toggleHtml("accumulate","蓄積")}
+${toggleHtml("resonance","共鳴")}
+${toggleHtml("xchange","X-Change")}
+
+<div class="row">
+
+<input
+id="accumulateRatio"
+class="input"
+placeholder="蓄積倍率"
+value="${esc(characterData.accumulateRatio)}"
+>
+
+<input
+id="resonanceRatio"
+class="input"
+placeholder="共鳴倍率"
+value="${esc(characterData.resonanceRatio)}"
+>
+
+</div>
+
+<div class="section">
+
+<div class="mini">
+特殊バフ・畜力・蓄積・共鳴などの条件
+</div>
+
+<input
+id="condition"
+class="input"
+placeholder="条件を入力"
+value="${esc(characterData.condition)}"
+>
+
+</div>
+
+<div class="section">
+
+<div class="mini">
+X-Changeの効果
+</div>
+
+<input
+id="xchangeEffect"
+class="input"
+placeholder="効果を入力"
+value="${esc(characterData.xchangeEffect)}"
+>
+
+</div>
+
+`;
+
+["fast","charge","specialBuff","rank2",
+"power","accumulate","resonance","xchange"
+].forEach(k=>{
+
+document.getElementById("c-"+k).onclick=()=>{
+
+characterData[k]=!characterData[k];
+
+const b=document.getElementById("c-"+k);
+
+b.classList.toggle("on",characterData[k]);
+
+b.textContent=
+b.textContent.split("：")[0]+"："+(characterData[k]?"あり":"なし");
+
+};
+
+});
+
+["rank2Ratio","powerRatio",
+"accumulateRatio","resonanceRatio",
+"condition","xchangeEffect"
+].forEach(k=>{
+
+document.getElementById(k).oninput=()=>{
+
+characterData[k]=document.getElementById(k).value;
+
+};
+
+});
+
 }
-function toggleHtml(k,label){return `<div class="switch" style="margin:6px 0"><button id="c-${k}" class="${characterData[k]?"on":""}">${label}：${characterData[k]?"あり":"なし"}</button></div>`}
+
+/* ====================
+   能力
+==================== */
+
+function rebuildAbilities(){
+
+chips(
+"resistances",
+["毒霧","帯電","燃焼","凍結","暗闇","無効化"],
+abilities.resistance,
+(x,b)=>{
+
+const i=abilities.resistance.indexOf(x);
+
+if(i>=0){
+abilities.resistance.splice(i,1);
+b.classList.remove("selected");
+}else{
+abilities.resistance.push(x);
+b.classList.add("selected");
+}
+
+}
+);
+
+chips(
+"goodAttrs",
+ATTR,
+abilities.good,
+(x,b)=>{
+
+const i=abilities.good.indexOf(x);
+
+if(i>=0){
+abilities.good.splice(i,1);
+b.classList.remove("selected");
+}else{
+abilities.good.push(x);
+b.classList.add("selected");
+}
+
+}
+);
+
+chips(
+"badAttrs",
+ATTR,
+abilities.bad,
+(x,b)=>{
+
+const i=abilities.bad.indexOf(x);
+
+if(i>=0){
+abilities.bad.splice(i,1);
+b.classList.remove("selected");
+}else{
+abilities.bad.push(x);
+b.classList.add("selected");
+}
+
+}
+);
+
+}
+
+/* ====================
+   チェンジ特性
+==================== */
 
 function initChangeTraits(){
- chips("changeTraits",CHANGE_TRAITS,changeTraits,(x,b)=>{
-  const i=changeTraits.indexOf(x);
-  if(i>=0){changeTraits.splice(i,1);b.classList.remove("selected")} 
-  else{changeTraits.push(x);b.classList.add("selected")}
- });
+
+const e=document.getElementById("changeTraits");
+
+e.innerHTML="";
+
+CHANGE_TRAITS.forEach((x,i)=>{
+
+const id="change-"+i;
+
+const wrap=document.createElement("div");
+
+wrap.className="change-option";
+
+wrap.innerHTML=`
+
+<input
+type="radio"
+name="changeTrait"
+id="${id}"
+value="${x}"
+${changeTrait===x?"checked":""}
+>
+
+<label for="${id}">
+${x}
+</label>
+
+`;
+
+e.appendChild(wrap);
+
+wrap.querySelector("input").onchange=()=>{
+
+changeTrait=x;
+
+};
+
+});
+
 }
-function initAbilities(){
- chips("resistances",["毒霧","帯電","燃焼","凍結","暗闇","無効化"],[],(x,b)=>toggle([],x,b));
- ["resistances","goodAttrs","badAttrs"].forEach(id=>document.getElementById(id).dataset.values="");
- chips("goodAttrs",ATTR,[],(x,b)=>toggle([],x,b));chips("badAttrs",ATTR,[],(x,b)=>toggle([],x,b));
-}
-let abilities={resistance:[],good:[],bad:[]};
-let changeTraits=[];
-function rebuildAbilities(){
- [["resistances",["毒霧","帯電","燃焼","凍結","暗闇","無効化"],"resistance"],["goodAttrs",ATTR,"good"],["badAttrs",ATTR,"bad"]].forEach(([id,arr,key])=>chips(id,arr,abilities[key],(x,b)=>{const i=abilities[key].indexOf(x);if(i>=0){abilities[key].splice(i,1);b.classList.remove("selected")}else{abilities[key].push(x);b.classList.add("selected")}}));
-}
+
+/* ====================
+   検索
+==================== */
 
 function attackValues(c){
- return Object.values(c.attacks||{});
-}
-function flatSpecials(c){
- const out=[];attackValues(c).forEach(a=>{Object.keys(a.specials||{}).forEach(k=>{if(a.specials[k])out.push(k)})});return [...new Set(out)]
-}
-function hasChar(c,x){
- const d=c.details||{};
- const m={ファスト:d.fast,チャージ:d.charge,"特殊バフ":d.specialBuff,"RANKⅡバフ":d.rank2,"畜力":d.power,"蓄積":d.accumulate,"共鳴":d.resonance,"X-Change":d.xchange};
- return !!m[x]
-}
-function matchSelected(sel,vals){
- if(!sel.length)return true;
- return mode==="AND"?sel.every(x=>vals.includes(x)):sel.some(x=>vals.includes(x))
-}
-function search(){
- const q=document.getElementById("q").value.trim().toLowerCase(), qs=document.getElementById("qSymbol").value.trim().toLowerCase();
- const stat=document.getElementById("statName").value, sv=document.getElementById("statValue").value;
- const out=data.filter(c=>{
-  if(q){const names=[c.character,...attackValues(c).map(a=>a.name)].join(" ").toLowerCase();if(!names.includes(q))return false}
-  if(qs&&!String(c.symbol||"").toLowerCase().includes(qs))return false;
-  if(!matchSelected(selected.type,[c.type]))return false;
-  if(selected.char.length&&!matchSelected(selected.char,CHAR_OPTIONS.filter(x=>hasChar(c,x))))return false;
-  const at=attackValues(c);
-  if(selected.attack.length||selected.range.length||selected.attr.length||selected.bullet.length||selected.special.length){
-   const ok=at.some(a=>{
-    const idx=at.indexOf(a), label=ATTACKS[idx]?.[1]||"";
-    return matchSelected(selected.attack,[label])&&matchSelected(selected.range,[a.range])&&matchSelected(selected.attr,a.attributes||[])&&matchSelected(selected.bullet,a.bulletTypes||[])&&matchSelected(selected.special,Object.keys(a.specials||{}).filter(x=>a.specials[x]));
-   });if(!ok)return false;
-  }
-  if(stat&&sv!==""){
-   const v=Number((c.stats||{})[stat]);if(!Number.isFinite(v))return false;
-   if(statMode==="min"&&v<Number(sv))return false;if(statMode==="max"&&v>Number(sv))return false;
-  }
-  return true;
- });
- renderResults(out);
-}
-function renderResults(arr){
- const e=document.getElementById("results");if(!arr.length){e.innerHTML='<div class="loading">該当するデータがありません。</div>';return}
- e.innerHTML=`<div class="result-count">${arr.length}件</div>`;
- arr.forEach(c=>{let h=`<div class="result"><div class="char">${esc(c.character)}</div><div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>`;
- const s=c.stats||{};h+=`<div>${Object.entries({総合つよさ:s.power,体力:s.hp,速力:s.speed,陽攻:s.yangAtk,陰攻:s.yinAtk,陽防:s.yangDef,陰防:s.yinDef}).filter(x=>x[1]!==undefined&&x[1]!="").map(x=>`<span class="tag">${x[0]}：${esc(x[1])}</span>`).join("")}</div>`;
- h+=`<div>${CHAR_OPTIONS.filter(x=>hasChar(c,x)).map(x=>`<span class="tag">${x}</span>`).join("")}</div>`;
- Object.entries(c.attacks||{}).forEach(([k,a])=>{const label=ATTACKS.find(x=>x[0]===k)?.[1]||k;if(!a.name)return;h+=`<div class="attack"><h4>${label} <span class="tag">${esc(a.range)}</span></h4><div>${esc(a.name)}</div>${(a.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}${(a.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}${Object.keys(a.specials||{}).filter(x=>a.specials[x]).map(x=>`<span class="tag">${x}</span>`).join("")}</div>`});
- h+="</div>";e.insertAdjacentHTML("beforeend",h)})
+
+return Object.values(c.attacks||{});
+
 }
 
+function flatSpecials(c){
+
+const out=[];
+
+attackValues(c).forEach(a=>{
+
+Object.entries(a.specials||{}).forEach(([k,v])=>{
+
+if(v&&typeof v==="object"&&v.enabled){
+
+out.push(k);
+
+}else if(v===true){
+
+out.push(k);
+
+}
+
+});
+
+});
+
+return [...new Set(out)];
+
+}
+
+function hasChar(c,x){
+
+const d=c.details||{};
+
+const m={
+"ファスト":d.fast,
+"チャージ":d.charge,
+"特殊バフ":d.specialBuff,
+"RANKⅡバフ":d.rank2,
+"畜力":d.power,
+"蓄積":d.accumulate,
+"共鳴":d.resonance,
+"X-Change":d.xchange
+};
+
+return !!m[x];
+
+}
+
+function matchSelected(sel,vals){
+
+if(!sel.length)return true;
+
+return mode==="AND"
+?sel.every(x=>vals.includes(x))
+:sel.some(x=>vals.includes(x));
+
+}
+
+function attackSpecialNames(a){
+
+return Object.entries(a.specials||{})
+.filter(([k,v])=>{
+
+if(typeof v==="object")return v.enabled;
+
+return v===true;
+
+})
+.map(([k])=>k);
+
+}
+
+function search(){
+
+const q=document.getElementById("q").value.trim().toLowerCase();
+
+const qs=document.getElementById("qSymbol").value.trim().toLowerCase();
+
+const stat=document.getElementById("statName").value;
+
+const sv=document.getElementById("statValue").value;
+
+const out=data.filter(c=>{
+
+if(q){
+
+const names=[
+c.character,
+...attackValues(c).map(a=>a.name)
+].join(" ").toLowerCase();
+
+if(!names.includes(q))return false;
+
+}
+
+if(qs&&
+!String(c.symbol||"").toLowerCase().includes(qs))
+return false;
+
+if(!matchSelected(selected.type,[c.type]))
+return false;
+
+if(
+selected.char.length&&
+!matchSelected(
+selected.char,
+CHAR_OPTIONS.filter(x=>hasChar(c,x))
+)
+)return false;
+
+const at=attackValues(c);
+
+if(
+selected.attack.length||
+selected.range.length||
+selected.attr.length||
+selected.bullet.length||
+selected.special.length
+){
+
+const ok=at.some((a,idx)=>{
+
+const label=ATTACKS[idx]?.[1]||"";
+
+return (
+
+matchSelected(selected.attack,[label])&&
+
+matchSelected(
+selected.range,
+[a.range]
+)&&
+
+matchSelected(
+selected.attr,
+a.attributes||[]
+)&&
+
+matchSelected(
+selected.bullet,
+a.bulletTypes||[]
+)&&
+
+matchSelected(
+selected.special,
+attackSpecialNames(a)
+)
+
+);
+
+});
+
+if(!ok)return false;
+
+}
+
+if(stat&&sv!==""){
+
+const v=Number((c.stats||{})[stat]);
+
+if(!Number.isFinite(v))
+return false;
+
+if(
+statMode==="min"&&
+v<Number(sv)
+)return false;
+
+if(
+statMode==="max"&&
+v>Number(sv)
+)return false;
+
+}
+
+return true;
+
+});
+
+renderResults(out);
+
+}
+
+/* ====================
+   結果表示
+==================== */
+
+function renderResults(arr){
+
+const e=document.getElementById("results");
+
+if(!arr.length){
+
+e.innerHTML=
+'<div class="loading">該当するデータがありません。</div>';
+
+return;
+
+}
+
+e.innerHTML=
+`<div class="result-count">${arr.length}件</div>`;
+
+arr.forEach(c=>{
+
+let h=`
+
+<div class="result">
+
+<div class="char">
+${esc(c.character)}
+</div>
+
+<div class="muted">
+汎異記号：${esc(c.symbol||"未登録")}
+/
+${esc(c.type||"")}
+</div>
+
+`;
+
+const s=c.stats||{};
+
+h+=`
+
+<div>
+
+${Object.entries({
+"総合つよさ":s.power,
+"体力":s.hp,
+"速力":s.speed,
+"陽攻":s.yangAtk,
+"陰攻":s.yinAtk,
+"陽防":s.yangDef,
+"陰防":s.yinDef
+})
+.filter(x=>x[1]!==undefined&&x[1]!="")
+.map(x=>
+`<span class="tag">
+${x[0]}：${esc(x[1])}
+</span>`
+)
+.join("")}
+
+</div>
+
+`;
+
+h+=`
+
+<div>
+
+${CHAR_OPTIONS
+.filter(x=>hasChar(c,x))
+.map(x=>`<span class="tag">${x}</span>`)
+.join("")}
+
+</div>
+
+`;
+
+Object.entries(c.attacks||{}).forEach(([k,a])=>{
+
+const label=
+ATTACKS.find(x=>x[0]===k)?.[1]||k;
+
+if(!a.name)return;
+
+h+=`
+
+<div class="attack">
+
+<h4>
+${label}
+<span class="tag">${esc(a.range||"")}</span>
+</h4>
+
+<div>${esc(a.name)}</div>
+
+${(a.attributes||[])
+.map(x=>
+`<span class="tag attr">
+属性：${esc(x)}
+</span>`
+)
+.join("")}
+
+${(a.bulletTypes||[])
+.map(x=>
+`<span class="tag bullet">
+${esc(x)}
+</span>`
+)
+.join("")}
+
+${attackSpecialNames(a)
+.map(x=>
+`<span class="tag">${esc(x)}</span>`
+)
+.join("")}
+
+</div>
+
+`;
+
+});
+
+h+="</div>";
+
+e.insertAdjacentHTML("beforeend",h);
+
+});
+
+}
+
+/* ====================
+   読み込み
+==================== */
+
 async function load(){
- try{const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{headers:{apikey:KEY,Authorization:"Bearer "+KEY}});const t=await r.text();if(!r.ok)throw Error(t);data=JSON.parse(t);buildFilters();search()}
- catch(e){document.getElementById("results").innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`}
+
+try{
+
+const r=await fetch(
+`${URL}/rest/v1/${TABLE}?select=*`,
+{
+headers:{
+apikey:KEY,
+Authorization:"Bearer "+KEY
+}
+}
+);
+
+const t=await r.text();
+
+if(!r.ok)throw Error(t);
+
+data=JSON.parse(t);
+
+buildFilters();
+
+search();
+
+}catch(e){
+
+document.getElementById("results").innerHTML=`
+
+<div class="result">
+
+<b>データ読み込みエラー</b>
+
+<br>
+
+<small>${esc(e.message)}</small>
+
+</div>
+
+`;
+
+}
+
+}
+
+/* ====================
+   保存
+==================== */
+
+function num(id){
+
+const v=document.getElementById(id).value;
+
+return v===""?null:Number(v);
+
 }
 
 function save(){
- const msg=document.getElementById("message"), character=document.getElementById("aCharacter").value.trim(), symbol=document.getElementById("aSymbol").value.trim(), type=document.getElementById("aType").value;
- if(!character||!type){msg.className="msg err";msg.textContent="キャラクター名と式を入力してください。";return}
- const details={...characterData,abilities,changeTraits:[...changeTraits],stats:{power:num("sPower"),hp:num("sHp"),speed:num("sSpeed"),yangAtk:num("sYangAtk"),yinAtk:num("sYinAtk"),yangDef:num("sYangDef"),yinDef:num("sYinDef")}};
- const record={character,symbol,type,attacks:attackData,details};
- msg.className="msg";msg.textContent="保存中……";
- fetch(`${URL}/rest/v1/${TABLE}`,{method:"POST",headers:{"Content-Type":"application/json",apikey:KEY,Authorization:"Bearer "+KEY,Prefer:"return=minimal"},body:JSON.stringify(record)})
- .then(async r=>{const t=await r.text();if(!r.ok)throw Error(t);msg.className="msg ok";msg.textContent="保存しました！";load()})
- .catch(e=>{msg.className="msg err";msg.textContent="保存失敗：\n"+e.message})
-}
-function num(id){const v=document.getElementById(id).value;return v===""?null:Number(v)}
 
-document.getElementById("tabSearch").onclick=()=>{document.getElementById("searchPage").classList.remove("hidden");document.getElementById("addPage").classList.add("hidden");document.getElementById("tabSearch").classList.add("active");document.getElementById("tabAdd").classList.remove("active");load()};
-document.getElementById("tabAdd").onclick=()=>{document.getElementById("searchPage").classList.add("hidden");document.getElementById("addPage").classList.remove("hidden");document.getElementById("tabAdd").classList.add("active");document.getElementById("tabSearch").classList.remove("active");initEditors();initCharOptions();rebuildAbilities();initChangeTraits()};
-document.getElementById("save").onclick=save;
-document.getElementById("q").oninput=search;document.getElementById("qSymbol").oninput=search;
-document.getElementById("andBtn").onclick=()=>{mode="AND";andBtn.classList.add("selected");orBtn.classList.remove("selected");search()};
-document.getElementById("orBtn").onclick=()=>{mode="OR";orBtn.classList.add("selected");andBtn.classList.remove("selected");search()};
-document.getElementById("statMin").onclick=()=>{statMode="min";statMin.classList.add("selected");statMax.classList.remove("selected");search()};
-document.getElementById("statMax").onclick=()=>{statMode="max";statMax.classList.add("selected");statMin.classList.remove("selected");search()};
-document.getElementById("statName").onchange=search;document.getElementById("statValue").oninput=search;
-document.getElementById("reset").onclick=()=>{Object.values(selected).forEach(a=>a.splice(0));document.getElementById("q").value="";document.getElementById("qSymbol").value="";document.getElementById("statName").value="";document.getElementById("statValue").value="";statMode="";buildFilters();search()};
+const msg=document.getElementById("message");
+
+const character=
+document.getElementById("aCharacter").value.trim();
+
+const symbol=
+document.getElementById("aSymbol").value.trim();
+
+const type=
+document.getElementById("aType").value;
+
+/* 必須チェック */
+
+if(!character||!type){
+
+msg.className="msg err";
+
+msg.textContent=
+"キャラクター名と式を入力してください。";
+
+return;
+
+}
+
+/* チェンジ特性必須 */
+
+if(!changeTrait){
+
+msg.className="msg err";
+
+msg.textContent=
+"チェンジ特性を1つ選択してください。";
+
+return;
+
+}
+
+const details={
+
+...characterData,
+
+abilities,
+
+changeTrait,
+
+stats:{
+power:num("sPower"),
+hp:num("sHp"),
+speed:num("sSpeed"),
+yangAtk:num("sYangAtk"),
+yinAtk:num("sYinAtk"),
+yangDef:num("sYangDef"),
+yinDef:num("sYinDef")
+}
+
+};
+
+const record={
+character,
+symbol,
+type,
+attacks:attackData,
+details
+};
+
+msg.className="msg";
+
+msg.textContent="保存中……";
+
+fetch(
+`${URL}/rest/v1/${TABLE}`,
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+apikey:KEY,
+Authorization:"Bearer "+KEY,
+Prefer:"return=minimal"
+},
+body:JSON.stringify(record)
+}
+)
+
+.then(async r=>{
+
+const t=await r.text();
+
+if(!r.ok)throw Error(t);
+
+msg.className="msg ok";
+
+msg.textContent="保存しました！";
+
+data.push(record);
+
+buildFilters();
+
+search();
+
+})
+
+.catch(e=>{
+
+msg.className="msg err";
+
+msg.textContent=
+"保存失敗：\n"+e.message;
+
+});
+
+}
+
+/* ====================
+   ボタン
+==================== */
+
+document.getElementById("tabSearch").onclick=()=>{
+
+document.getElementById("searchPage")
+.classList.remove("hidden");
+
+document.getElementById("addPage")
+.classList.add("hidden");
+
+document.getElementById("tabSearch")
+.classList.add("active");
+
+document.getElementById("tabAdd")
+.classList.remove("active");
+
 load();
+
+};
+
+document.getElementById("tabAdd").onclick=()=>{
+
+document.getElementById("searchPage")
+.classList.add("hidden");
+
+document.getElementById("addPage")
+.classList.remove("hidden");
+
+document.getElementById("tabAdd")
+.classList.add("active");
+
+document.getElementById("tabSearch")
+.classList.remove("active");
+
+initEditors();
+
+initCharOptions();
+
+rebuildAbilities();
+
+initChangeTraits();
+
+};
+
+document.getElementById("save").onclick=save;
+
+document.getElementById("q").oninput=search;
+
+document.getElementById("qSymbol").oninput=search;
+
+document.getElementById("andBtn").onclick=()=>{
+
+mode="AND";
+
+andBtn.classList.add("selected");
+
+orBtn.classList.remove("selected");
+
+search();
+
+};
+
+document.getElementById("orBtn").onclick=()=>{
+
+mode="OR";
+
+orBtn.classList.add("selected");
+
+andBtn.classList.remove("selected");
+
+search();
+
+};
+
+document.getElementById("statMin").onclick=()=>{
+
+statMode="min";
+
+statMin.classList.add("selected");
+
+statMax.classList.remove("selected");
+
+search();
+
+};
+
+document.getElementById("statMax").onclick=()=>{
+
+statMode="max";
+
+statMax.classList.add("selected");
+
+statMin.classList.remove("selected");
+
+search();
+
+};
+
+document.getElementById("statName").onchange=search;
+
+document.getElementById("statValue").oninput=search;
+
+document.getElementById("reset").onclick=()=>{
+
+Object.values(selected).forEach(a=>a.splice(0));
+
+document.getElementById("q").value="";
+
+document.getElementById("qSymbol").value="";
+
+document.getElementById("statName").value="";
+
+document.getElementById("statValue").value="";
+
+statMode="";
+
+buildFilters();
+
+search();
+
+};
+
+load();
+
 </script>
+
 </body>
 </html>
