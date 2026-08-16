@@ -1,60 +1,164 @@
 [
   {
     "character": "霧雨魔理沙",
-    "spell": "恋符「マスタースパーク」",
-    "type": "スペルカード1",
-    "bullets": [
-      {
-        "boost": 0,
-        "attribute": "星",
-        "bulletType": "レーザー弾"
+    "symbol": "",
+    "type": "攻撃式",
+    "attacks": {
+      "spread": {
+        "name": "拡散ショット",
+        "range": "全体",
+        "bullets": []
       },
-      {
-        "boost": 1,
-        "attribute": "星",
-        "bulletType": "レーザー弾"
+      "focus": {
+        "name": "集中ショット",
+        "range": "単体",
+        "bullets": []
+      },
+      "spell1": {
+        "name": "恋符「マスタースパーク」",
+        "range": "全体",
+        "bullets": [
+          {
+            "boost": 0,
+            "attribute": "星",
+            "bulletType": "レーザー弾"
+          },
+          {
+            "boost": 1,
+            "attribute": "星",
+            "bulletType": "レーザー弾"
+          }
+        ]
+      },
+      "spell2": {
+        "name": "",
+        "range": "単体",
+        "bullets": []
+      },
+      "lastWord": {
+        "name": "",
+        "range": "全体",
+        "bullets": []
       }
-    ]
+    }
   },
   {
     "character": "チルノ",
-    "spell": "氷符「アイシクルフォール」",
-    "type": "スペルカード1",
-    "bullets": [
-      {
-        "boost": 0,
-        "attribute": "水",
-        "bulletType": "流体弾"
+    "symbol": "",
+    "type": "速攻式",
+    "attacks": {
+      "spread": {
+        "name": "拡散ショット",
+        "range": "全体",
+        "bullets": []
+      },
+      "focus": {
+        "name": "集中ショット",
+        "range": "単体",
+        "bullets": []
+      },
+      "spell1": {
+        "name": "氷符「アイシクルフォール」",
+        "range": "全体",
+        "bullets": [
+          {
+            "boost": 0,
+            "attribute": "水",
+            "bulletType": "流体弾"
+          }
+        ]
+      },
+      "spell2": {
+        "name": "",
+        "range": "単体",
+        "bullets": []
+      },
+      "lastWord": {
+        "name": "",
+        "range": "全体",
+        "bullets": []
       }
-    ]
+    }
   },
   {
     "character": "博麗霊夢",
-    "spell": "霊符「夢想妙珠」",
-    "type": "スペルカード1",
-    "bullets": [
-      {
-        "boost": 0,
-        "attribute": "日",
-        "bulletType": "御札弾"
+    "symbol": "",
+    "type": "支援式",
+    "attacks": {
+      "spread": {
+        "name": "拡散ショット",
+        "range": "全体",
+        "bullets": []
+      },
+      "focus": {
+        "name": "集中ショット",
+        "range": "単体",
+        "bullets": []
+      },
+      "spell1": {
+        "name": "霊符「夢想妙珠」",
+        "range": "全体",
+        "bullets": [
+          {
+            "boost": 0,
+            "attribute": "日",
+            "bulletType": "御札弾"
+          }
+        ]
+      },
+      "spell2": {
+        "name": "",
+        "range": "単体",
+        "bullets": []
+      },
+      "lastWord": {
+        "name": "",
+        "range": "全体",
+        "bullets": []
       }
-    ]
+    }
   },
   {
     "character": "レミリア・スカーレット",
-    "spell": "神槍「スピア・ザ・グングニル」",
-    "type": "スペルカード1",
-    "bullets": [
-      {
-        "boost": 0,
-        "attribute": "火",
-        "bulletType": "尖弾"
+    "symbol": "",
+    "type": "速攻式",
+    "attacks": {
+      "spread": {
+        "name": "拡散ショット",
+        "range": "全体",
+        "bullets": []
       },
-      {
-        "boost": 1,
-        "attribute": "月",
-        "bulletType": "尖弾"
+      "focus": {
+        "name": "集中ショット",
+        "range": "単体",
+        "bullets": []
+      },
+      "spell1": {
+        "name": "神槍「スピア・ザ・グングニル」",
+        "range": "全体",
+        "bullets": [
+          {
+            "boost": 0,
+            "attribute": "火",
+            "bulletType": "尖弾"
+          },
+          {
+            "boost": 1,
+            "attribute": "月",
+            "bulletType": "尖弾"
+          }
+        ]
+      },
+      "spell2": {
+        "name": "",
+        "range": "単体",
+        "bullets": []
+      },
+      "lastWord": {
+        "name": "",
+        "range": "全体",
+        "bullets": []
       }
-    ]
+    }
   }
 ]
