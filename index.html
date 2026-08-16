@@ -442,7 +442,7 @@ const ATTR=["日","月","火","水","木","金","土","星","無"];
 const ABNORMAL=["毒霧","帯電","燃焼","凍結","暗闇"];
 const STATS=["陽攻","陰攻","陽防","陰防","CRI攻撃","CRI防御","CRI命中","CRI回避","速力","命中","回避"];
 const STAT_TARGETS=["速力","陽攻","陰攻","陽防","陰防","命中","回避","注目","CRI攻撃","CRI命中","CRI回避","CRI防御"];
-const BULLET_KINDS=["陽気","陰気","貫通","確定"];
+const BULLET_KINDS=["陽気","陰気"];
 const STAT_TYPES_SHORT=["速力","陽攻","陰攻","陽防","陰防"];
 const RANK2_STATS=["陽攻","陰攻","陽防","陰防","速力","回避","CRI攻撃","CRI命中","CRI回避"];
 const RANK2_SOURCES=["スキル","スペルカード1","スペルカード2","ラストワード"];
@@ -455,7 +455,7 @@ const ATTACKS=[
 ["spell2","スペルカード2"],
 ["lastWord","ラストワード"]
 ];
-const SPECIALS=["硬質弾","斬裂弾","貫通弾","必中弾","鏡面弾","弾性弾","爆破弾","特効弾","粘着弾","衝撃弾","吸収弾","反動弾","焼却弾","氷解弾","放電弾","過毒弾","閃光弾"];
+const SPECIALS=["硬質弾","斬裂弾","貫通弾","必中弾","鏡面弾","弾性弾","爆破弾","特攻弾","粘着弾","衝撃弾","吸収弾","反動弾","焼却弾","氷解弾","放電弾","過毒弾","閃光弾"];
 const SPECIAL_SKILLS=[
 "ファスト","チャージ","RANKⅡバフ","RANKⅡデバフ","畜力","蓄積","共鳴","X-Change","禁止解除",
 "有利属性ダメージアップ","不利属性ダメージアップ","属性強化","弾強化","弱点付与","団結",
@@ -1215,7 +1215,7 @@ function refreshBuffDebuffContainer(prefix) {
 }
 
 /* =========================================================
-   特殊弾コントロール生成関数（特効弾対応）
+   特殊弾コントロール生成関数（特攻弾対応）
 ========================================================= */
 
 function buildSpecialControlsForObject(prefix, obj, container) {
@@ -1259,7 +1259,7 @@ function buildBulletSpecialDetailSingle(x, obj, detail) {
  if (x === "衝撃弾") { prop = "impactRate"; placeholder = "発動率 %"; }
  if (x === "吸収弾") { prop = "absorbRatio"; placeholder = "倍率"; }
  if (x === "反動弾") { prop = "recoilRatio"; placeholder = "倍率"; }
- if (x === "特効弾") { prop = "specialTarget"; placeholder = "対象種族名（例：妖怪）"; }
+ if (x === "特攻弾") { prop = "specialTarget"; placeholder = "対象種族名（例：妖怪）"; }
 
  if (prop) {
   detail.innerHTML = `<input class="input" type="${prop === "specialTarget" ? "text" : "number"}" placeholder="${placeholder}" value="${esc(obj[prop]||"")}">`;
@@ -1591,7 +1591,7 @@ function renderBulletCardHtml(b, bIdx) {
   if (sp === "衝撃弾" && b.impactRate) txt += `(${b.impactRate}%)`;
   if (sp === "吸収弾" && b.absorbRatio) txt += `(${b.absorbRatio}倍)`;
   if (sp === "反動弾" && b.recoilRatio) txt += `(${b.recoilRatio}倍)`;
-  if (sp === "特効弾" && b.specialTarget) txt += `[対象:${esc(b.specialTarget)}]`;
+  if (sp === "特攻弾" && b.specialTarget) txt += `[対象:${esc(b.specialTarget)}]`;
   specialTexts.push(txt);
  });
 
@@ -1909,7 +1909,13 @@ async function save(){
  };
 
  const details={ specialSkills:specialData, abilities:abilityData, stats };
- const record={ character, symbol, type, attacks:attackData, details };
+ const record={ 
+  character, 
+  symbol, 
+  type, 
+  attacks: JSON.parse(JSON.stringify(attackData)), 
+  details: JSON.parse(JSON.stringify(details)) 
+ };
 
  msg.className="msg";
  msg.textContent="保存中……";
