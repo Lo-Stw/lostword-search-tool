@@ -69,11 +69,21 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
  background:#e7e7e7;margin-top:8px;cursor:pointer
 }
 
+.btn-edit{
+ padding:4px 10px;border:1px solid #0056b3;border-radius:6px;
+ background:#e6f0fa;color:#0056b3;font-size:12px;font-weight:700;
+ cursor:pointer;margin-left:8px;display:inline-block
+}
+.btn-edit:hover{background:#0056b3;color:#fff}
+
 .hidden{display:none !important}
 .result-count{font-weight:700;margin:14px 0 8px}
 .result{
  background:#fff;border-radius:13px;padding:14px;
  margin-bottom:10px;box-shadow:0 2px 6px #0000000d
+}
+.char-row{
+ display:flex;justify-content:space-between;align-items:center
 }
 .char{
  font-size:18px;font-weight:700;color:#0056b3;
@@ -207,7 +217,7 @@ footer a{color:#444;text-decoration:underline}
 
 <div class="tabs">
 <button id="tabSearch" class="tab active">🔍 検索</button>
-<button id="tabAdd" class="tab">➕ キャラ追加</button>
+<button id="tabAdd" class="tab">➕ キャラ追加・編集</button>
 </div>
 
 <!-- ================= 検索 ================= -->
@@ -305,11 +315,15 @@ footer a{color:#444;text-decoration:underline}
 
 </section>
 
-<!-- ================= キャラ追加 ================= -->
+<!-- ================= キャラ追加・編集 ================= -->
 
 <section id="addPage" class="hidden">
 
 <div class="box">
+<div class="section" style="display:flex; justify-content:space-between; align-items:center;">
+ <div class="title" id="formTitle" style="margin:0; font-size:18px;">新規キャラクター登録</div>
+ <button type="button" id="resetEditBtn" class="filter hidden" onclick="resetFormToNew()">クリアして新規作成に戻る</button>
+</div>
 
 <div class="section">
 <div class="title">キャラクター名</div>
@@ -440,15 +454,10 @@ const SPECIAL_SKILLS=[
 
 let data=[];
 let mode="AND";
+let editingId=null; // 現在編集中のキャラクターID
 
 const selected={
- type:[],
- attack:[],
- range:[],
- attr:[],
- bullet:[],
- special:[],
- char:[]
+ type:[], attack:[], range:[], attr:[], bullet:[], special:[], char:[]
 };
 
 let statMode="";
@@ -457,69 +466,60 @@ let statMode="";
    初期構造生成関数
 ========================================================= */
 
-function createBuffDebuffStructure(){
- return {
-  buff:{ stat:"", rate:"", rank:"" },
-  debuff:{ stat:"", rate:"", rank:"" }
- };
-}
-
 function createBulletStructure(index){
  const b = {
-  index: index,
-  name: "",
-  count: "",
-  pStage: "P0",
-  attr: "",
-  kind: "陽気",
-  specials: {},
-  hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
-  buff:{ stat:"", rate:"", rank:"" },
-  debuff:{ stat:"", rate:"", rank:"" }
+  index: index, name: "", count: "", pStage: "P0", attr: "", kind: "陽気",
+  specials: {}, hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
+  buff:{ stat:"", rate:"", rank:"" }, debuff:{ stat:"", rate:"", rank:"" }
  };
  SPECIALS.forEach(x => { b.specials[x] = false; });
  return b;
 }
 
-const attackData={};
-ATTACKS.forEach(([key])=>{
- attackData[key]={
-  name:"",
-  range:"全体",
-  attributes:[],
-  bulletTypes:[],
-  specials:{},
-  hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
-  buff:{ stat:"", rate:"", rank:"" },
-  debuff:{ stat:"", rate:"", rank:"" },
-  bullets: [1,2,3,4,5,6].map(i => createBulletStructure(i))
+let attackData={};
+function resetAttackData(){
+ ATTACKS.forEach(([key])=>{
+  attackData[key]={
+   name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
+   hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
+   buff:{ stat:"", rate:"", rank:"" }, debuff:{ stat:"", rate:"", rank:"" },
+   bullets: [1,2,3,4,5,6].map(i => createBulletStructure(i))
+  };
+  SPECIALS.forEach(x=>{ attackData[key].specials[x]=false; });
+ });
+}
+resetAttackData();
+
+let specialData={};
+function resetSpecialData(){
+ SPECIAL_SKILLS.forEach(x=>{
+  if(x==="RANKⅡバフ" || x==="RANKⅡデバフ" || x==="ダメージダウン"){
+   specialData[x]={ enabled:false, list:[] };
+  }else{
+   specialData[x]={ enabled:false };
+  }
+ });
+}
+resetSpecialData();
+
+let abilityData={};
+function resetAbilityData(){
+ abilityData={
+  conversion:{
+   enabled:false, atkRank:false, atkAbnormal:[], defRank:false, defAbnormal:[],
+   speedRank:false, speedAbnormal:[], spirit:false, spiritAbnormal:[], spiritValue:"",
+   heal:false, healAbnormal:[], healValue:""
+  },
+  immunity:{
+   effect:false, effectAbnormal:[], none:false, noneAbnormal:[], reflect:false, reflectAbnormal:[]
+  },
+  damageDown:{ good:"", bad:"" },
+  damageUp:{ good:"", bad:"" },
+  boost:{ enabled:false, target:"自身", stat:"" },
+  graze:{ enabled:false, target:"自身", stat:"" }
  };
- SPECIALS.forEach(x=>{ attackData[key].specials[x]=false; });
-});
-
-const specialData={};
-SPECIAL_SKILLS.forEach(x=>{
- if(x==="RANKⅡバフ" || x==="RANKⅡデバフ" || x==="ダメージダウン"){
-  specialData[x]={ enabled:false, list:[] };
- }else{
-  specialData[x]={ enabled:false };
- }
-});
-
-const abilityData={
- conversion:{
-  enabled:false, atkRank:false, atkAbnormal:[], defRank:false, defAbnormal:[],
-  speedRank:false, speedAbnormal:[], spirit:false, spiritAbnormal:[], spiritValue:"",
-  heal:false, healAbnormal:[], healValue:""
- },
- immunity:{
-  effect:false, effectAbnormal:[], none:false, noneAbnormal:[], reflect:false, reflectAbnormal:[]
- },
- damageDown:{ good:"", bad:"" },
- damageUp:{ good:"", bad:"" },
- boost:{ enabled:false, target:"自身", stat:"" },
- graze:{ enabled:false, target:"自身", stat:"" }
-};
+}
+resetAbilityData();
 
 /* =========================================================
    ユーティリティ
@@ -549,13 +549,8 @@ function chips(id,arr,sel,fn){
 
 function toggle(arr,x,b){
  const i=arr.indexOf(x);
- if(i>=0){
-  arr.splice(i,1);
-  b.classList.remove("selected");
- }else{
-  arr.push(x);
-  b.classList.add("selected");
- }
+ if(i>=0){ arr.splice(i,1); b.classList.remove("selected"); }
+ else{ arr.push(x); b.classList.add("selected"); }
  search();
 }
 
@@ -582,15 +577,18 @@ function initSpecialSkills(){
  e.innerHTML="";
 
  SPECIAL_SKILLS.forEach(skill=>{
+  if(!specialData[skill]) specialData[skill] = { enabled: false };
+  const isEn = !!specialData[skill].enabled;
+
   const box=document.createElement("div");
   box.className="ability";
   box.innerHTML=`
    <div class="switch">
-    <button type="button" id="ss-${skill}" class="${specialData[skill].enabled?"on":""}">
-     ${skill}：${specialData[skill].enabled?"あり":"なし"}
+    <button type="button" id="ss-${skill}" class="${isEn?"on":""}">
+     ${skill}：${isEn?"あり":"なし"}
     </button>
    </div>
-   <div id="sd-${skill}" class="special-detail ${specialData[skill].enabled?"show":""}" style="margin-top:8px"></div>
+   <div id="sd-${skill}" class="special-detail ${isEn?"show":""}" style="margin-top:8px"></div>
   `;
   e.appendChild(box);
 
@@ -932,54 +930,61 @@ function abnormalChipsHtml(type){
 
 function initAbilities(){
  const e=document.getElementById("abilityEditor");
+ const conv = abilityData.conversion || {};
+ const imm = abilityData.immunity || {};
+ const dd = abilityData.damageDown || {};
+ const du = abilityData.damageUp || {};
+ const bo = abilityData.boost || {};
+ const gr = abilityData.graze || {};
+
  e.innerHTML=`
  <div class="ability">
   <div class="ability-title">結界異常変換系</div>
-  <label><input type="checkbox" id="convAtk"> Rank上昇：陽攻・陰攻・CRI攻撃・CRI命中</label>
+  <label><input type="checkbox" id="convAtk" ${conv.atkRank?"checked":""}> Rank上昇：陽攻・陰攻・CRI攻撃・CRI命中</label>
   ${abnormalChipsHtml("convAtkAbnormal")}
-  <label><input type="checkbox" id="convDef"> Rank上昇：陽防・陰防・CRI防御・CRI回避</label>
+  <label><input type="checkbox" id="convDef" ${conv.defRank?"checked":""}> Rank上昇：陽防・陰防・CRI防御・CRI回避</label>
   ${abnormalChipsHtml("convDefAbnormal")}
-  <label><input type="checkbox" id="convSpeed"> Rank上昇：速力・命中・回避</label>
+  <label><input type="checkbox" id="convSpeed" ${conv.speedRank?"checked":""}> Rank上昇：速力・命中・回避</label>
   ${abnormalChipsHtml("convSpeedAbnormal")}
-  <label><input type="checkbox" id="convSpirit"> 霊力上昇：結界異常にかからずに霊力上昇</label>
+  <label><input type="checkbox" id="convSpirit" ${conv.spirit?"checked":""}> 霊力上昇：結界異常にかからずに霊力上昇</label>
   ${abnormalChipsHtml("convSpiritAbnormal")}
-  <input id="convSpiritValue" class="input" type="number" step="0.01" placeholder="霊力上昇量">
-  <label><input type="checkbox" id="convHeal"> 体力回復：結界異常にかからずに体力回復</label>
+  <input id="convSpiritValue" class="input" type="number" step="0.01" placeholder="霊力上昇量" value="${esc(conv.spiritValue||"")}">
+  <label><input type="checkbox" id="convHeal" ${conv.heal?"checked":""}> 体力回復：結界異常にかからずに体力回復</label>
   ${abnormalChipsHtml("convHealAbnormal")}
-  <input id="convHealValue" class="input" type="number" placeholder="体力回復 %">
+  <input id="convHealValue" class="input" type="number" placeholder="体力回復 %" value="${esc(conv.healValue||"")}">
  </div>
 
  <div class="ability">
   <div class="ability-title">結界異常無効系</div>
-  <label><input type="checkbox" id="immEffect"> 効果無効：結界異常の効果を受けない</label>
+  <label><input type="checkbox" id="immEffect" ${imm.effect?"checked":""}> 効果無効：結界異常の効果を受けない</label>
   ${abnormalChipsHtml("immEffectAbnormal")}
-  <label><input type="checkbox" id="immNone"> 無効：結界異常にかからない</label>
+  <label><input type="checkbox" id="immNone" ${imm.none?"checked":""}> 無効：結界異常にかからない</label>
   ${abnormalChipsHtml("immNoneAbnormal")}
-  <label><input type="checkbox" id="immReflect"> 反射：受けた結界異常を対象に付与</label>
+  <label><input type="checkbox" id="immReflect" ${imm.reflect?"checked":""}> 反射：受けた結界異常を対象に付与</label>
   ${abnormalChipsHtml("immReflectAbnormal")}
  </div>
 
  <div class="ability">
   <div class="ability-title">ダメージ軽減系</div>
-  <input id="damageGood" class="input" type="number" placeholder="有利属性から受けるダメージ ○○%ダウン">
-  <input id="damageBad" class="input" style="margin-top:6px" type="number" placeholder="不利属性から受けるダメージ ○○%ダウン">
+  <input id="damageGood" class="input" type="number" placeholder="有利属性から受けるダメージ ○○%ダウン" value="${esc(dd.good||"")}">
+  <input id="damageBad" class="input" style="margin-top:6px" type="number" placeholder="不利属性から受けるダメージ ○○%ダウン" value="${esc(dd.bad||"")}">
  </div>
 
  <div class="ability">
   <div class="ability-title">威力上昇系</div>
-  <input id="powerGood" class="input" type="number" placeholder="有利属性に与えるダメージ ○○%アップ">
-  <input id="powerBad" class="input" style="margin-top:6px" type="number" placeholder="不利属性に与えるダメージ ○○%アップ">
+  <input id="powerGood" class="input" type="number" placeholder="有利属性に与えるダメージ ○○%アップ" value="${esc(du.good||"")}">
+  <input id="powerBad" class="input" style="margin-top:6px" type="number" placeholder="不利属性に与えるダメージ ○○%アップ" value="${esc(du.bad||"")}">
  </div>
 
  <div class="ability">
   <div class="ability-title">ブースト使用時バフ</div>
   <div class="switch">
-   <button type="button" id="boostTargetSelf">自身</button>
-   <button type="button" id="boostTargetAll">味方全体</button>
+   <button type="button" id="boostTargetSelf" class="${bo.target!=="味方全体"?"selected":""}">自身</button>
+   <button type="button" id="boostTargetAll" class="${bo.target==="味方全体"?"selected":""}">味方全体</button>
   </div>
   <select id="boostStat" class="select" style="margin-top:7px">
    <option value="">強化する能力</option>
-   ${STATS.map(x=>`<option>${x}</option>`).join("")}
+   ${STATS.map(x=>`<option ${bo.stat===x?"selected":""}>${x}</option>`).join("")}
   </select>
   <div class="mini" style="margin-top:6px">1段階アップ（1T）</div>
  </div>
@@ -987,12 +992,12 @@ function initAbilities(){
  <div class="ability">
   <div class="ability-title">グレイズ使用時バフ</div>
   <div class="switch">
-   <button type="button" id="grazeTargetSelf">自身</button>
-   <button type="button" id="grazeTargetAll">味方全体</button>
+   <button type="button" id="grazeTargetSelf" class="${gr.target!=="味方全体"?"selected":""}">自身</button>
+   <button type="button" id="grazeTargetAll" class="${gr.target==="味方全体"?"selected":""}">味方全体</button>
   </div>
   <select id="grazeStat" class="select" style="margin-top:7px">
    <option value="">強化する能力</option>
-   ${STATS.map(x=>`<option>${x}</option>`).join("")}
+   ${STATS.map(x=>`<option ${gr.stat===x?"selected":""}>${x}</option>`).join("")}
   </select>
   <div class="mini" style="margin-top:6px">1段階アップ（1T）</div>
  </div>
@@ -1025,9 +1030,13 @@ function bindAbilityUI(){
  };
 
  Object.entries(abnormalMap).forEach(([id,key])=>{
+  let parent=id.startsWith("imm")?abilityData.immunity:abilityData.conversion;
+  if(!parent[key]) parent[key] = [];
   document.querySelectorAll(`[data-abnormal="${id}"]`).forEach(btn=>{
+   if(parent[key].includes(btn.dataset.value)){
+    btn.classList.add("selected");
+   }
    btn.onclick=()=>{
-    let parent=id.startsWith("imm")?abilityData.immunity:abilityData.conversion;
     const arr=parent[key];
     const i=arr.indexOf(btn.dataset.value);
     if(i>=0){ arr.splice(i,1); btn.classList.remove("selected"); }
@@ -1114,6 +1123,7 @@ function bindBuffDebuffEvents(prefix, targetObj) {
 
 function buildSpecialControlsForObject(prefix, obj, container) {
  container.innerHTML = "";
+ if(!obj.specials) obj.specials = {};
  SPECIALS.forEach(x => {
   const isChecked = !!obj.specials[x];
   const row = document.createElement("div");
@@ -1215,7 +1225,8 @@ function initEditors(){
   `;
   e.appendChild(d);
 
-  chips("aa-"+key, ATTR, a.attributes, (x,b)=>{
+  chips("aa-"+key, ATTR, a.attributes || [], (x,b)=>{
+   if(!a.attributes) a.attributes = [];
    const i=a.attributes.indexOf(x);
    if(i>=0){ a.attributes.splice(i,1); b.classList.remove("selected"); }
    else{ a.attributes.push(x); b.classList.add("selected"); }
@@ -1225,7 +1236,6 @@ function initEditors(){
   buildSpecialControlsForObject(`att-${key}`, a, document.getElementById("as-"+key));
   bindBuffDebuffEvents(`att-${key}`, a);
 
-  // 各バレットのUI作成
   buildBulletsEditorUI(key);
  });
 
@@ -1238,6 +1248,7 @@ function buildBulletControls(key){
  const a=attackData[key];
  const e=document.getElementById("ab-"+key);
  e.innerHTML="";
+ if(!a.bulletTypes) a.bulletTypes = [];
 
  BULLETS.forEach(x=>{
   const b=document.createElement("button");
@@ -1273,8 +1284,6 @@ function buildBulletsEditorUI(attackKey){
     <span class="muted" id="${prefix}-summary">タップして詳細編集</span>
    </div>
    <div class="bullet-body" id="${prefix}-body">
-    
-    <!-- 技名・発数・解放P段階 -->
     <div class="row3" style="margin-bottom:10px;">
      <div>
       <div class="mini">バレット名（技名）</div>
@@ -1326,9 +1335,7 @@ function buildBulletsEditorUI(attackKey){
 
   const header = acc.querySelector(".bullet-header");
   const body = acc.querySelector(".bullet-body");
-  header.onclick = () => {
-   body.classList.toggle("show");
-  };
+  header.onclick = () => { body.classList.toggle("show"); };
 
   const nameInput = acc.querySelector(`#${prefix}-name`);
   const countInput = acc.querySelector(`#${prefix}-count`);
@@ -1497,6 +1504,113 @@ function renderBulletCardHtml(b, bIdx) {
 }
 
 /* =========================================================
+   編集機能：キャラクターデータをフォームに呼び出す
+========================================================= */
+
+function editCharacter(id) {
+ const c = data.find(x => String(x.id) === String(id));
+ if (!c) return;
+
+ editingId = c.id;
+
+ // フォーム見出し変更
+ document.getElementById("formTitle").textContent = `キャラクター編集（${c.character}）`;
+ document.getElementById("resetEditBtn").classList.remove("hidden");
+ document.getElementById("save").textContent = "🔄 データを更新保存する";
+
+ // 基本情報
+ document.getElementById("aCharacter").value = c.character || "";
+ document.getElementById("aSymbol").value = c.symbol || "";
+ document.getElementById("aType").value = c.type || "";
+
+ // ステータス
+ const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
+ document.getElementById("sPower").value = s.power ?? "";
+ document.getElementById("sHp").value = s.hp ?? "";
+ document.getElementById("sSpeed").value = s.speed ?? "";
+ document.getElementById("sYangAtk").value = s.yangAtk ?? "";
+ document.getElementById("sYinAtk").value = s.yinAtk ?? "";
+ document.getElementById("sYangDef").value = s.yangDef ?? "";
+ document.getElementById("sYinDef").value = s.yinDef ?? "";
+
+ // オブジェクト深層コピー
+ if (c.attacks) {
+  attackData = JSON.parse(JSON.stringify(c.attacks));
+  // 6バレット完全補完
+  ATTACKS.forEach(([key]) => {
+   if(!attackData[key]) {
+    attackData[key] = {
+     name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
+     buff:{stat:"",rate:"",rank:""}, debuff:{stat:"",rate:"",rank:""},
+     bullets:[1,2,3,4,5,6].map(i => createBulletStructure(i))
+    };
+   }
+   if(!attackData[key].bullets || attackData[key].bullets.length < 6) {
+    attackData[key].bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
+   }
+  });
+ } else {
+  resetAttackData();
+ }
+
+ if (c.details && c.details.specialSkills) {
+  specialData = JSON.parse(JSON.stringify(c.details.specialSkills));
+ } else {
+  resetSpecialData();
+ }
+
+ if (c.details && c.details.abilities) {
+  abilityData = JSON.parse(JSON.stringify(c.details.abilities));
+ } else {
+  resetAbilityData();
+ }
+
+ // エディタ再描画
+ initEditors();
+ initSpecialSkills();
+ initAbilities();
+
+ // モーダルが開いていれば閉じる
+ document.getElementById("detailModal").classList.add("hidden");
+
+ // タブ切り替え
+ document.getElementById("searchPage").classList.add("hidden");
+ document.getElementById("addPage").classList.remove("hidden");
+ document.getElementById("tabAdd").classList.add("active");
+ document.getElementById("tabSearch").classList.remove("active");
+
+ window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function resetFormToNew() {
+ editingId = null;
+ document.getElementById("formTitle").textContent = "新規キャラクター登録";
+ document.getElementById("resetEditBtn").classList.add("hidden");
+ document.getElementById("save").textContent = "☁️ Supabaseに保存";
+ document.getElementById("message").textContent = "";
+ document.getElementById("message").className = "msg";
+
+ document.getElementById("aCharacter").value = "";
+ document.getElementById("aSymbol").value = "";
+ document.getElementById("aType").value = "";
+ document.getElementById("sPower").value = "";
+ document.getElementById("sHp").value = "";
+ document.getElementById("sSpeed").value = "";
+ document.getElementById("sYangAtk").value = "";
+ document.getElementById("sYinAtk").value = "";
+ document.getElementById("sYangDef").value = "";
+ document.getElementById("sYinDef").value = "";
+
+ resetAttackData();
+ resetSpecialData();
+ resetAbilityData();
+
+ initEditors();
+ initSpecialSkills();
+ initAbilities();
+}
+
+/* =========================================================
    結果描写（統合）
 ========================================================= */
 
@@ -1513,7 +1627,10 @@ function renderResults(arr){
  arr.forEach(c=>{
   let h=`
    <div class="result">
-   <div class="char" onclick="openModal('${esc(c.id)}')">${esc(c.character)}</div>
+   <div class="char-row">
+    <div class="char" onclick="openModal('${esc(c.id)}')">${esc(c.character)}</div>
+    <button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">✏️ 編集</button>
+   </div>
    <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
   `;
 
@@ -1562,7 +1679,7 @@ function renderResults(arr){
 }
 
 /* =========================================================
-   モーダル詳細表示（ゲーム風カード配置）
+   モーダル詳細表示
 ========================================================= */
 
 function openModal(id){
@@ -1575,8 +1692,13 @@ function openModal(id){
  const ss = details.specialSkills || details.skills || {};
 
  let h = `
-  <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
-  <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+   <div>
+    <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
+    <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
+   </div>
+   <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">✏️ 編集する</button>
+  </div>
   
   <div class="box" style="background:#f9f9f9">
    <div class="title">ステータス</div>
@@ -1610,7 +1732,6 @@ function openModal(id){
     <div style="margin-top:4px;">${(a.attributes || []).map(x => `<span class="tag attr">属性：${esc(x)}</span>`).join("")}</div>
     <div>${(a.bulletTypes || []).map(x => `<span class="tag bullet">${esc(x)}</span>`).join("")}</div>
 
-    <!-- バレットカード一覧表示 -->
     <div style="margin-top:12px;">
      <div style="font-weight:700; font-size:13px; color:#444; margin-bottom:6px;">バレット構成 (全6弾)</div>
   `;
@@ -1641,7 +1762,7 @@ document.getElementById("detailModal").onclick = (e) => {
 };
 
 /* =========================================================
-   Supabase 読み込み・保存
+   Supabase 読み込み・保存 (POST/PATCH対応)
 ========================================================= */
 
 async function load(){
@@ -1687,9 +1808,13 @@ async function save(){
  msg.className="msg";
  msg.textContent="保存中……";
 
+ const isUpdate = !!editingId;
+ const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
+ const method = isUpdate ? "PATCH" : "POST";
+
  try{
-  const r=await fetch(`${URL}/rest/v1/${TABLE}`,{
-   method:"POST",
+  const r=await fetch(fetchUrl,{
+   method: method,
    headers:{
     "Content-Type":"application/json",
     apikey:KEY,
@@ -1702,7 +1827,11 @@ async function save(){
   if(!r.ok) throw Error(t);
 
   msg.className="msg ok";
-  msg.textContent="保存しました！";
+  msg.textContent=isUpdate ? "データを更新しました！" : "新規登録しました！";
+  
+  if (isUpdate) {
+   resetFormToNew();
+  }
   await load();
  }catch(e){
   msg.className="msg err";
@@ -1728,9 +1857,11 @@ document.getElementById("tabAdd").onclick=()=>{
  document.getElementById("tabAdd").classList.add("active");
  document.getElementById("tabSearch").classList.remove("active");
 
- initEditors();
- initSpecialSkills();
- initAbilities();
+ if(!editingId) {
+  initEditors();
+  initSpecialSkills();
+  initAbilities();
+ }
 };
 
 document.getElementById("save").onclick=save;
