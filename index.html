@@ -76,6 +76,19 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
 }
 .btn-edit:hover{background:#0056b3;color:#fff}
 
+.btn-add{
+ width:100%;padding:8px;border:1px dashed #0056b3;border-radius:6px;
+ background:#f0f6fc;color:#0056b3;font-size:12px;font-weight:700;
+ cursor:pointer;margin-top:6px;display:block;text-align:center
+}
+.btn-add:hover{background:#e2effb}
+
+.btn-del{
+ background:#ffebee;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;
+ font-size:11px;padding:2px 6px;cursor:pointer;float:right;margin-bottom:4px
+}
+.btn-del:hover{background:#c62828;color:#fff}
+
 .hidden{display:none !important}
 .result-count{font-weight:700;margin:14px 0 8px}
 .result{
@@ -454,7 +467,7 @@ const SPECIAL_SKILLS=[
 
 let data=[];
 let mode="AND";
-let editingId=null; // 現在編集中のキャラクターID
+let editingId=null;
 
 const selected={
  type:[], attack:[], range:[], attr:[], bullet:[], special:[], char:[]
@@ -470,7 +483,7 @@ function createBulletStructure(index){
  const b = {
   index: index, name: "", count: "", pStage: "P0", attr: "", bulletType: "通常弾", kind: "陽気",
   specials: {}, hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
-  buff:{ stat:"", rate:"", rank:"" }, debuff:{ stat:"", rate:"", rank:"" }
+  buffs: [], debuffs: []
  };
  SPECIALS.forEach(x => { b.specials[x] = false; });
  return b;
@@ -482,7 +495,7 @@ function resetAttackData(){
   attackData[key]={
    name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
    hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
-   buff:{ stat:"", rate:"", rank:"" }, debuff:{ stat:"", rate:"", rank:"" },
+   buffs: [], debuffs: [],
    bullets: [1,2,3,4,5,6].map(i => createBulletStructure(i))
   };
   SPECIALS.forEach(x=>{ attackData[key].specials[x]=false; });
@@ -508,7 +521,7 @@ function resetAbilityData(){
   conversion:{
    enabled:false, atkRank:false, atkAbnormal:[], defRank:false, defAbnormal:[],
    speedRank:false, speedAbnormal:[], spirit:false, spiritAbnormal:[], spiritValue:"",
-   heal:false, healAbnormal:[], healValue:""
+   heal:false, healAbnormal:[], healValue=""
   },
   immunity:{
    effect:false, effectAbnormal:[], none:false, noneAbnormal:[], reflect:false, reflectAbnormal:[]
@@ -788,7 +801,7 @@ function renderRank2List(skill, container){
  let html = "";
  d.list.forEach((item, idx)=>{
   html += `
-   <div class="rank-item">
+   <div class="rank-item" style="background:#fff; border:1px solid #ddd; border-radius:8px; padding:8px; margin-bottom:6px;">
     ${d.list.length > 1 ? `<button type="button" class="btn-del" onclick="removeRank2Item('${skill}', ${idx})">削除</button>` : ""}
     <div class="mini">発動箇所</div>
     <select class="select" onchange="updateRank2Item('${skill}', ${idx}, 'source', this.value)">
@@ -831,7 +844,7 @@ function renderDamageDownList(container){
  let html = "";
  d.list.forEach((item, idx)=>{
   html += `
-   <div class="rank-item">
+   <div class="rank-item" style="background:#fff; border:1px solid #ddd; border-radius:8px; padding:8px; margin-bottom:6px;">
     ${d.list.length > 1 ? `<button type="button" class="btn-del" onclick="removeDamageDownItem(${idx})">削除</button>` : ""}
     <div class="mini">特防種類</div>
     <select class="select" onchange="updateDamageDownItem(${idx}, 'kind', this.value)">
@@ -946,10 +959,10 @@ function initAbilities(){
   ${abnormalChipsHtml("convDefAbnormal")}
   <label><input type="checkbox" id="convSpeed" ${conv.speedRank?"checked":""}> Rank上昇：速力・命中・回避</label>
   ${abnormalChipsHtml("convSpeedAbnormal")}
-  <label><input type="checkbox" id="convSpirit" ${conv.spirit?"checked":""}> 霊力上昇：結界異常にかからずに霊力上昇</label>
+  <label><input type="checkbox" id="convSpirit" ${conv.spirit?"checked":""}> 霊力上昇：結界異常にかかずに霊力上昇</label>
   ${abnormalChipsHtml("convSpiritAbnormal")}
   <input id="convSpiritValue" class="input" type="number" step="0.01" placeholder="霊力上昇量" value="${esc(conv.spiritValue||"")}">
-  <label><input type="checkbox" id="convHeal" ${conv.heal?"checked":""}> 体力回復：結界異常にかからずに体力回復</label>
+  <label><input type="checkbox" id="convHeal" ${conv.heal?"checked":""}> 体力回復：結界異常にかかずに体力回復</label>
   ${abnormalChipsHtml("convHealAbnormal")}
   <input id="convHealValue" class="input" type="number" placeholder="体力回復 %" value="${esc(conv.healValue||"")}">
  </div>
@@ -1067,54 +1080,150 @@ function setTargetButtons(on,off){
 }
 
 /* =========================================================
-   つよさ上昇/低下 (バフ/デバフ) UI生成関数
+   つよさ上昇/低下 (バフ/デバフ) 複数対応 UI生成関数
 ========================================================= */
 
 function renderBuffDebuffFields(prefix, targetObj) {
- if (!targetObj.buff) targetObj.buff = { stat:"", rate:"", rank:"" };
- if (!targetObj.debuff) targetObj.debuff = { stat:"", rate:"", rank:"" };
+ if (!targetObj.buffs) targetObj.buffs = [];
+ if (!targetObj.debuffs) targetObj.debuffs = [];
 
- return `
+ let html = `
   <div style="background:#f0f7ff; border:1px solid #cce5ff; border-radius:8px; padding:8px; margin-top:8px;">
    <div style="font-size:12px; font-weight:700; color:#004085; margin-bottom:4px;">つよさ上昇 / 自身</div>
-   <div class="row3">
-    <select class="select" id="${prefix}-buff-stat">
-     <option value="">ステータス選択</option>
-     ${STAT_TARGETS.map(s => `<option ${targetObj.buff.stat===s?"selected":""}>${s}</option>`).join("")}
-    </select>
-    <input class="input" type="number" id="${prefix}-buff-rate" placeholder="確率 %" value="${esc(targetObj.buff.rate||"")}">
-    <input class="input" type="number" id="${prefix}-buff-rank" placeholder="ランク数" value="${esc(targetObj.buff.rank||"")}">
+   <div id="${prefix}-buffs-container">
+ `;
+
+ targetObj.buffs.forEach((b, idx) => {
+  html += `
+   <div style="background:#fff; border:1px solid #b8daff; border-radius:6px; padding:6px; margin-bottom:6px;" data-buff-idx="${idx}">
+    ${targetObj.buffs.length > 1 ? `<button type="button" class="btn-del" onclick="removeBuffItem('${prefix}', ${idx})">削除</button>` : ""}
+    <div class="row3">
+     <select class="select" onchange="updateBuffItem('${prefix}', ${idx}, 'stat', this.value)">
+      <option value="">ステータス選択</option>
+      ${STAT_TARGETS.map(s => `<option ${b.stat===s?"selected":""}>${s}</option>`).join("")}
+     </select>
+     <input class="input" type="number" placeholder="確率 %" value="${esc(b.rate||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rate', this.value)">
+     <input class="input" type="number" placeholder="ランク数" value="${esc(b.rank||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rank', this.value)">
+    </div>
    </div>
+  `;
+ });
+
+ html += `
+   </div>
+   <button type="button" class="btn-add" onclick="addBuffItem('${prefix}')">＋ バフ設定を追加する</button>
   </div>
 
   <div style="background:#fff0f0; border:1px solid #ffcdd2; border-radius:8px; padding:8px; margin-top:8px;">
    <div style="font-size:12px; font-weight:700; color:#721c24; margin-bottom:4px;">つよさ低下 / 対象</div>
-   <div class="row3">
-    <select class="select" id="${prefix}-debuff-stat">
-     <option value="">ステータス選択</option>
-     ${STAT_TARGETS.map(s => `<option ${targetObj.debuff.stat===s?"selected":""}>${s}</option>`).join("")}
-    </select>
-    <input class="input" type="number" id="${prefix}-debuff-rate" placeholder="確率 %" value="${esc(targetObj.debuff.rate||"")}">
-    <input class="input" type="number" id="${prefix}-debuff-rank" placeholder="ランク数" value="${esc(targetObj.debuff.rank||"")}">
+   <div id="${prefix}-debuffs-container">
+ `;
+
+ targetObj.debuffs.forEach((d, idx) => {
+  html += `
+   <div style="background:#fff; border:1px solid #f5c6cb; border-radius:6px; padding:6px; margin-bottom:6px;" data-debuff-idx="${idx}">
+    ${targetObj.debuffs.length > 1 ? `<button type="button" class="btn-del" onclick="removeDebuffItem('${prefix}', ${idx})">削除</button>` : ""}
+    <div class="row3">
+     <select class="select" onchange="updateDebuffItem('${prefix}', ${idx}, 'stat', this.value)">
+      <option value="">ステータス選択</option>
+      ${STAT_TARGETS.map(s => `<option ${d.stat===s?"selected":""}>${s}</option>`).join("")}
+     </select>
+     <input class="input" type="number" placeholder="確率 %" value="${esc(d.rate||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rate', this.value)">
+     <input class="input" type="number" placeholder="ランク数" value="${esc(d.rank||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rank', this.value)">
+    </div>
    </div>
+  `;
+ });
+
+ html += `
+   </div>
+   <button type="button" class="btn-add" onclick="addDebuffItem('${prefix}')">＋ デバフ設定を追加する</button>
   </div>
  `;
+
+ return html;
 }
 
-function bindBuffDebuffEvents(prefix, targetObj) {
- const bs = document.getElementById(`${prefix}-buff-stat`);
- const br = document.getElementById(`${prefix}-buff-rate`);
- const bk = document.getElementById(`${prefix}-buff-rank`);
- if(bs) bs.onchange = e => { targetObj.buff.stat = e.target.value; };
- if(br) br.oninput = e => { targetObj.buff.rate = e.target.value; };
- if(bk) bk.oninput = e => { targetObj.buff.rank = e.target.value; };
+// ターゲットオブジェクトを見つけるヘルパー
+function resolveTargetObjFromPrefix(prefix) {
+ if (prefix.startsWith("att-")) {
+  const k = prefix.replace("att-", "");
+  return attackData[k];
+ } else if (prefix.startsWith("blt-")) {
+  const parts = prefix.split("-");
+  const attKey = parts[1];
+  const bltIndex = parseInt(parts[2]) - 1;
+  return attackData[attKey].bullets[bltIndex];
+ }
+ return null;
+}
 
- const ds = document.getElementById(`${prefix}-debuff-stat`);
- const dr = document.getElementById(`${prefix}-debuff-rate`);
- const dk = document.getElementById(`${prefix}-debuff-rank`);
- if(ds) ds.onchange = e => { targetObj.debuff.stat = e.target.value; };
- if(dr) dr.oninput = e => { targetObj.debuff.rate = e.target.value; };
- if(dk) dk.oninput = e => { targetObj.debuff.rank = e.target.value; };
+function addBuffItem(prefix) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(!obj) return;
+ if(!obj.buffs) obj.buffs = [];
+ obj.buffs.push({ stat:"", rate:"", rank:"" });
+ refreshBuffDebuffUI(prefix);
+}
+
+function removeBuffItem(prefix, idx) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(!obj) return;
+ obj.buffs.splice(idx, 1);
+ refreshBuffDebuffUI(prefix);
+}
+
+function updateBuffItem(prefix, idx, key, value) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(obj && obj.buffs && obj.buffs[idx]) {
+  obj.buffs[idx][key] = value;
+ }
+}
+
+function addDebuffItem(prefix) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(!obj) return;
+ if(!obj.debuffs) obj.debuffs = [];
+ obj.debuffs.push({ stat:"", rate:"", rank:"" });
+ refreshBuffDebuffUI(prefix);
+}
+
+function removeDebuffItem(prefix, idx) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(!obj) return;
+ obj.debuffs.splice(idx, 1);
+ refreshBuffDebuffUI(prefix);
+}
+
+function updateDebuffItem(prefix, idx, key, value) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(obj && obj.debuffs && obj.debuffs[idx]) {
+  obj.debuffs[idx][key] = value;
+ }
+}
+
+function refreshBuffDebuffUI(prefix) {
+ const obj = resolveTargetObjFromPrefix(prefix);
+ if(!obj) return;
+
+ // 親要素を特定して再描画
+ let containerId = "";
+ if (prefix.startsWith("att-")) {
+  const k = prefix.replace("att-", "");
+  // 簡易的にエディタ全体を再構築するか、該当セクションのみ書き換える
+  // ここでは該当アタックエディタの該当部分、または安全にエディタを更新
+ }
+ // ※簡易的な再描画のために該当エディタを開閉状態のまま再描画
+ if (prefix.startsWith("att-")) {
+  const k = prefix.replace("att-", "");
+  // アタックエディタのバフ部分を更新
+  // 簡単な方法として既存のUIレンダリングを再実行する
+  initEditors();
+ } else if (prefix.startsWith("blt-")) {
+  const parts = prefix.split("-");
+  const attKey = parts[1];
+  buildBulletsEditorUI(attKey);
+ }
 }
 
 /* =========================================================
@@ -1183,6 +1292,8 @@ function initEditors(){
   if(!a.bullets || a.bullets.length < 6) {
    a.bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
   }
+  if(!a.buffs) a.buffs = [];
+  if(!a.debuffs) a.debuffs = [];
 
   const d=document.createElement("div");
   d.className="editor";
@@ -1234,7 +1345,6 @@ function initEditors(){
 
   buildBulletControls(key);
   buildSpecialControlsForObject(`att-${key}`, a, document.getElementById("as-"+key));
-  bindBuffDebuffEvents(`att-${key}`, a);
 
   buildBulletsEditorUI(key);
  });
@@ -1270,11 +1380,15 @@ function buildBulletControls(key){
 function buildBulletsEditorUI(attackKey){
  const a = attackData[attackKey];
  const container = document.getElementById(`bullets-container-${attackKey}`);
+ if(!container) return;
  container.innerHTML = "";
 
  a.bullets.forEach((bulletObj, idx) => {
   const bulletIndex = idx + 1;
   const prefix = `blt-${attackKey}-${bulletIndex}`;
+
+  if(!bulletObj.buffs) bulletObj.buffs = [];
+  if(!bulletObj.debuffs) bulletObj.debuffs = [];
 
   const acc = document.createElement("div");
   acc.className = "bullet-accordion";
@@ -1361,7 +1475,6 @@ function buildBulletsEditorUI(attackKey){
   bulletTypeSelect.onchange = e => { bulletObj.bulletType = e.target.value; };
   kindSelect.onchange = e => { bulletObj.kind = e.target.value; };
 
-  bindBuffDebuffEvents(prefix, bulletObj);
   buildSpecialControlsForObject(prefix, bulletObj, acc.querySelector(`#${prefix}-specials`));
  });
 }
@@ -1462,17 +1575,34 @@ function search() {
 }
 
 /* =========================================================
-   バフ・デバフテキスト整形表示
+   バフ・デバフテキスト複数表示
 ========================================================= */
 
 function getBuffDebuffHtml(obj) {
  let h = "";
- if (obj && obj.buff && obj.buff.stat && obj.buff.rate && obj.buff.rank) {
-  h += `<span class="tag tag-buff">自身「${esc(obj.buff.stat)}」${esc(obj.buff.rate)}%の確率で${esc(obj.buff.rank)}ランクUP</span> `;
+ 
+ // buffs (旧データ互換のため単一のbuffオブジェクトがあれば補完して処理)
+ let buffsArr = obj.buffs || [];
+ if(buffsArr.length === 0 && obj.buff && obj.buff.stat) {
+  buffsArr = [obj.buff];
  }
- if (obj && obj.debuff && obj.debuff.stat && obj.debuff.rate && obj.debuff.rank) {
-  h += `<span class="tag tag-debuff">対象「${esc(obj.debuff.stat)}」${esc(obj.debuff.rate)}%の確率で${esc(obj.debuff.rank)}ランクDOWN</span> `;
+ buffsArr.forEach(b => {
+  if (b && b.stat && b.rate && b.rank) {
+   h += `<span class="tag tag-buff">自身「${esc(b.stat)}」${esc(b.rate)}%の確率で${esc(b.rank)}ランクUP</span> `;
+  }
+ });
+
+ // debuffs
+ let debuffsArr = obj.debuffs || [];
+ if(debuffsArr.length === 0 && obj.debuff && obj.debuff.stat) {
+  debuffsArr = [obj.debuff];
  }
+ debuffsArr.forEach(d => {
+  if (d && d.stat && d.rate && d.rank) {
+   h += `<span class="tag tag-debuff">対象「${esc(d.stat)}」${esc(d.rate)}%の確率で${esc(d.rank)}ランクDOWN</span> `;
+  }
+ });
+
  return h;
 }
 
@@ -1527,17 +1657,14 @@ function editCharacter(id) {
 
  editingId = c.id;
 
- // フォーム見出し変更
  document.getElementById("formTitle").textContent = `キャラクター編集（${c.character}）`;
  document.getElementById("resetEditBtn").classList.remove("hidden");
  document.getElementById("save").textContent = "🔄 データを更新保存する";
 
- // 基本情報
  document.getElementById("aCharacter").value = c.character || "";
  document.getElementById("aSymbol").value = c.symbol || "";
  document.getElementById("aType").value = c.type || "";
 
- // ステータス
  const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
  document.getElementById("sPower").value = s.power ?? "";
  document.getElementById("sHp").value = s.hp ?? "";
@@ -1547,21 +1674,26 @@ function editCharacter(id) {
  document.getElementById("sYangDef").value = s.yangDef ?? "";
  document.getElementById("sYinDef").value = s.yinDef ?? "";
 
- // オブジェクト深層コピー
  if (c.attacks) {
   attackData = JSON.parse(JSON.stringify(c.attacks));
-  // 6バレット完全補完
   ATTACKS.forEach(([key]) => {
    if(!attackData[key]) {
     attackData[key] = {
      name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
-     buff:{stat:"",rate:"",rank:""}, debuff:{stat:"",rate:"",rank:""},
+     buffs:[], debuffs:[],
      bullets:[1,2,3,4,5,6].map(i => createBulletStructure(i))
     };
    }
+   if(!attackData[key].buffs) attackData[key].buffs = [];
+   if(!attackData[key].debuffs) attackData[key].debuffs = [];
+   
    if(!attackData[key].bullets || attackData[key].bullets.length < 6) {
     attackData[key].bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
    }
+   attackData[key].bullets.forEach(b => {
+    if(!b.buffs) b.buffs = [];
+    if(!b.debuffs) b.debuffs = [];
+   });
   });
  } else {
   resetAttackData();
@@ -1579,15 +1711,12 @@ function editCharacter(id) {
   resetAbilityData();
  }
 
- // エディタ再描画
  initEditors();
  initSpecialSkills();
  initAbilities();
 
- // モーダルが開いていれば閉じる
  document.getElementById("detailModal").classList.add("hidden");
 
- // タブ切り替え
  document.getElementById("searchPage").classList.add("hidden");
  document.getElementById("addPage").classList.remove("hidden");
  document.getElementById("tabAdd").classList.add("active");
