@@ -413,6 +413,10 @@ const STATS=[
 "速力","命中","回避"
 ];
 
+const STAT_TYPES_SHORT=[
+"速力","陽攻","陰攻","陽防","陰防"
+];
+
 const BULLETS=[
 "通常弾","光弾","レーザー弾","質量弾",
 "エネルギー弾","流体弾","尖弾","御札弾",
@@ -436,9 +440,17 @@ const SPECIALS=[
 "焼却弾","氷解弾","放電弾","過毒弾","閃光弾"
 ];
 
-/* 特殊スキル */
+/* 特殊スキル（1つ目のコードの全24種類を統合） */
 
 const SPECIAL_SKILLS=[
+"ファスト",
+"チャージ",
+"RANKⅡバフ",
+"RANKⅡデバフ",
+"畜力",
+"蓄積",
+"共鳴",
+"X-Change",
 "禁止解除",
 "有利属性ダメージアップ",
 "不利属性ダメージアップ",
@@ -453,12 +465,8 @@ const SPECIAL_SKILLS=[
 "逆相",
 "スペルゲージ遅延",
 "全体耐性ダウン",
-"RANKⅡバフ",
-"RANKⅡデバフ",
-"畜力",
-"共鳴",
-"蓄積",
-"持続"
+"持続",
+"ダメージダウン"
 ];
 
 let data=[];
@@ -765,7 +773,7 @@ function initSpecialSkills(){
 }
 
 /* =========================================================
-   特殊スキル詳細
+   特殊スキル詳細 (1つ目の構成を2つ目のUI方式に統合)
 ========================================================= */
 
 function buildSpecialDetail(skill,e){
@@ -775,347 +783,236 @@ function buildSpecialDetail(skill,e){
   return;
  }
 
- if(
-  skill==="有利属性ダメージアップ" ||
-  skill==="不利属性ダメージアップ"
- ){
-
-  e.innerHTML=`
-   <input
-    class="input"
-    type="number"
-    placeholder="倍率 %"
-    data-special="${skill}"
-    value="${esc(specialData[skill].value||"")}">
-  `;
-
- }
-
- else if(skill==="属性強化"){
-
-  e.innerHTML=`
-   <select class="select" data-special-attr>
-    <option value="">属性を選択</option>
-    ${ATTR.map(x=>`
-     <option ${specialData[skill].attr===x?"selected":""}>
-      ${x}
-     </option>
-    `).join("")}
-   </select>
-
-   <input
-    class="input"
-    style="margin-top:6px"
-    type="number"
-    placeholder="倍率 %"
-    data-special-ratio
-    value="${esc(specialData[skill].ratio||"")}">
-  `;
-
- }
-
- else if(skill==="弾強化"){
-
-  e.innerHTML=`
-   <select class="select" data-special-bullet>
-    <option value="">弾種を選択</option>
-    ${BULLETS.map(x=>`
-     <option ${specialData[skill].bullet===x?"selected":""}>
-      ${x}
-     </option>
-    `).join("")}
-   </select>
-
-   <input
-    class="input"
-    style="margin-top:6px"
-    type="number"
-    placeholder="倍率 %"
-    data-special-ratio
-    value="${esc(specialData[skill].ratio||"")}">
-  `;
-
- }
-
- else if(skill==="弱点付与"){
-
-  e.innerHTML=`
-   <select class="select" data-special-attr>
-    <option value="">属性を選択</option>
-    ${ATTR.map(x=>`
-     <option ${specialData[skill].attr===x?"selected":""}>
-      ${x}
-     </option>
-    `).join("")}
-   </select>
-  `;
-
- }
-
- else if(
-  skill==="RANKⅡバフ" ||
-  skill==="RANKⅡデバフ"
- ){
-
-  e.innerHTML=`
-   <select class="select" data-rank-stat>
-    <option value="">強化対象</option>
-    ${STATS.map(x=>`
-     <option ${specialData[skill].stat===x?"selected":""}>
-      ${x}
-     </option>
-    `).join("")}
-   </select>
-
-   <input
-    class="input"
-    style="margin-top:6px"
-    type="number"
-    placeholder="倍率 %"
-    data-rank-ratio
-    value="${esc(specialData[skill].ratio||"")}">
-  `;
-
- }
-
- else if(skill==="全体耐性ダウン"){
-
-  e.innerHTML=`
-   <input
-    class="input"
-    type="number"
-    placeholder="何段階ダウン"
-    data-rank-ratio
-    value="${esc(specialData[skill].ratio||"")}">
-  `;
-
- }
-
- else if(skill==="畜力"){
-
-  e.innerHTML=`
-   <div class="buttons">
-    ${["体力畜力","結界畜力","霊力畜力"].map(x=>`
-     <button
-      class="filter ${specialData[skill].kind===x?"selected":""}"
-      data-power-kind="${x}">
-      ${x}
-     </button>
-    `).join("")}
-   </div>
-  `;
-
- }
-
- else if(skill==="バディコネクト"){
-
-  e.innerHTML=`
-   <select class="select" data-buddy-stat>
-    <option value="">何をアップするか</option>
-    ${["陽攻","陰攻","陽防","陰防","CRI攻撃","CRI防御","CRI命中","CRI回避","速力","命中","回避","ダメージ","CRIダメージ"].map(x=>`
-     <option ${specialData[skill].stat===x?"selected":""}>
-      ${x}
-     </option>
-    `).join("")}
-   </select>
-   <input class="input" style="margin-top:6px"
-    type="number"
-    placeholder="固定倍率 %"
-    data-zone-fixed
-    value="${esc(specialData[skill].fixed||"")}">
-
-   <input class="input" style="margin-top:6px"
-    type="number"
-    placeholder="1人あたりの倍率 %"
-    data-zone-per
-    value="${esc(specialData[skill].per||"")}">
-  `;
-
- }
-
- else if(skill==="ゾーン"){
-
-  e.innerHTML=`
-   <select class="select" data-zone-stat>
-    <option value="">強化するもの</option>
-    <option>CRIダメージ</option>
-    <option>攻撃時CRI率</option>
-    <option>ダメージ</option>
-    <option>速力</option>
-   </select>
-
-   <input class="input" style="margin-top:6px"
-    type="number"
-    placeholder="固定倍率 %"
-    data-zone-fixed
-    value="${esc(specialData[skill].fixed||"")}">
-
-   <input class="input" style="margin-top:6px"
-    type="number"
-    placeholder="1人あたりの倍率 %"
-    data-zone-per
-    value="${esc(specialData[skill].per||"")}">
-  `;
-
- }
-
- else if(skill==="団結"){
-
-  e.innerHTML=`
-   <select class="select" data-team-stat>
-    <option value="">強化するもの</option>
-    <option>霊力</option>
-    <option>攻撃時CRI率</option>
-    <option>CRIダメージ</option>
-    <option>速力</option>
-    <option>ダメージ</option>
-   </select>
-
-   <input class="input" style="margin-top:6px"
-    type="number"
-    placeholder="固定倍率"
-    data-team-fixed
-    value="${esc(specialData[skill].fixed||"")}">
-
-   <input class="input" style="margin-top:6px"
-    type="number"
-    placeholder="1人あたりの倍率"
-    data-team-per
-    value="${esc(specialData[skill].per||"")}">
-  `;
-
- }
-
- else if(skill==="共鳴"){
-
-  e.innerHTML=`
-   <select class="select" data-resonance-stat>
-    <option value="">何を強化するか</option>
-    <option>ダメージ</option>
-    <option>CRIダメージ</option>
-    <option>霊力</option>
-    <option>攻撃時CRI率</option>
-    <option>速力</option>
-   </select>
-  `;
-
- }
-
- else if(skill==="蓄積"){
-
-  e.innerHTML=`
-   <select class="select" data-accumulate-stat>
-    <option value="">何を強化するか</option>
-    ${STATS.map(x=>`
-     <option>${x}</option>
-    `).join("")}
-   </select>
-  `;
-
- }
-
- else if(skill==="持続"){
-
-  e.innerHTML=`
-   <input
-    class="input"
-    type="number"
-    placeholder="持続ターン数"
-    data-duration>
-
-   <select
-    class="select"
-    style="margin-top:6px"
-    data-duration-target>
-    <option>味方全体</option>
-    <option>自身</option>
-   </select>
-
-   <select
-    class="select"
-    style="margin-top:6px"
-    data-duration-effect>
-    <option value="">効果を選択</option>
-    <option>霊力上昇</option>
-    <option>体力回復</option>
-    <option>禁止解除</option>
-    <option>結界増加</option>
-   </select>
-
-   <input
-    class="input"
-    style="margin-top:6px"
-    type="number"
-    placeholder="数値"
-    data-duration-value>
-  `;
-
- }
-
- else if(skill==="禁止解除"){
-
-  e.innerHTML=`
-   <input
-    class="input"
-    type="number"
-    placeholder="解除する数"
-    data-special-value>
-  `;
-
- }
-
- else if(skill==="スキル再使用ターン数短縮"){
-
-  e.innerHTML=`
-   <input
-    class="input"
-    type="number"
-    placeholder="短縮ターン数"
-    data-special-value>
-  `;
-
- }
-
- else if(skill==="大結界"){
-
-  e.innerHTML=`
-   <div class="mini">
-    味方全体の強化
-   </div>
-
-   <select class="select" data-big-up-stat>
-    <option value="">何をアップするか</option>
-    ${STATS.map(x=>`<option>${x}</option>`).join("")}
-   </select>
-
-   <input class="input"
-    style="margin-top:6px"
-    type="number"
-    placeholder="アップ倍率 %"
-    data-big-up-ratio>
-
-   <div class="mini" style="margin-top:10px">
-    相手全体の弱体化
-   </div>
-
-   <select class="select" data-big-down-stat>
-    <option value="">何をダウンするか</option>
-    ${STATS.map(x=>`<option>${x}</option>`).join("")}
-   </select>
-
-   <input class="input"
-    style="margin-top:6px"
-    type="number"
-    placeholder="ダウン倍率 %"
-    data-big-down-ratio>
-
-   <input
-    class="input"
-    style="margin-top:6px"
-    placeholder="破界効果"
-    data-break-effect>
-  `;
-
+ const d=specialData[skill];
+
+ switch(skill){
+
+  case "RANKⅡバフ":
+   e.innerHTML=`
+    <select class="select" data-rank-stat>
+     <option value="">バフ内容</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="段階" data-rank-stage value="${esc(d.stage||"")}">
+   `;
+   break;
+
+  case "RANKⅡデバフ":
+   e.innerHTML=`
+    <select class="select" data-rank-stat>
+     <option value="">デバフ内容</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="段階" data-rank-stage value="${esc(d.stage||"")}">
+   `;
+   break;
+
+  case "畜力":
+   e.innerHTML=`
+    <select class="select" data-power-kind>
+     <option value="">畜力種類</option>
+     ${["体力畜力","結界畜力","霊力畜力"].map(x=>`<option ${d.kind===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  case "蓄積":
+   e.innerHTML=`
+    <select class="select" data-accumulate-stat>
+     <option value="">強化するもの</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  case "共鳴":
+   const resType = d.stat || "ダメージ";
+   e.innerHTML=`
+    <select class="select" data-resonance-stat>
+     <option value="">強化するもの</option>
+     ${["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="${resType==="霊力"?"数値":"倍率 %"}" data-special-value value="${esc(d.value||"")}">
+   `;
+   break;
+
+  case "X-Change":
+   e.innerHTML=`
+    <input class="input" placeholder="効果" data-special-effect value="${esc(d.effect||"")}">
+   `;
+   break;
+
+  case "有利属性ダメージアップ":
+  case "不利属性ダメージアップ":
+   e.innerHTML=`
+    <input class="input" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  case "属性強化":
+   e.innerHTML=`
+    <select class="select" data-special-attr>
+     <option value="">属性を選択</option>
+     ${ATTR.map(x=>`<option ${d.attr===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  case "弾強化":
+   e.innerHTML=`
+    <select class="select" data-special-bullet>
+     <option value="">弾種を選択</option>
+     ${BULLETS.map(x=>`<option ${d.bullet===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  case "弱点付与":
+   e.innerHTML=`
+    <select class="select" data-special-attr>
+     <option value="">弱点属性を選択</option>
+     ${ATTR.map(x=>`<option ${d.attr===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+   `;
+   break;
+
+  case "団結":
+   e.innerHTML=`
+    <select class="select" data-team-stat>
+     <option value="">強化するもの</option>
+     ${["霊力","攻撃時CRI率","CRIダメージ","速力","ダメージ"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="固定${d.stat==="霊力"?"値":"倍率 %"}" data-team-fixed value="${esc(d.fixed||"")}">
+    <input class="input" style="margin-top:6px" type="number" placeholder="1人あたり${d.stat==="霊力"?"値":"倍率 %"}" data-team-per value="${esc(d.per||"")}">
+   `;
+   break;
+
+  case "バディコネクト":
+   e.innerHTML=`
+    <select class="select" data-buddy-stat>
+     <option value="">強化するもの</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  case "ゾーン":
+   e.innerHTML=`
+    <select class="select" data-zone-stat>
+     <option value="">強化するもの</option>
+     ${["CRIダメージ","攻撃時CRI率","ダメージ","速力"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="固定倍率 %" data-zone-fixed value="${esc(d.fixed||"")}">
+    <input class="input" style="margin-top:6px" type="number" placeholder="1人あたりの倍率 %" data-zone-per value="${esc(d.per||"")}">
+   `;
+   break;
+
+  case "スキル再使用ターン数短縮":
+   e.innerHTML=`
+    <input class="input" type="number" placeholder="短縮ターン数" data-special-value value="${esc(d.value||"")}">
+   `;
+   break;
+
+  case "大結界":
+   e.innerHTML=`
+    <div class="mini">味方全体の強化</div>
+    <select class="select" data-big-up-stat>
+     <option value="">アップするもの</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.upStat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="アップ倍率 %" data-big-up-ratio value="${esc(d.upRatio||"")}">
+
+    <div class="mini" style="margin-top:10px">相手全体の弱体化</div>
+    <select class="select" data-big-down-stat>
+     <option value="">ダウンするもの</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.downStat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-big-down-ratio value="${esc(d.downRatio||"")}">
+
+    <input class="input" style="margin-top:6px" placeholder="破界効果" data-break-effect value="${esc(d.breakEffect||"")}">
+   `;
+   break;
+
+  case "逆相":
+   e.innerHTML=`
+    <div class="mini">アップ</div>
+    <select class="select" data-reverse-up-stat>
+     <option value="">アップするもの</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.upStat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="アップ倍率 %" data-reverse-up-ratio value="${esc(d.upRatio||"")}">
+
+    <div class="mini" style="margin-top:10px">ダウン</div>
+    <select class="select" data-reverse-down-stat>
+     <option value="">ダウンするもの</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.downStat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-reverse-down-ratio value="${esc(d.downRatio||"")}">
+   `;
+   break;
+
+  case "スペルゲージ遅延":
+   e.innerHTML=`
+    <input class="input" type="number" placeholder="遅延数" data-special-value value="${esc(d.value||"")}">
+   `;
+   break;
+
+  case "全体耐性ダウン":
+   e.innerHTML=`
+    <input class="input" type="number" placeholder="何段階ダウン" data-rank-stage value="${esc(d.stage||"")}">
+   `;
+   break;
+
+  case "持続":
+   e.innerHTML=`
+    <input class="input" type="number" placeholder="持続ターン数" data-duration value="${esc(d.duration||"")}">
+    <select class="select" style="margin-top:6px" data-duration-target>
+     <option ${d.target==="味方全体"?"selected":""}>味方全体</option>
+     <option ${d.target==="自身"?"selected":""}>自身</option>
+    </select>
+    <select class="select" style="margin-top:6px" data-duration-effect>
+     <option value="">効果を選択</option>
+     ${["霊力上昇","体力回復","禁止解除","結界増加"].map(x=>`<option ${d.effect===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <input class="input" style="margin-top:6px" type="number" placeholder="数値" data-duration-value value="${esc(d.value||"")}">
+   `;
+   break;
+
+  case "ダメージダウン":
+   const downKind = d.kind || "";
+   e.innerHTML=`
+    <select class="select" data-damage-down-kind>
+     <option value="">特防種類</option>
+     ${["属性特防","弾特防","種族特防"].map(x=>`<option ${d.kind===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <div id="ddTargetArea" style="margin-top:6px">
+     ${
+       downKind === "属性特防" ? `
+        <select class="select" data-damage-down-target>
+         <option value="">対象属性</option>
+         ${ATTR.map(x=>`<option ${d.target===x?"selected":""}>${x}</option>`).join("")}
+        </select>` :
+       downKind === "弾特防" ? `
+        <select class="select" data-damage-down-target>
+         <option value="">対象弾種</option>
+         ${BULLETS.map(x=>`<option ${d.target===x?"selected":""}>${x}</option>`).join("")}
+        </select>` :
+       downKind === "種族特防" ? `
+        <input class="input" placeholder="対象種族名" data-damage-down-target value="${esc(d.target||"")}">` : ""
+     }
+    </div>
+    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+   `;
+   break;
+
+  default:
+   // ファスト, チャージ, 禁止解除等
+   break;
  }
 
  bindSpecialInputs(skill,e);
@@ -1130,103 +1027,68 @@ function bindSpecialInputs(skill,e){
 
  e.querySelectorAll("input,select").forEach(el=>{
 
-  el.oninput=()=>saveSpecialField(skill,el);
-  el.onchange=()=>saveSpecialField(skill,el);
-
- });
-
- e.querySelectorAll("[data-power-kind]").forEach(btn=>{
-
-  btn.onclick=()=>{
-
-   specialData[skill].kind=btn.dataset.powerKind;
-
-   e.querySelectorAll("[data-power-kind]")
-    .forEach(x=>x.classList.remove("selected"));
-
-   btn.classList.add("selected");
-
-  };
+  el.oninput=()=>saveSpecialField(skill,el,e);
+  el.onchange=()=>saveSpecialField(skill,el,e);
 
  });
 
 }
 
-function saveSpecialField(skill,el){
+function saveSpecialField(skill,el,e){
 
  const d=specialData[skill];
 
- if(el.dataset.special!==undefined)
-  d.value=el.value;
+ if(el.dataset.specialRatio!==undefined) d.ratio=el.value;
+ if(el.dataset.specialAttr!==undefined) d.attr=el.value;
+ if(el.dataset.specialBullet!==undefined) d.bullet=el.value;
+ if(el.dataset.specialValue!==undefined) d.value=el.value;
+ if(el.dataset.specialEffect!==undefined) d.effect=el.value;
 
- if(el.dataset.specialAttr!==undefined)
-  d.attr=el.value;
+ if(el.dataset.rankStat!==undefined) d.stat=el.value;
+ if(el.dataset.rankStage!==undefined) d.stage=el.value;
 
- if(el.dataset.specialRatio!==undefined)
-  d.ratio=el.value;
+ if(el.dataset.powerKind!==undefined) d.kind=el.value;
+ if(el.dataset.accumulateStat!==undefined) d.stat=el.value;
 
- if(el.dataset.rankStat!==undefined)
+ if(el.dataset.resonanceStat!==undefined) {
   d.stat=el.value;
+  buildSpecialDetail(skill,e);
+ }
 
- if(el.dataset.rankRatio!==undefined)
-  d.ratio=el.value;
+ if(el.dataset.buddyStat!==undefined) d.stat=el.value;
 
- if(el.dataset.buddyStat!==undefined)
+ if(el.dataset.zoneStat!==undefined) d.stat=el.value;
+ if(el.dataset.zoneFixed!==undefined) d.fixed=el.value;
+ if(el.dataset.zonePer!==undefined) d.per=el.value;
+
+ if(el.dataset.teamStat!==undefined) {
   d.stat=el.value;
+  buildSpecialDetail(skill,e);
+ }
+ if(el.dataset.teamFixed!==undefined) d.fixed=el.value;
+ if(el.dataset.teamPer!==undefined) d.per=el.value;
 
- if(el.dataset.zoneStat!==undefined)
-  d.stat=el.value;
+ if(el.dataset.duration!==undefined) d.duration=el.value;
+ if(el.dataset.durationTarget!==undefined) d.target=el.value;
+ if(el.dataset.durationEffect!==undefined) d.effect=el.value;
+ if(el.dataset.durationValue!==undefined) d.value=el.value;
 
- if(el.dataset.zoneFixed!==undefined)
-  d.fixed=el.value;
+ if(el.dataset.bigUpStat!==undefined) d.upStat=el.value;
+ if(el.dataset.bigUpRatio!==undefined) d.upRatio=el.value;
+ if(el.dataset.bigDownStat!==undefined) d.downStat=el.value;
+ if(el.dataset.bigDownRatio!==undefined) d.downRatio=el.value;
+ if(el.dataset.breakEffect!==undefined) d.breakEffect=el.value;
 
- if(el.dataset.zonePer!==undefined)
-  d.per=el.value;
+ if(el.dataset.reverseUpStat!==undefined) d.upStat=el.value;
+ if(el.dataset.reverseUpRatio!==undefined) d.upRatio=el.value;
+ if(el.dataset.reverseDownStat!==undefined) d.downStat=el.value;
+ if(el.dataset.reverseDownRatio!==undefined) d.downRatio=el.value;
 
- if(el.dataset.teamStat!==undefined)
-  d.stat=el.value;
-
- if(el.dataset.teamFixed!==undefined)
-  d.fixed=el.value;
-
- if(el.dataset.teamPer!==undefined)
-  d.per=el.value;
-
- if(el.dataset.resonanceStat!==undefined)
-  d.stat=el.value;
-
- if(el.dataset.accumulateStat!==undefined)
-  d.stat=el.value;
-
- if(el.dataset.specialValue!==undefined)
-  d.value=el.value;
-
- if(el.dataset.duration!==undefined)
-  d.duration=el.value;
-
- if(el.dataset.durationTarget!==undefined)
-  d.target=el.value;
-
- if(el.dataset.durationEffect!==undefined)
-  d.effect=el.value;
-
- if(el.dataset.durationValue!==undefined)
-  d.value=el.value;
-
- if(el.dataset.bigUpStat!==undefined)
-  d.upStat=el.value;
-
- if(el.dataset.bigUpRatio!==undefined)
-  d.upRatio=el.value;
-
- if(el.dataset.bigDownStat!==undefined)
-  d.downStat=el.value;
-
- if(el.dataset.bigDownRatio!==undefined)
-  d.downRatio=el.value;
-
- if(el.dataset.breakEffect!==undefined)
-  d.breakEffect=el.value;
+ if(el.dataset.damageDownKind!==undefined) {
+  d.kind=el.value;
+  buildSpecialDetail(skill,e);
+ }
+ if(el.dataset.damageDownTarget!==undefined) d.target=el.value;
 
 }
 
@@ -1934,7 +1796,7 @@ function matchSelected(sel,vals){
 function hasSpecial(c,x){
 
  const d=c.details||{};
- const s=d.specialSkills||{};
+ const s=d.specialSkills||d.skills||{};
 
  return !!s[x]?.enabled;
 
@@ -2149,7 +2011,7 @@ function renderResults(arr){
   `;
 
   const details=c.details||{};
-  const ss=details.specialSkills||{};
+  const ss=details.specialSkills||details.skills||{};
 
   h+=`
    <div>
@@ -2417,7 +2279,7 @@ document.getElementById("tabAdd").onclick=()=>{
 
  document
   .getElementById("addPage")
-  .classList.remove("hidden");
+  .classList.add("hidden");
 
  document
   .getElementById("tabAdd")
