@@ -149,6 +149,35 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
  background:#333;color:#fff
 }
 
+.rank-item{
+ background:#fff;
+ border:1px solid #eee;
+ border-radius:8px;
+ padding:8px;
+ margin-top:6px;
+ position:relative;
+}
+.btn-del{
+ background:#ff4d4f;
+ color:#fff;
+ border:none;
+ border-radius:4px;
+ padding:2px 8px;
+ font-size:12px;
+ cursor:pointer;
+ float:right;
+}
+.btn-add{
+ width:100%;
+ padding:6px;
+ margin-top:6px;
+ border:1px dashed #aaa;
+ background:#fff;
+ border-radius:6px;
+ cursor:pointer;
+ font-size:12px;
+}
+
 .msg{
  margin-top:10px;padding:10px;
  border-radius:8px;font-size:13px;
@@ -392,6 +421,14 @@ const STAT_TYPES_SHORT=[
 "速力","陽攻","陰攻","陽防","陰防"
 ];
 
+const RANK2_STATS=[
+"陽攻","陰攻","陽防","陰防","速力","回避","CRI攻撃","CRI命中","CRI回避"
+];
+
+const RANK2_SOURCES=[
+"スキル","スペルカード1","スペルカード2","ラストワード"
+];
+
 const BULLETS=[
 "通常弾","光弾","レーザー弾","質量弾",
 "エネルギー弾","流体弾","尖弾","御札弾",
@@ -476,7 +513,11 @@ ATTACKS.forEach(([key])=>{
 
 const specialData={};
 SPECIAL_SKILLS.forEach(x=>{
- specialData[x]={ enabled:false };
+ if(x==="RANKⅡバフ" || x==="RANKⅡデバフ"){
+  specialData[x]={ enabled:false, list:[] };
+ }else{
+  specialData[x]={ enabled:false };
+ }
 });
 
 const abilityData={
@@ -592,13 +633,9 @@ function buildSpecialDetail(skill, e){
  switch(skill){
   case "RANKⅡバフ":
   case "RANKⅡデバフ":
-   e.innerHTML=`
-    <select class="select" data-rank-stat>
-     <option value="">対象ステータス</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="段階" data-rank-stage value="${esc(d.stage||"")}">
-   `;
+   if(!d.list) d.list = [];
+   if(d.list.length === 0) d.list.push({ source:"スキル", stat:"", stage:"" });
+   renderRank2List(skill, e);
    break;
 
   case "畜力":
@@ -791,6 +828,49 @@ function buildSpecialDetail(skill, e){
  bindSpecialInputs(skill,e);
 }
 
+function renderRank2List(skill, container){
+ const d = specialData[skill];
+ let html = "";
+ d.list.forEach((item, idx)=>{
+  html += `
+   <div class="rank-item">
+    ${d.list.length > 1 ? `<button type="button" class="btn-del" onclick="removeRank2Item('${skill}', ${idx})">削除</button>` : ""}
+    <div class="mini">発動箇所</div>
+    <select class="select" onchange="updateRank2Item('${skill}', ${idx}, 'source', this.value)">
+     ${RANK2_SOURCES.map(x=>`<option ${item.source===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <div class="mini" style="margin-top:6px">対象ステータス</div>
+    <select class="select" onchange="updateRank2Item('${skill}', ${idx}, 'stat', this.value)">
+     <option value="">選択してください</option>
+     ${RANK2_STATS.map(x=>`<option ${item.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <div class="mini" style="margin-top:6px">段階</div>
+    <input class="input" type="number" placeholder="段階" value="${esc(item.stage||"")}" oninput="updateRank2Item('${skill}', ${idx}, 'stage', this.value)">
+   </div>
+  `;
+ });
+ html += `<button type="button" class="btn-add" onclick="addRank2Item('${skill}')">＋ 設定を追加する</button>`;
+ container.innerHTML = html;
+}
+
+function addRank2Item(skill){
+ specialData[skill].list.push({ source:"スキル", stat:"", stage:"" });
+ const detail = document.getElementById(`sd-${skill}`);
+ renderRank2List(skill, detail);
+}
+
+function removeRank2Item(skill, idx){
+ specialData[skill].list.splice(idx, 1);
+ const detail = document.getElementById(`sd-${skill}`);
+ renderRank2List(skill, detail);
+}
+
+function updateRank2Item(skill, idx, key, value){
+ if(specialData[skill].list[idx]){
+  specialData[skill].list[idx][key] = value;
+ }
+}
+
 function bindSpecialInputs(skill,e){
  e.querySelectorAll("input,select").forEach(el=>{
   el.oninput=()=>saveSpecialField(skill,el,e);
@@ -805,8 +885,6 @@ function saveSpecialField(skill,el,e){
  if(el.dataset.specialBullet!==undefined) d.bullet=el.value;
  if(el.dataset.specialValue!==undefined) d.value=el.value;
  if(el.dataset.specialEffect!==undefined) d.effect=el.value;
- if(el.dataset.rankStat!==undefined) d.stat=el.value;
- if(el.dataset.rankStage!==undefined) d.stage=el.value;
  if(el.dataset.powerKind!==undefined) d.kind=el.value;
  if(el.dataset.statTarget!==undefined) d.stat=el.value;
  if(el.dataset.resonanceStat!==undefined) { d.stat=el.value; buildSpecialDetail(skill,e); }
