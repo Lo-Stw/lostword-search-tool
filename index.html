@@ -1924,7 +1924,7 @@ async function save(){
  const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
  const method = isUpdate ? "PATCH" : "POST";
 
- try{
+  try{
   const r=await fetch(fetchUrl,{
    method: method,
    headers:{
@@ -1938,6 +1938,9 @@ async function save(){
   const t=await r.text();
   if(!r.ok) throw Error(t);
 
+  // ★成功したときのポップアップ
+  alert("保存成功！");
+
   msg.className="msg ok";
   msg.textContent=isUpdate ? "データを更新しました！" : "新規登録しました！";
   
@@ -1946,10 +1949,13 @@ async function save(){
   }
   await load();
  }catch(e){
+  // ★失敗したときのポップアップ（ここに原因が出る）
+  alert("エラー: " + e.message);
+
   msg.className="msg err";
   msg.textContent="保存失敗：\n"+e.message;
  }
-}
+
 
 /* =========================================================
    タブ切り替え・イベントハンドラ
