@@ -1916,63 +1916,294 @@ function num(id){
 }
 
 async function save(){
+async function save(){
  const msg=document.getElementById("message");
- const character=document.getElementById("aCharacter").value.trim();
- const symbol=document.getElementById("aSymbol").value.trim();
- const type=document.getElementById("aType").value;
 
- if(!character||!type){
-  msg.className="msg err";
-  msg.textContent="キャラクター名と式を入力してください。";
-  return;
- }
-
- const stats={
-  power:num("sPower"), hp:num("sHp"), speed:num("sSpeed"),
-  yangAtk:num("sYangAtk"), yinAtk:num("sYinAtk"), yangDef:num("sYangDef"), yinDef:num("sYinDef")
- };
-
- const details={ specialSkills:specialData, abilities:abilityData, stats };
- const record={ 
-  character, 
-  symbol, 
-  type, 
-  attacks: JSON.parse(JSON.stringify(attackData)), 
-  details: JSON.parse(JSON.stringify(details)) 
- };
-
+ // ボタンを押した瞬間に必ず表示
  msg.className="msg";
- msg.textContent="保存中……";
-
- const isUpdate = !!editingId;
- const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
- const method = isUpdate ? "PATCH" : "POST";
+ msg.textContent="保存処理を開始しています……";
 
  try{
-  const r=await fetch(fetchUrl,{
-   method: method,
+
+  const character=document.getElementById("aCharacter").value.trim();
+  const symbol=document.getElementById("aSymbol").value.trim();
+  const type=document.getElementById("aType").value;
+
+  if(!character){
+   throw new Error("キャラクター名を入力してください。");
+  }
+
+  if(!type){
+   throw new Error("式を選択してください。");
+  }
+
+  /*
+   * ==========================================
+   * ステータス
+   * ==========================================
+   */
+
+  const stats={
+   power:num("sPower"),
+   hp:num("sHp"),
+   speed:num("sSpeed"),
+   yangAtk:num("sYangAtk"),
+   yinAtk:num("sYinAtk"),
+   yangDef:num("sYangDef"),
+   yinDef:num("sYinDef")
+  };
+
+
+  /*
+   * ==========================================
+   * 攻撃データ
+   *
+   * attackDataをそのまま保存せず、
+   * JSON化して完全コピーする
+   * ==========================================
+   */
+
+  const attacks=JSON.parse(JSON.stringify(attackData));
+
+
+  /*
+   * ==========================================
+   * 各攻撃のバレットを正規化
+   * ==========================================
+   */
+
+  ATTACKS.forEach(([key])=>{
+
+   if(!attacks[key]){
+    attacks[key]={
+     name:"",
+     range:"全体",
+     attributes:[],
+     bulletTypes:[],
+     specials:{},
+     buffs:[],
+     debuffs:[],
+     bullets:[]
+    };
+   }
+
+   const attack=attacks[key];
+
+   if(!Array.isArray(attack.bullets)){
+    attack.bullets=[];
+   }
+
+   /*
+    * 必ず6発分確保
+    */
+   while(attack.bullets.length<6){
+    attack.bullets.push(
+     createBulletStructure(attack.bullets.length+1)
+    );
+   }
+
+   /*
+    * バレットデータを整理
+    */
+   attack.bullets=attack.bullets.slice(0,6).map((b,i)=>{
+
+    const bullet=createBulletStructure(i+1);
+
+    return {
+     ...bullet,
+     ...b,
+
+     index:i+1,
+
+     name:b.name ?? "",
+     count:b.count ?? "",
+     pStage:b.pStage ?? "P0",
+
+     attr:b.attr ?? "",
+     bulletType:b.bulletType ?? "通常弾",
+     kind:b.kind ?? "陽気",
+
+     specials:b.specials ?? {},
+
+     hardRatio:b.hardRatio ?? "",
+     sharpRatio:b.sharpRatio ?? "",
+     stickyRate:b.stickyRate ?? "",
+     impactRate:b.impactRate ?? "",
+     absorbRatio:b.absorbRatio ?? "",
+     recoilRatio:b.recoilRatio ?? "",
+     specialTarget:b.specialTarget ?? "",
+
+     buffs:Array.isArray(b.buffs)
+      ? b.buffs
+      : [],
+
+     debuffs:Array.isArray(b.debuffs)
+      ? b.debuffs
+      : []
+    };
+
+   });
+
+  });
+
+
+  /*
+   * ==========================================
+   * details
+   * ==========================================
+   */
+
+  const details={
+   stats:stats,
+
+   specialSkills:
+    JSON.parse(JSON.stringify(specialData)),
+
+   abilities:
+    JSON.parse(JSON.stringify(abilityData))
+  };
+
+
+  /*
+   * ==========================================
+   * Supabaseへ送る最終データ
+   * ==========================================
+   */
+
+  const record={
+   character:character,
+   symbol:symbol,
+   type:type,
+   attacks:attacks,
+   details:details
+  };
+
+
+  console.log("===== 保存データ =====");
+  console.log(record);
+  console.log("===== attacks =====");
+  console.log(attacks);
+
+
+  /*
+   * ==========================================
+   * 保存
+   * ==========================================
+   */
+
+  msg.textContent="Supabaseへ保存しています……";
+
+  const isUpdate=editingId!==null && editingId!=="";
+
+  let fetchUrl;
+  let method;
+
+  if(isUpdate){
+
+   fetchUrl=
+    `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(editingId)}`;
+
+   method="PATCH";
+
+  }else{
+
+   fetchUrl=
+    `${URL}/rest/v1/${TABLE}`;
+
+   method="POST";
+
+  }
+
+
+  const response=await fetch(fetchUrl,{
+   method:method,
+
    headers:{
     "Content-Type":"application/json",
-    apikey:KEY,
-    Authorization:"Bearer "+KEY,
-    Prefer:"return=minimal"
+    "apikey":KEY,
+    "Authorization":"Bearer "+KEY,
+    "Prefer":"return=representation"
    },
+
    body:JSON.stringify(record)
   });
-  const t=await r.text();
-  if(!r.ok) throw Error(t);
+
+
+  /*
+   * ==========================================
+   * Supabaseの返答
+   * ==========================================
+   */
+
+  const responseText=await response.text();
+
+  console.log("Supabase status:",response.status);
+  console.log("Supabase response:",responseText);
+
+
+  if(!response.ok){
+
+   throw new Error(
+    `Supabase保存エラー\n`+
+    `HTTP ${response.status}\n\n`+
+    responseText
+   );
+
+  }
+
+
+  /*
+   * ==========================================
+   * 成功
+   * ==========================================
+   */
 
   msg.className="msg ok";
-  msg.textContent=isUpdate ? "データを更新しました！" : "新規登録しました！";
-  
-  if (isUpdate) {
-   resetFormToNew();
-  }
+
+  msg.textContent=
+   isUpdate
+    ? "✅ キャラクターデータを更新しました！"
+    : "✅ キャラクターデータを保存しました！";
+
+
+  /*
+   * 最新データを再読み込み
+   */
+
   await load();
- }catch(e){
+
+
+  /*
+   * 編集だった場合は新規登録状態に戻す
+   */
+
+  if(isUpdate){
+   editingId=null;
+
+   document.getElementById("formTitle").textContent=
+    "新規キャラクター登録";
+
+   document.getElementById("resetEditBtn")
+    .classList.add("hidden");
+
+   document.getElementById("save").textContent=
+    "☁️ Supabaseに保存";
+  }
+
+
+ }catch(error){
+
+  console.error("===== 保存エラー =====");
+  console.error(error);
+
   msg.className="msg err";
-  msg.textContent="保存失敗：\n"+e.message;
+
+  msg.textContent=
+   "❌ 保存失敗\n\n"+
+   (error?.message || String(error));
+
  }
+
 }
 
 /* =========================================================
