@@ -558,4 +558,329 @@ header p {
 
         </div>
 
-        <!-- rest of content omitted for brevity in this message -->
+    </div>
+
+</div>
+
+<script>
+
+let data = [];
+let selectedTypes = [];
+let selectedAttributes = [];
+let selectedBullets = [];
+let isAndMode = true;
+
+loadData();
+
+async function loadData() {
+
+    const resultsArea =
+        document.getElementById("results");
+
+    try {
+
+        resultsArea.innerHTML = `
+            <div class="result">
+                データを読み込んでいます……
+            </div>
+        `;
+
+        const response = await fetch(
+            "./data.json?" + Date.now()
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "HTTP " + response.status
+            );
+        }
+
+        const text = await response.text();
+
+        if (!text.trim()) {
+            throw new Error(
+                "data.jsonが空です"
+            );
+        }
+
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            throw new Error(
+                "data.jsonのJSON形式が正しくありません"
+            );
+        }
+
+        if (!Array.isArray(data)) {
+            throw new Error(
+                "data.jsonの先頭は [ ] にしてください"
+            );
+        }
+
+        createFilterButtons();
+        updateDataPreview();
+        updateTypeList();
+
+        search();
+
+    } catch (error) {
+
+        console.error(error);
+
+        resultsArea.innerHTML = `
+            <div class="result">
+
+                <div class="character">
+                    ⚠️ データを読み込めませんでした
+                </div>
+
+                <br>
+
+                <div>
+                    ${escapeHTML(error.message)}
+                </div>
+
+                <br>
+
+                <small>
+                    data.jsonがindex.htmlと同じ場所にあるか確認してください。
+                </small>
+
+            </div>
+        `;
+
+    }
+
+}
+
+function escapeHTML(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function createFilterButtons() {
+
+    const types = [... new Set(data.map(item => item.type))];
+    const attributes = [... new Set(data.map(item => item.attribute))];
+    const bullets = [... new Set(data.map(item => item.bullet))];
+
+    const typeButtons = document.getElementById("typeButtons");
+    typeButtons.innerHTML = types.map(type => `
+        <button class="filter-button" onclick="toggleFilter('type', '${escapeHTML(type)}')">
+            ${escapeHTML(type)}
+        </button>
+    `).join("");
+
+    const attributeButtons = document.getElementById("attributeButtons");
+    attributeButtons.innerHTML = attributes.map(attr => `
+        <button class="filter-button" onclick="toggleFilter('attribute', '${escapeHTML(attr)}')">
+            ${escapeHTML(attr)}
+        </button>
+    `).join("");
+
+    const bulletButtons = document.getElementById("bulletButtons");
+    bulletButtons.innerHTML = bullets.map(bullet => `
+        <button class="filter-button" onclick="toggleFilter('bullet', '${escapeHTML(bullet)}')">
+            ${escapeHTML(bullet)}
+        </button>
+    `).join("");
+
+}
+
+function toggleFilter(filterType, value) {
+
+    let selectedArray;
+    if (filterType === "type") {
+        selectedArray = selectedTypes;
+    } else if (filterType === "attribute") {
+        selectedArray = selectedAttributes;
+    } else if (filterType === "bullet") {
+        selectedArray = selectedBullets;
+    }
+
+    const index = selectedArray.indexOf(value);
+    if (index > -1) {
+        selectedArray.splice(index, 1);
+    } else {
+        selectedArray.push(value);
+    }
+
+    updateButtonStates(filterType);
+    search();
+
+}
+
+function updateButtonStates(filterType) {
+
+    let selectedArray, buttonIds;
+
+    if (filterType === "type") {
+        selectedArray = selectedTypes;
+        buttonIds = "typeButtons";
+    } else if (filterType === "attribute") {
+        selectedArray = selectedAttributes;
+        buttonIds = "attributeButtons";
+    } else if (filterType === "bullet") {
+        selectedArray = selectedBullets;
+        buttonIds = "bulletButtons";
+    }
+
+    const buttons = document.getElementById(buttonIds).querySelectorAll(".filter-button");
+    buttons.forEach(button => {
+        const value = button.textContent;
+        if (selectedArray.includes(value)) {
+            button.classList.add("selected");
+        } else {
+            button.classList.remove("selected");
+        }
+    });
+
+}
+
+function search() {
+
+    const keyword = document.getElementById("keyword").value.toLowerCase();
+
+    let results = data.filter(item => {
+
+        const matchesKeyword =
+            !keyword ||
+            item.character.toLowerCase().includes(keyword) ||
+            item.spell.toLowerCase().includes(keyword);
+
+        if (!matchesKeyword) return false;
+
+        if (selectedTypes.length === 0 &&
+            selectedAttributes.length === 0 &&
+            selectedBullets.length === 0) {
+            return true;
+        }
+
+        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(item.type);
+        const attributeMatch = selectedAttributes.length === 0 || selectedAttributes.includes(item.attribute);
+        const bulletMatch = selectedBullets.length === 0 || selectedBullets.includes(item.bullet);
+
+        if (isAndMode) {
+            return typeMatch && attributeMatch && bulletMatch;
+        } else {
+            return typeMatch || attributeMatch || bulletMatch;
+        }
+
+    });
+
+    displayResults(results);
+
+}
+
+function displayResults(results) {
+
+    const resultsArea = document.getElementById("results");
+
+    if (results.length === 0) {
+        resultsArea.innerHTML = `
+            <div class="result">
+                <div class="character">
+                    検索結果がありません
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    const html = `
+        <div class="result-count">
+            検索結果：${results.length}件
+        </div>
+        ${results.map(item => `
+            <div class="result">
+                <div class="character">
+                    ${escapeHTML(item.character)}
+                </div>
+                <div class="spell">
+                    ${escapeHTML(item.spell)}
+                </div>
+                <div class="type">
+                    ${escapeHTML(item.type)}
+                </div>
+                <div class="tags">
+                    ${item.attribute ? `<span class="tag attribute">${escapeHTML(item.attribute)}</span>` : ""}
+                    ${item.bullet ? `<span class="tag bullet">${escapeHTML(item.bullet)}</span>` : ""}
+                </div>
+            </div>
+        `).join("")}
+    `;
+
+    resultsArea.innerHTML = html;
+
+}
+
+function resetFilters() {
+    selectedTypes = [];
+    selectedAttributes = [];
+    selectedBullets = [];
+    document.getElementById("keyword").value = "";
+    updateButtonStates("type");
+    updateButtonStates("attribute");
+    updateButtonStates("bullet");
+    search();
+}
+
+function showPage(page) {
+    const searchPage = document.getElementById("searchPage");
+    const addPage = document.getElementById("addPage");
+    const searchTab = document.getElementById("searchTab");
+    const addTab = document.getElementById("addTab");
+
+    if (page === "search") {
+        searchPage.classList.remove("hidden");
+        addPage.classList.add("hidden");
+        searchTab.classList.add("active");
+        addTab.classList.remove("active");
+    } else {
+        searchPage.classList.add("hidden");
+        addPage.classList.remove("hidden");
+        searchTab.classList.remove("active");
+        addTab.classList.add("active");
+    }
+}
+
+function updateDataPreview() {
+    const preview = document.getElementById("dataPreview");
+    if (preview) {
+        preview.textContent = JSON.stringify(data, null, 2);
+    }
+}
+
+function updateTypeList() {
+    const types = [... new Set(data.map(item => item.type))];
+    const typeList = document.getElementById("typeList");
+    typeList.innerHTML = types.map(type => `<option value="${escapeHTML(type)}"></option>`).join("");
+}
+
+document.getElementById("andButton").addEventListener("click", function() {
+    isAndMode = true;
+    this.classList.add("selected");
+    document.getElementById("orButton").classList.remove("selected");
+    search();
+});
+
+document.getElementById("orButton").addEventListener("click", function() {
+    isAndMode = false;
+    this.classList.add("selected");
+    document.getElementById("andButton").classList.remove("selected");
+    search();
+});
+
+document.getElementById("resetButton").addEventListener("click", resetFilters);
+document.getElementById("keyword").addEventListener("input", search);
+
+</script>
+
+</body>
+</html>
