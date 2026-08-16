@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>東方LostWord キャラクター検索ツール</title>
+<title>東方ロストワード 弾幕検索</title>
 
 <style>
 *{box-sizing:border-box}
@@ -210,8 +210,8 @@ footer a{color:#444;text-decoration:underline}
 <body>
 
 <header>
-<h1>東方LostWord</h1>
-<p>キャラクター検索ツール</p>
+<h1>東方ロストワード</h1>
+<p>弾幕・スペルカード検索ツール</p>
 </header>
 
 <div class="container">
@@ -444,7 +444,7 @@ const STAT_TYPES_SHORT=[
 ];
 
 const RANK2_STATS=[
-"陽攻","陰攻","陽防","陰防","速力","命中","回避","CRI攻撃","CRI命中","CRI回避"
+"陽攻","陰攻","陽防","陰防","速力","回避","CRI攻撃","CRI命中","CRI回避"
 ];
 
 const RANK2_SOURCES=[
@@ -1376,47 +1376,6 @@ function renderResults(arr){
  });
 }
 
-   <div class="char">${esc(c.character)}</div>
-   <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
-  `;
-
-  const s=c.stats||{};
-  h+=`
-   <div>
-    ${
-     Object.entries({総合つよさ:s.power,体力:s.hp,速力:s.speed,陽攻:s.yangAtk,陰攻:s.yinAtk,陽防:s.yangDef,陰防:s.yinDef})
-     .filter(x=>x[1]!==undefined&&x[1]!="")
-     .map(x=>`<span class="tag">${x[0]}：${esc(x[1])}</span>`).join("")
-    }
-   </div>
-  `;
-
-  const details=c.details||{};
-  const ss=details.specialSkills||details.skills||{};
-  h+=`
-   <div>
-    ${SPECIAL_SKILLS.filter(x=>ss[x]?.enabled).map(x=>`<span class="tag">${x}</span>`).join("")}
-   </div>
-  `;
-
-  Object.entries(c.attacks||{}).forEach(([k,a])=>{
-   const label=ATTACKS.find(x=>x[0]===k)?.[1]||k;
-   if(!a.name)return;
-   h+=`
-    <div class="attack">
-     <h4>${label} <span class="tag">${esc(a.range)}</span></h4>
-     <div>${esc(a.name)}</div>
-     ${(a.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
-     ${(a.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
-     ${Object.keys(a.specials||{}).filter(x=>a.specials[x]).map(x=>`<span class="tag">${x}</span>`).join("")}
-    </div>
-   `;
-  });
-
-  h+="</div>";
-  e.insertAdjacentHTML("beforeend", h);
- });
-}
 
 /* =========================================================
    Supabase 読み込み・保存
