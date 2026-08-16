@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>東方ロストワード 弾幕検索</title>
 
@@ -26,6 +25,11 @@ body {
     color: #222;
 }
 
+
+/* =========================
+   ヘッダー
+========================= */
+
 header {
     background: #242424;
     color: white;
@@ -39,10 +43,15 @@ header h1 {
 }
 
 header p {
-    margin: 8px 0 0;
+    margin: 7px 0 0;
     font-size: 13px;
     opacity: 0.8;
 }
+
+
+/* =========================
+   コンテナ
+========================= */
 
 .container {
     max-width: 800px;
@@ -50,9 +59,14 @@ header p {
     padding: 15px;
 }
 
+
+/* =========================
+   検索ボックス
+========================= */
+
 .search-box {
     background: white;
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 18px;
     margin-bottom: 15px;
 
@@ -60,134 +74,282 @@ header p {
         0 2px 8px rgba(0,0,0,0.08);
 }
 
+
 .section {
     margin-bottom: 20px;
 }
 
+
+.section:last-child {
+    margin-bottom: 0;
+}
+
+
 .section-title {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
     margin-bottom: 10px;
 }
 
+
+/* =========================
+   キーワード
+========================= */
+
 .search-input {
     width: 100%;
-    padding: 12px;
+
+    padding: 13px;
+
     border: 1px solid #ccc;
-    border-radius: 8px;
+    border-radius: 10px;
+
     font-size: 16px;
-    margin-bottom: 15px;
+
+    outline: none;
 }
+
+
+.search-input:focus {
+    border-color: #555;
+}
+
+
+/* =========================
+   フィルターボタン
+========================= */
 
 .buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
+    gap: 8px;
 }
+
 
 .filter-button {
     border: 1px solid #ccc;
+
     background: white;
+
     border-radius: 20px;
-    padding: 8px 13px;
+
+    padding: 9px 14px;
+
     font-size: 14px;
+
     cursor: pointer;
 }
 
+
+.filter-button:active {
+    transform: scale(0.96);
+}
+
+
 .filter-button.selected {
     background: #333;
+
     color: white;
+
     border-color: #333;
 }
+
+
+/* =========================
+   AND / OR
+========================= */
 
 .mode {
     display: flex;
     gap: 8px;
 }
 
+
 .mode button {
     flex: 1;
-    padding: 10px;
+
+    padding: 11px;
+
     border: 1px solid #ccc;
+
     background: white;
-    border-radius: 8px;
+
+    border-radius: 9px;
+
+    font-size: 14px;
 }
+
 
 .mode button.selected {
     background: #333;
+
     color: white;
+
+    border-color: #333;
 }
+
+
+/* =========================
+   リセット
+========================= */
 
 .reset {
     width: 100%;
+
     padding: 12px;
+
     border: none;
-    border-radius: 8px;
+
+    border-radius: 9px;
+
     background: #e5e5e5;
+
     font-size: 15px;
+
+    cursor: pointer;
 }
+
+
+/* =========================
+   選択条件
+========================= */
+
+.selected-info {
+    margin-top: 10px;
+
+    font-size: 12px;
+
+    color: #777;
+
+    line-height: 1.6;
+}
+
+
+/* =========================
+   結果
+========================= */
 
 .result-count {
     font-weight: bold;
+
     margin: 15px 0 10px;
 }
 
+
 .result {
     background: white;
-    border-radius: 12px;
+
+    border-radius: 14px;
+
     padding: 15px;
+
     margin-bottom: 10px;
 
     box-shadow:
         0 2px 6px rgba(0,0,0,0.06);
 }
 
+
 .character {
     font-size: 18px;
+
     font-weight: bold;
 }
 
+
 .spell {
     margin-top: 5px;
+
     font-size: 15px;
 }
 
+
 .type {
+    margin-top: 5px;
+
     color: #777;
+
     font-size: 13px;
-    margin-top: 4px;
 }
+
+
+/* =========================
+   タグ
+========================= */
 
 .tags {
     margin-top: 10px;
 }
 
+
 .tag {
     display: inline-block;
-    background: #eeeeee;
-    border-radius: 5px;
-    padding: 4px 7px;
+
+    border-radius: 6px;
+
+    padding: 5px 8px;
+
     margin: 2px;
+
     font-size: 12px;
 }
+
+
+.type-tag {
+    background: #e8ddff;
+}
+
 
 .attribute {
     background: #fff1b8;
 }
 
+
 .bullet {
     background: #dceeff;
 }
 
+
+/* =========================
+   その他
+========================= */
+
 .no-result {
     text-align: center;
+
     color: #777;
-    padding: 30px 10px;
+
+    padding: 35px 10px;
 }
+
 
 .loading {
     text-align: center;
+
     padding: 30px;
+}
+
+
+/* =========================
+   スマホ
+========================= */
+
+@media (max-width: 480px) {
+
+    .container {
+        padding: 10px;
+    }
+
+    .search-box {
+        padding: 15px;
+    }
+
+    .filter-button {
+        font-size: 13px;
+
+        padding: 8px 12px;
+    }
+
 }
 
 </style>
@@ -196,12 +358,15 @@ header p {
 
 <body>
 
+
 <header>
 
-    <h1>東方ロストワード</h1>
+    <h1>
+        東方ロストワード
+    </h1>
 
     <p>
-        属性・弾種検索ツール
+        ��幕検索ツール
     </p>
 
 </header>
@@ -209,9 +374,15 @@ header p {
 
 <div class="container">
 
+
+    <!-- =========================
+         検索
+    ========================== -->
+
     <div class="search-box">
 
-        <!-- キャラ・スペカ検索 -->
+
+        <!-- キーワード -->
 
         <div class="section">
 
@@ -225,6 +396,22 @@ header p {
                 type="text"
                 placeholder="キャラ名・スペカ名を入力"
             >
+
+        </div>
+
+
+        <!-- 式 -->
+
+        <div class="section">
+
+            <div class="section-title">
+                式
+            </div>
+
+            <div
+                id="typeButtons"
+                class="buttons"
+            ></div>
 
         </div>
 
@@ -286,6 +473,14 @@ header p {
 
             </div>
 
+
+            <div
+                id="selectedInfo"
+                class="selected-info"
+            >
+                条件を選択すると表示されます
+            </div>
+
         </div>
 
 
@@ -298,10 +493,13 @@ header p {
             条件をリセット
         </button>
 
+
     </div>
 
 
-    <!-- 検索結果 -->
+    <!-- =========================
+         結果
+    ========================== -->
 
     <div id="results">
 
@@ -311,47 +509,25 @@ header p {
 
     </div>
 
+
 </div>
 
 
 <script>
 
-/* =========================================
-   設定
-========================================= */
-
-const attributes = [
-    "日",
-    "月",
-    "火",
-    "水",
-    "木",
-    "金",
-    "土",
-    "星"
-];
-
-
-const bulletTypes = [
-    "通常弾",
-    "光弾",
-    "レーザー弾",
-    "質量弾",
-    "エネルギー弾",
-    "流体弾",
-    "尖弾",
-    "御札弾",
-    "斬撃弾",
-    "肉弾",
-    "ミサイル弾"
-];
-
 
 /* =========================================
-   状態
+   データ
 ========================================= */
 
 let data = [];
+
+
+/* =========================================
+   選択状態
+========================================= */
+
+let selectedTypes = [];
 
 let selectedAttributes = [];
 
@@ -361,70 +537,196 @@ let searchMode = "AND";
 
 
 /* =========================================
+   データ読み込み
+========================================= */
+
+async function loadData() {
+
+    try {
+
+        const response =
+            await fetch("data.json");
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "data.jsonを読み込めませんでした"
+            );
+
+        }
+
+
+        data =
+            await response.json();
+
+
+        /*
+         * データから
+         * 式・属性・弾種を自動取得
+         */
+
+        createFilterButtons();
+
+
+        search();
+
+
+    } catch (error) {
+
+        console.error(error);
+
+
+        document
+            .getElementById("results")
+            .innerHTML = `
+
+                <div class="no-result">
+
+                    データの読み込みに失敗しました。
+
+                    <br><br>
+
+                    <small>
+                    data.json が
+                    index.html と同じ場所にあるか
+                    確認してください。
+                    </small>
+
+                </div>
+
+            `;
+
+    }
+
+}
+
+
+/* =========================================
+   フィルター作成
+========================================= */
+
+function createFilterButtons() {
+
+
+    const types =
+        [
+            ...new Set(
+                data
+                    .map(item => item.type)
+                    .filter(Boolean)
+            )
+        ];
+
+
+    const attributes =
+        [
+            ...new Set(
+                data.flatMap(
+                    item =>
+                        Array.isArray(item.bullets)
+                            ? item.bullets
+                                .map(
+                                    bullet =>
+                                        bullet.attribute
+                                )
+                                .filter(Boolean)
+                            : []
+                )
+            )
+        ];
+
+
+    const bullets =
+        [
+            ...new Set(
+                data.flatMap(
+                    item =>
+                        Array.isArray(item.bullets)
+                            ? item.bullets
+                                .map(
+                                    bullet =>
+                                        bullet.bulletType
+                                )
+                                .filter(Boolean)
+                            : []
+                )
+            )
+        ];
+
+
+    createButtons(
+        "typeButtons",
+        types,
+        toggleType
+    );
+
+
+    createButtons(
+        "attributeButtons",
+        attributes,
+        toggleAttribute
+    );
+
+
+    createButtons(
+        "bulletButtons",
+        bullets,
+        toggleBullet
+    );
+
+}
+
+
+/* =========================================
    ボタン生成
 ========================================= */
 
-function createButtons() {
+function createButtons(
+    areaId,
+    values,
+    callback
+) {
 
-    const attributeArea =
-        document.getElementById("attributeButtons");
-
-    const bulletArea =
-        document.getElementById("bulletButtons");
-
-
-    attributes.forEach(attribute => {
-
-        const button =
-            document.createElement("button");
-
-        button.className =
-            "filter-button";
-
-        button.textContent =
-            attribute;
-
-        button.dataset.value =
-            attribute;
-
-        button.addEventListener("click", () => {
-
-            toggleAttribute(
-                attribute,
-                button
-            );
-
-        });
-
-        attributeArea.appendChild(button);
-
-    });
+    const area =
+        document.getElementById(areaId);
 
 
-    bulletTypes.forEach(bullet => {
+    area.innerHTML = "";
+
+
+    values.forEach(value => {
 
         const button =
             document.createElement("button");
 
+
         button.className =
             "filter-button";
 
+
         button.textContent =
-            bullet;
+            value;
+
 
         button.dataset.value =
-            bullet;
+            value;
 
-        button.addEventListener("click", () => {
 
-            toggleBullet(
-                bullet,
-                button
-            );
+        button.addEventListener(
+            "click",
+            () => {
 
-        });
+                callback(
+                    value,
+                    button
+                );
 
-        bulletArea.appendChild(button);
+            }
+        );
+
+
+        area.appendChild(button);
 
     });
 
@@ -432,7 +734,49 @@ function createButtons() {
 
 
 /* =========================================
-   属性選択
+   式
+========================================= */
+
+function toggleType(
+    value,
+    button
+) {
+
+    if (
+        selectedTypes.includes(value)
+    ) {
+
+        selectedTypes =
+            selectedTypes.filter(
+                x => x !== value
+            );
+
+
+        button.classList.remove(
+            "selected"
+        );
+
+    } else {
+
+        selectedTypes.push(value);
+
+
+        button.classList.add(
+            "selected"
+        );
+
+    }
+
+
+    updateSelectedInfo();
+
+    search();
+
+}
+
+
+/* =========================================
+   属性
 ========================================= */
 
 function toggleAttribute(
@@ -449,6 +793,7 @@ function toggleAttribute(
                 x => x !== value
             );
 
+
         button.classList.remove(
             "selected"
         );
@@ -457,11 +802,15 @@ function toggleAttribute(
 
         selectedAttributes.push(value);
 
+
         button.classList.add(
             "selected"
         );
 
     }
+
+
+    updateSelectedInfo();
 
     search();
 
@@ -469,7 +818,7 @@ function toggleAttribute(
 
 
 /* =========================================
-   弾種選択
+   弾種
 ========================================= */
 
 function toggleBullet(
@@ -486,6 +835,7 @@ function toggleBullet(
                 x => x !== value
             );
 
+
         button.classList.remove(
             "selected"
         );
@@ -494,11 +844,15 @@ function toggleBullet(
 
         selectedBullets.push(value);
 
+
         button.classList.add(
             "selected"
         );
 
     }
+
+
+    updateSelectedInfo();
 
     search();
 
@@ -506,49 +860,97 @@ function toggleBullet(
 
 
 /* =========================================
-   データ読み込み
+   条件表示
 ========================================= */
 
-async function loadData() {
+function updateSelectedInfo() {
 
-    try {
+    const area =
+        document.getElementById(
+            "selectedInfo"
+        );
 
-        const response =
-            await fetch("data.json");
 
-        if (!response.ok) {
+    const conditions = [];
 
-            throw new Error(
-                "Data.jsonを読み込めませんでした"
-            );
 
-        }
+    if (selectedTypes.length) {
 
-        data =
-            await response.json();
-
-        search();
-
-    } catch (error) {
-
-        console.error(error);
-
-        document.getElementById("results")
-            .innerHTML = `
-
-                <div class="no-result">
-
-                    データの読み込みに失敗しました。<br><br>
-
-                    <small>
-                    Data.json が
-                    Index.html と同じ場所にあるか確認してください。
-                    </small>
-
-                </div>
-            `;
+        conditions.push(
+            "式：" +
+            selectedTypes.join(" / ")
+        );
 
     }
+
+
+    if (selectedAttributes.length) {
+
+        conditions.push(
+            "属性：" +
+            selectedAttributes.join(" / ")
+        );
+
+    }
+
+
+    if (selectedBullets.length) {
+
+        conditions.push(
+            "弾種：" +
+            selectedBullets.join(" / ")
+        );
+
+    }
+
+
+    if (!conditions.length) {
+
+        area.textContent =
+            "条件を選択すると表示されます";
+
+        return;
+
+    }
+
+
+    area.textContent =
+        "選択中：" +
+        conditions.join("　｜　");
+
+}
+
+
+/* =========================================
+   条件判定
+========================================= */
+
+function checkCondition(
+    selected,
+    values
+) {
+
+    if (!selected.length) {
+
+        return true;
+
+    }
+
+
+    if (searchMode === "AND") {
+
+        return selected.every(
+            value =>
+                values.includes(value)
+        );
+
+    }
+
+
+    return selected.some(
+        value =>
+            values.includes(value)
+    );
 
 }
 
@@ -559,8 +961,10 @@ async function loadData() {
 
 function search() {
 
+
     const keyword =
-        document.getElementById("keyword")
+        document
+            .getElementById("keyword")
             .value
             .trim()
             .toLowerCase();
@@ -569,107 +973,116 @@ function search() {
     const results =
         data.filter(item => {
 
-            /* キーワード */
+
+            /* =====================
+               キーワード
+            ===================== */
+
+            const character =
+                String(
+                    item.character || ""
+                ).toLowerCase();
+
+
+            const spell =
+                String(
+                    item.spell || ""
+                ).toLowerCase();
+
 
             const keywordOK =
                 keyword === "" ||
-
-                item.character
-                    .toLowerCase()
-                    .includes(keyword) ||
-
-                item.spell
-                    .toLowerCase()
-                    .includes(keyword);
+                character.includes(keyword) ||
+                spell.includes(keyword);
 
 
             if (!keywordOK) {
+
                 return false;
+
             }
+
+
+            /* =====================
+               式
+            ===================== */
+
+            const itemTypes = [
+                String(
+                    item.type || ""
+                )
+            ];
+
+
+            if (
+                !checkCondition(
+                    selectedTypes,
+                    itemTypes
+                )
+            ) {
+
+                return false;
+
+            }
+
+
+            /* =====================
+               弾幕
+            ===================== */
+
+            const bullets =
+                Array.isArray(item.bullets)
+                    ? item.bullets
+                    : [];
 
 
             /* 属性 */
 
-            let attributeOK = true;
+            const itemAttributes =
+                bullets
+                    .map(
+                        bullet =>
+                            bullet.attribute
+                    )
+                    .filter(Boolean);
 
 
             if (
-                selectedAttributes.length > 0
+                !checkCondition(
+                    selectedAttributes,
+                    itemAttributes
+                )
             ) {
 
-                const itemAttributes =
-                    item.bullets.map(
-                        bullet => bullet.attribute
-                    );
-
-
-                if (searchMode === "AND") {
-
-                    attributeOK =
-                        selectedAttributes.every(
-                            attribute =>
-                                itemAttributes.includes(
-                                    attribute
-                                )
-                        );
-
-                } else {
-
-                    attributeOK =
-                        selectedAttributes.some(
-                            attribute =>
-                                itemAttributes.includes(
-                                    attribute
-                                )
-                        );
-
-                }
+                return false;
 
             }
 
 
             /* 弾種 */
 
-            let bulletOK = true;
+            const itemBulletTypes =
+                bullets
+                    .map(
+                        bullet =>
+                            bullet.bulletType
+                    )
+                    .filter(Boolean);
 
 
             if (
-                selectedBullets.length > 0
+                !checkCondition(
+                    selectedBullets,
+                    itemBulletTypes
+                )
             ) {
 
-                const itemBullets =
-                    item.bullets.map(
-                        bullet =>
-                            bullet.bulletType
-                    );
-
-
-                if (searchMode === "AND") {
-
-                    bulletOK =
-                        selectedBullets.every(
-                            bullet =>
-                                itemBullets.includes(
-                                    bullet
-                                )
-                        );
-
-                } else {
-
-                    bulletOK =
-                        selectedBullets.some(
-                            bullet =>
-                                itemBullets.includes(
-                                    bullet
-                                )
-                        );
-
-                }
+                return false;
 
             }
 
 
-            return attributeOK && bulletOK;
+            return true;
 
         });
 
@@ -686,10 +1099,12 @@ function search() {
 function displayResults(results) {
 
     const area =
-        document.getElementById("results");
+        document.getElementById(
+            "results"
+        );
 
 
-    if (results.length === 0) {
+    if (!results.length) {
 
         area.innerHTML = `
 
@@ -719,31 +1134,43 @@ function displayResults(results) {
 
     results.forEach(item => {
 
+
         const div =
             document.createElement("div");
+
 
         div.className =
             "result";
 
 
+        const bullets =
+            Array.isArray(item.bullets)
+                ? item.bullets
+                : [];
+
+
         const attributes =
             [
                 ...new Set(
-                    item.bullets.map(
-                        bullet =>
-                            bullet.attribute
-                    )
+                    bullets
+                        .map(
+                            bullet =>
+                                bullet.attribute
+                        )
+                        .filter(Boolean)
                 )
             ];
 
 
-        const bullets =
+        const bulletTypes =
             [
                 ...new Set(
-                    item.bullets.map(
-                        bullet =>
-                            bullet.bulletType
-                    )
+                    bullets
+                        .map(
+                            bullet =>
+                                bullet.bulletType
+                        )
+                        .filter(Boolean)
                 )
             ];
 
@@ -752,45 +1179,70 @@ function displayResults(results) {
 
             <div class="character">
 
-                ${escapeHTML(item.character)}
+                ${escapeHTML(
+                    item.character || ""
+                )}
 
             </div>
 
 
             <div class="spell">
 
-                ${escapeHTML(item.spell)}
+                ${escapeHTML(
+                    item.spell || ""
+                )}
 
             </div>
 
 
             <div class="type">
 
-                ${escapeHTML(item.type)}
+                ${escapeHTML(
+                    item.type || ""
+                )}
 
             </div>
 
 
             <div class="tags">
 
+
+                ${
+                    item.type
+                    ?
+                    `
+                    <span class="tag type-tag">
+                        式：${escapeHTML(item.type)}
+                    </span>
+                    `
+                    :
+                    ""
+                }
+
+
                 ${attributes.map(
                     attribute =>
 
-                    `<span class="tag attribute">
+                    `
+                    <span class="tag attribute">
                         属性：${escapeHTML(attribute)}
-                    </span>`
+                    </span>
+                    `
 
                 ).join("")}
 
 
-                ${bullets.map(
+                ${bulletTypes.map(
                     bullet =>
 
-                    `<span class="tag bullet">
+                    `
+                    <span class="tag bullet">
                         ${escapeHTML(bullet)}
-                    </span>`
+                    </span>
+                    `
 
                 ).join("")}
+
 
             </div>
 
@@ -811,17 +1263,37 @@ function displayResults(results) {
 function escapeHTML(text) {
 
     return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 
 }
 
 
 /* =========================================
-   キーワード入力
+   キーワード
 ========================================= */
 
 document
@@ -833,45 +1305,69 @@ document
 
 
 /* =========================================
-   AND / OR
+   AND
 ========================================= */
 
 document
     .getElementById("andButton")
-    .addEventListener("click", () => {
+    .addEventListener(
+        "click",
+        () => {
 
-        searchMode = "AND";
+            searchMode = "AND";
 
-        document
-            .getElementById("andButton")
-            .classList.add("selected");
 
-        document
-            .getElementById("orButton")
-            .classList.remove("selected");
+            document
+                .getElementById("andButton")
+                .classList.add(
+                    "selected"
+                );
 
-        search();
 
-    });
+            document
+                .getElementById("orButton")
+                .classList.remove(
+                    "selected"
+                );
 
+
+            search();
+
+        }
+    );
+
+
+/* =========================================
+   OR
+========================================= */
 
 document
     .getElementById("orButton")
-    .addEventListener("click", () => {
+    .addEventListener(
+        "click",
+        () => {
 
-        searchMode = "OR";
+            searchMode = "OR";
 
-        document
-            .getElementById("orButton")
-            .classList.add("selected");
 
-        document
-            .getElementById("andButton")
-            .classList.remove("selected");
+            document
+                .getElementById("orButton")
+                .classList.add(
+                    "selected"
+                );
 
-        search();
 
-    });
+            document
+                .getElementById("andButton")
+                .classList.remove(
+                    "selected"
+                );
+
+
+            search();
+
+        }
+    );
 
 
 /* =========================================
@@ -880,38 +1376,47 @@ document
 
 document
     .getElementById("resetButton")
-    .addEventListener("click", () => {
-
-        selectedAttributes = [];
-
-        selectedBullets = [];
-
-        document
-            .querySelectorAll(".filter-button")
-            .forEach(button => {
-
-                button.classList.remove(
-                    "selected"
-                );
-
-            });
+    .addEventListener(
+        "click",
+        () => {
 
 
-        document
-            .getElementById("keyword")
-            .value = "";
+            selectedTypes = [];
+
+            selectedAttributes = [];
+
+            selectedBullets = [];
 
 
-        search();
+            document
+                .querySelectorAll(
+                    ".filter-button"
+                )
+                .forEach(button => {
 
-    });
+                    button.classList.remove(
+                        "selected"
+                    );
+
+                });
+
+
+            document
+                .getElementById("keyword")
+                .value = "";
+
+
+            updateSelectedInfo();
+
+            search();
+
+        }
+    );
 
 
 /* =========================================
    起動
 ========================================= */
-
-createButtons();
 
 loadData();
 
