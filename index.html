@@ -478,15 +478,39 @@ let statMode="";
 ========================================================= */
 
 function createBulletStructure(index){
- const b = {
-  index: index, name: "", count: "", pStage: "P0", attr: "", bulletType: "通常弾", kind: "陽気",
-  specials: {}, hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
-  buffs: [], debuffs: []
+
+ const b={
+  index:index,
+
+  name:"",
+  count:"",
+
+  pStage:"P0",
+
+  attr:"",
+  bulletType:"通常弾",
+  kind:"陽気",
+
+  specials:{},
+
+  hardRatio:"",
+  sharpRatio:"",
+  stickyRate:"",
+  impactRate:"",
+  absorbRatio:"",
+  recoilRatio:"",
+  specialTarget:"",
+
+  buffs:[],
+  debuffs:[]
  };
- SPECIALS.forEach(x => { b.specials[x] = false; });
+
+ SPECIALS.forEach(x=>{
+  b.specials[x]=false;
+ });
+
  return b;
 }
-
 let attackData={};
 function resetAttackData(){
  ATTACKS.forEach(([key])=>{
