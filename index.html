@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>東方ロストワード 弾幕検索</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Noto Sans JP",
+        sans-serif;
+
+    background: #f3f4f6;
+    color: #222;
+}
+
+header {
+    background: #242424;
+    color: white;
+    padding: 20px 15px;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+header p {
+    margin: 8px 0 0;
+    font-size: 13px;
+    opacity: 0.8;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    padding: 15px;
+}
+
+.search-box {
+    background: white;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 15px;
+
+    box-shadow:
+        0 2px 8px rgba(0,0,0,0.08);
+}
+
+.section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+.buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.filter-button {
+    border: 1px solid #ccc;
+    background: white;
+    border-radius: 20px;
+    padding: 8px 13px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.filter-button.selected {
+    background: #333;
+    color: white;
+    border-color: #333;
+}
+
+.mode {
+    display: flex;
+    gap: 8px;
+}
+
+.mode button {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: white;
+    border-radius: 8px;
+}
+
+.mode button.selected {
+    background: #333;
+    color: white;
+}
+
+.reset {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #e5e5e5;
+    font-size: 15px;
+}
+
+.result-count {
+    font-weight: bold;
+    margin: 15px 0 10px;
+}
+
+.result {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 10px;
+
+    box-shadow:
+        0 2px 6px rgba(0,0,0,0.06);
+}
+
+.character {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.spell {
+    margin-top: 5px;
+    font-size: 15px;
+}
+
+.type {
+    color: #777;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.tags {
+    margin-top: 10px;
+}
+
+.tag {
+    display: inline-block;
+    background: #eeeeee;
+    border-radius: 5px;
+    padding: 4px 7px;
+    margin: 2px;
+    font-size: 12px;
+}
+
+.attribute {
+    background: #fff1b8;
+}
+
+.bullet {
+    background: #dceeff;
+}
+
+.no-result {
+    text-align: center;
+    color: #777;
+    padding: 30px 10px;
+}
+
+.loading {
+    text-align: center;
+    padding: 30px;
+}
+
+</style>
+</head>
+
+
+<body>
+
+<header>
+
+    <h1>東方ロストワード</h1>
+
+    <p>
+        属性・弾種検索ツール
+    </p>
+
+</header>
+
+
+<div class="container">
+
+    <div class="search-box">
+
+        <!-- キャラ・スペカ検索 -->
+
+        <div class="section">
+
+            <div class="section-title">
+                キャラクター・スペカ検索
+            </div>
+
+            <input
+                id="keyword"
+                class="search-input"
+                type="text"
+                placeholder="キャラ名・スペカ名を入力"
+            >
+
+        </div>
+
+
+        <!-- 属性 -->
+
+        <div class="section">
+
+            <div class="section-title">
+                属性
+            </div>
+
+            <div
+                id="attributeButtons"
+                class="buttons"
+            ></div>
+
+        </div>
+
+
+        <!-- 弾種 -->
+
+        <div class="section">
+
+            <div class="section-title">
+                弾種
+            </div>
+
+            <div
+                id="bulletButtons"
+                class="buttons"
+            ></div>
+
+        </div>
+
+
+        <!-- AND / OR -->
+
+        <div class="section">
+
+            <div class="section-title">
+                複数条件の検索方法
+            </div>
+
+            <div class="mode">
+
+                <button
+                    id="andButton"
+                    class="selected"
+                >
+                    AND
+                </button>
+
+                <button
+                    id="orButton"
+                >
+                    OR
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- リセット -->
+
+        <button
+            id="resetButton"
+            class="reset"
+        >
+            条件をリセット
+        </button>
+
+    </div>
+
+
+    <!-- 検索結果 -->
+
+    <div id="results">
+
+        <div class="loading">
+            データを読み込んでいます……
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =========================================
+   設定
+========================================= */
+
+const attributes = [
+    "日",
+    "月",
+    "火",
+    "水",
+    "木",
+    "金",
+    "土",
+    "星"
+];
+
+
+const bulletTypes = [
+    "通常弾",
+    "光弾",
+    "レーザー弾",
+    "質量弾",
+    "エネルギー弾",
+    "流体弾",
+    "尖弾",
+    "御札弾",
+    "斬撃弾",
+    "肉弾",
+    "ミサイル弾"
+];
+
+
+/* =========================================
+   状態
+========================================= */
+
+let data = [];
+
+let selectedAttributes = [];
+
+let selectedBullets = [];
+
+let searchMode = "AND";
+
+
+/* =========================================
+   ボタン生成
+========================================= */
+
+function createButtons() {
+
+    const attributeArea =
+        document.getElementById("attributeButtons");
+
+    const bulletArea =
+        document.getElementById("bulletButtons");
+
+
+    attributes.forEach(attribute => {
+
+        const button =
+            document.createElement("button");
+
+        button.className =
+            "filter-button";
+
+        button.textContent =
+            attribute;
+
+        button.dataset.value =
+            attribute;
+
+        button.addEventListener("click", () => {
+
+            toggleAttribute(
+                attribute,
+                button
+            );
+
+        });
+
+        attributeArea.appendChild(button);
+
+    });
+
+
+    bulletTypes.forEach(bullet => {
+
+        const button =
+            document.createElement("button");
+
+        button.className =
+            "filter-button";
+
+        button.textContent =
+            bullet;
+
+        button.dataset.value =
+            bullet;
+
+        button.addEventListener("click", () => {
+
+            toggleBullet(
+                bullet,
+                button
+            );
+
+        });
+
+        bulletArea.appendChild(button);
+
+    });
+
+}
+
+
+/* =========================================
+   属性選択
+========================================= */
+
+function toggleAttribute(
+    value,
+    button
+) {
+
+    if (
+        selectedAttributes.includes(value)
+    ) {
+
+        selectedAttributes =
+            selectedAttributes.filter(
+                x => x !== value
+            );
+
+        button.classList.remove(
+            "selected"
+        );
+
+    } else {
+
+        selectedAttributes.push(value);
+
+        button.classList.add(
+            "selected"
+        );
+
+    }
+
+    search();
+
+}
+
+
+/* =========================================
+   弾種選択
+========================================= */
+
+function toggleBullet(
+    value,
+    button
+) {
+
+    if (
+        selectedBullets.includes(value)
+    ) {
+
+        selectedBullets =
+            selectedBullets.filter(
+                x => x !== value
+            );
+
+        button.classList.remove(
+            "selected"
+        );
+
+    } else {
+
+        selectedBullets.push(value);
+
+        button.classList.add(
+            "selected"
+        );
+
+    }
+
+    search();
+
+}
+
+
+/* =========================================
+   データ読み込み
+========================================= */
+
+async function loadData() {
+
+    try {
+
+        const response =
+            await fetch("data.json");
+
+        if (!response.ok) {
+
+            throw new Error(
+                "data.jsonを読み込めませんでした"
+            );
+
+        }
+
+        data =
+            await response.json();
+
+        search();
+
+    } catch (error) {
+
+        console.error(error);
+
+        document.getElementById("results")
+            .innerHTML = `
+
+                <div class="no-result">
+
+                    データの読み込みに失敗しました。<br><br>
+
+                    <small>
+                    data.json が
+                    index.html と同じ場所にあるか確認してください。
+                    </small>
+
+                </div>
+            `;
+
+    }
+
+}
+
+
+/* =========================================
+   検索
+========================================= */
+
+function search() {
+
+    const keyword =
+        document.getElementById("keyword")
+            .value
+            .trim()
+            .toLowerCase();
+
+
+    const results =
+        data.filter(item => {
+
+            /* キーワード */
+
+            const keywordOK =
+                keyword === "" ||
+
+                item.character
+                    .toLowerCase()
+                    .includes(keyword) ||
+
+                item.spell
+                    .toLowerCase()
+                    .includes(keyword);
+
+
+            if (!keywordOK) {
+                return false;
+            }
+
+
+            /* 属性 */
+
+            let attributeOK = true;
+
+
+            if (
+                selectedAttributes.length > 0
+            ) {
+
+                const itemAttributes =
+                    item.bullets.map(
+                        bullet => bullet.attribute
+                    );
+
+
+                if (searchMode === "AND") {
+
+                    attributeOK =
+                        selectedAttributes.every(
+                            attribute =>
+                                itemAttributes.includes(
+                                    attribute
+                                )
+                        );
+
+                } else {
+
+                    attributeOK =
+                        selectedAttributes.some(
+                            attribute =>
+                                itemAttributes.includes(
+                                    attribute
+                                )
+                        );
+
+                }
+
+            }
+
+
+            /* 弾種 */
+
+            let bulletOK = true;
+
+
+            if (
+                selectedBullets.length > 0
+            ) {
+
+                const itemBullets =
+                    item.bullets.map(
+                        bullet =>
+                            bullet.bulletType
+                    );
+
+
+                if (searchMode === "AND") {
+
+                    bulletOK =
+                        selectedBullets.every(
+                            bullet =>
+                                itemBullets.includes(
+                                    bullet
+                                )
+                        );
+
+                } else {
+
+                    bulletOK =
+                        selectedBullets.some(
+                            bullet =>
+                                itemBullets.includes(
+                                    bullet
+                                )
+                        );
+
+                }
+
+            }
+
+
+            return attributeOK && bulletOK;
+
+        });
+
+
+    displayResults(results);
+
+}
+
+
+/* =========================================
+   結果表示
+========================================= */
+
+function displayResults(results) {
+
+    const area =
+        document.getElementById("results");
+
+
+    if (results.length === 0) {
+
+        area.innerHTML = `
+
+            <div class="no-result">
+
+                該当するスペカ・ショットがありません。
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    area.innerHTML = `
+
+        <div class="result-count">
+
+            ${results.length}件
+
+        </div>
+
+    `;
+
+
+    results.forEach(item => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "result";
+
+
+        const attributes =
+            [
+                ...new Set(
+                    item.bullets.map(
+                        bullet =>
+                            bullet.attribute
+                    )
+                )
+            ];
+
+
+        const bullets =
+            [
+                ...new Set(
+                    item.bullets.map(
+                        bullet =>
+                            bullet.bulletType
+                    )
+                )
+            ];
+
+
+        div.innerHTML = `
+
+            <div class="character">
+
+                ${escapeHTML(item.character)}
+
+            </div>
+
+
+            <div class="spell">
+
+                ${escapeHTML(item.spell)}
+
+            </div>
+
+
+            <div class="type">
+
+                ${escapeHTML(item.type)}
+
+            </div>
+
+
+            <div class="tags">
+
+                ${attributes.map(
+                    attribute =>
+
+                    `<span class="tag attribute">
+                        属性：${escapeHTML(attribute)}
+                    </span>`
+
+                ).join("")}
+
+
+                ${bullets.map(
+                    bullet =>
+
+                    `<span class="tag bullet">
+                        ${escapeHTML(bullet)}
+                    </span>`
+
+                ).join("")}
+
+            </div>
+
+        `;
+
+
+        area.appendChild(div);
+
+    });
+
+}
+
+
+/* =========================================
+   HTMLエスケープ
+========================================= */
+
+function escapeHTML(text) {
+
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+}
+
+
+/* =========================================
+   キーワード入力
+========================================= */
+
+document
+    .getElementById("keyword")
+    .addEventListener(
+        "input",
+        search
+    );
+
+
+/* =========================================
+   AND / OR
+========================================= */
+
+document
+    .getElementById("andButton")
+    .addEventListener("click", () => {
+
+        searchMode = "AND";
+
+        document
+            .getElementById("andButton")
+            .classList.add("selected");
+
+        document
+            .getElementById("orButton")
+            .classList.remove("selected");
+
+        search();
+
+    });
+
+
+document
+    .getElementById("orButton")
+    .addEventListener("click", () => {
+
+        searchMode = "OR";
+
+        document
+            .getElementById("orButton")
+            .classList.add("selected");
+
+        document
+            .getElementById("andButton")
+            .classList.remove("selected");
+
+        search();
+
+    });
+
+
+/* =========================================
+   リセット
+========================================= */
+
+document
+    .getElementById("resetButton")
+    .addEventListener("click", () => {
+
+        selectedAttributes = [];
+
+        selectedBullets = [];
+
+        document
+            .querySelectorAll(".filter-button")
+            .forEach(button => {
+
+                button.classList.remove(
+                    "selected"
+                );
+
+            });
+
+
+        document
+            .getElementById("keyword")
+            .value = "";
+
+
+        search();
+
+    });
+
+
+/* =========================================
+   起動
+========================================= */
+
+createButtons();
+
+loadData();
+
+</script>
+
+</body>
+</html>
