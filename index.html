@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>東方LostWord キャラクター検索ツール</title>
+<title>東方ロストワード 弾幕検索</title>
 
 <style>
 *{box-sizing:border-box}
@@ -198,8 +198,8 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
 <body>
 
 <header>
-<h1>東方LostWord</h1>
-<p>キャラクター検索ツール</p>
+<h1>東方ロストワード</h1>
+<p>弾幕・スペルカード検索ツール</p>
 </header>
 
 <div class="container">
@@ -216,7 +216,7 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
 <div class="box">
 
 <div class="section">
-<div class="title">キャラクターorスペルカード検索</div>
+<div class="title">キャラクター・スペカ検索</div>
 <input id="q" class="input" placeholder="キャラ名・スペカ名">
 </div>
 
@@ -515,6 +515,8 @@ const specialData={};
 SPECIAL_SKILLS.forEach(x=>{
  if(x==="RANKⅡバフ" || x==="RANKⅡデバフ"){
   specialData[x]={ enabled:false, list:[] };
+ }else if(x==="ダメージダウン"){
+  specialData[x]={ enabled:false, list:[] };
  }else{
   specialData[x]={ enabled:false };
  }
@@ -805,20 +807,9 @@ function buildSpecialDetail(skill, e){
    break;
 
   case "ダメージダウン":
-   e.innerHTML=`
-    <select class="select" data-damage-down-kind>
-     <option value="">特防種類</option>
-     ${["属性特防","弾特防","種族特防"].map(x=>`<option ${d.kind===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <div style="margin-top:6px">
-     ${
-       d.kind === "属性特防" ? `<select class="select" data-damage-down-target><option value="">対象属性</option>${ATTR.map(x=>`<option ${d.target===x?"selected":""}>${x}</option>`).join("")}</select>` :
-       d.kind === "弾特防" ? `<select class="select" data-damage-down-target><option value="">対象弾種</option>${BULLETS.map(x=>`<option ${d.target===x?"selected":""}>${x}</option>`).join("")}</select>` :
-       d.kind === "種族特防" ? `<input class="input" placeholder="対象種族名" data-damage-down-target value="${esc(d.target||"")}">` : ""
-     }
-    </div>
-    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
+   if(!d.list) d.list = [];
+   if(d.list.length === 0) d.list.push({ kind:"", target:"", ratio:"" });
+   renderDamageDownList(e);
    break;
 
   default:
@@ -871,6 +862,56 @@ function updateRank2Item(skill, idx, key, value){
  }
 }
 
+function renderDamageDownList(container){
+ const d = specialData["ダメージダウン"];
+ let html = "";
+ d.list.forEach((item, idx)=>{
+  html += `
+   <div class="rank-item">
+    ${d.list.length > 1 ? `<button type="button" class="btn-del" onclick="removeDamageDownItem(${idx})">削除</button>` : ""}
+    <div class="mini">特防種類</div>
+    <select class="select" onchange="updateDamageDownItem(${idx}, 'kind', this.value)">
+     <option value="">選択してください</option>
+     ${["属性特防","弾特防","種族特防"].map(x=>`<option ${item.kind===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <div style="margin-top:6px">
+     ${
+       item.kind === "属性特防" ? `<select class="select" onchange="updateDamageDownItem(${idx}, 'target', this.value)"><option value="">対象属性</option>${ATTR.map(x=>`<option ${item.target===x?"selected":""}>${x}</option>`).join("")}</select>` :
+       item.kind === "弾特防" ? `<select class="select" onchange="updateDamageDownItem(${idx}, 'target', this.value)"><option value="">対象弾種</option>${BULLETS.map(x=>`<option ${item.target===x?"selected":""}>${x}</option>`).join("")}</select>` :
+       item.kind === "種族特防" ? `<input class="input" placeholder="対象種族名" value="${esc(item.target||"")}" oninput="updateDamageDownItem(${idx}, 'target', this.value)">` : ""
+     }
+    </div>
+    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" value="${esc(item.ratio||"")}" oninput="updateDamageDownItem(${idx}, 'ratio', this.value)">
+   </div>
+  `;
+ });
+ html += `<button type="button" class="btn-add" onclick="addDamageDownItem()">＋ 設定を追加する</button>`;
+ container.innerHTML = html;
+}
+
+function addDamageDownItem(){
+ specialData["ダメージダウン"].list.push({ kind:"", target:"", ratio:"" });
+ const detail = document.getElementById("sd-ダメージダウン");
+ renderDamageDownList(detail);
+}
+
+function removeDamageDownItem(idx){
+ specialData["ダメージダウン"].list.splice(idx, 1);
+ const detail = document.getElementById("sd-ダメージダウン");
+ renderDamageDownList(detail);
+}
+
+function updateDamageDownItem(idx, key, value){
+ if(specialData["ダメージダウン"].list[idx]){
+  specialData["ダメージダウン"].list[idx][key] = value;
+  if(key === "kind"){
+   specialData["ダメージダウン"].list[idx].target = "";
+   const detail = document.getElementById("sd-ダメージダウン");
+   renderDamageDownList(detail);
+  }
+ }
+}
+
 function bindSpecialInputs(skill,e){
  e.querySelectorAll("input,select").forEach(el=>{
   el.oninput=()=>saveSpecialField(skill,el,e);
@@ -907,8 +948,6 @@ function saveSpecialField(skill,el,e){
  if(el.dataset.reverseUpRatio!==undefined) d.upRatio=el.value;
  if(el.dataset.reverseDownStat!==undefined) d.downStat=el.value;
  if(el.dataset.reverseDownRatio!==undefined) d.downRatio=el.value;
- if(el.dataset.damageDownKind!==undefined) { d.kind=el.value; buildSpecialDetail(skill,e); }
- if(el.dataset.damageDownTarget!==undefined) d.target=el.value;
  if(el.dataset.accumFromStat!==undefined) d.fromStat=el.value;
  if(el.dataset.accumToStat!==undefined) d.toStat=el.value;
 }
