@@ -612,6 +612,22 @@ function buildSpecialDetail(skill, e){
    break;
 
   case "蓄積":
+   e.innerHTML=`
+    <div class="mini">参照するステータス</div>
+    <select class="select" data-accum-from-stat>
+     <option value="">参照元を選択</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.fromStat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <div class="mini" style="margin-top:6px">参照倍率 %</div>
+    <input class="input" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
+    <div class="mini" style="margin-top:6px">上乗せするステータス</div>
+    <select class="select" data-accum-to-stat>
+     <option value="">加算先を選択</option>
+     ${STAT_TYPES_SHORT.map(x=>`<option ${d.toStat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+   `;
+   break;
+
   case "バディコネクト":
    e.innerHTML=`
     <select class="select" data-stat-target>
@@ -815,6 +831,8 @@ function saveSpecialField(skill,el,e){
  if(el.dataset.reverseDownRatio!==undefined) d.downRatio=el.value;
  if(el.dataset.damageDownKind!==undefined) { d.kind=el.value; buildSpecialDetail(skill,e); }
  if(el.dataset.damageDownTarget!==undefined) d.target=el.value;
+ if(el.dataset.accumFromStat!==undefined) d.fromStat=el.value;
+ if(el.dataset.accumToStat!==undefined) d.toStat=el.value;
 }
 
 /* =========================================================
