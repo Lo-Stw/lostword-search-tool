@@ -1308,6 +1308,10 @@ function search(){
    結果描写
 ========================================================= */
 
+/* =========================================================
+   結果描写（修正版）
+========================================================= */
+
 function renderResults(arr){
  const e=document.getElementById("results");
  if(!arr.length){
@@ -1319,6 +1323,59 @@ function renderResults(arr){
  arr.forEach(c=>{
   let h=`
    <div class="result">
+   <div class="char">${esc(c.character)}</div>
+   <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
+  `;
+
+  // 【修正】c.details.stats または c.stats からステータスを取得
+  const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
+  
+  const statMap = {
+   総合つよさ: s.power,
+   体力: s.hp,
+   速力: s.speed,
+   陽攻: s.yangAtk,
+   陰攻: s.yinAtk,
+   陽防: s.yangDef,
+   陰防: s.yinDef
+  };
+
+  const statTags = Object.entries(statMap)
+   .filter(([_, val]) => val !== undefined && val !== null && val !== "")
+   .map(([label, val]) => `<span class="tag">${label}：${esc(val)}</span>`)
+   .join("");
+
+  if(statTags){
+   h += `<div style="margin: 6px 0;">${statTags}</div>`;
+  }
+
+  const details=c.details||{};
+  const ss=details.specialSkills||details.skills||{};
+  h+=`
+   <div>
+    ${SPECIAL_SKILLS.filter(x=>ss[x]?.enabled).map(x=>`<span class="tag">${x}</span>`).join("")}
+   </div>
+  `;
+
+  Object.entries(c.attacks||{}).forEach(([k,a])=>{
+   const label=ATTACKS.find(x=>x[0]===k)?.[1]||k;
+   if(!a.name)return;
+   h+=`
+    <div class="attack">
+     <h4>${label} <span class="tag">${esc(a.range)}</span></h4>
+     <div>${esc(a.name)}</div>
+     ${(a.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
+     ${(a.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
+     ${Object.keys(a.specials||{}).filter(x=>a.specials[x]).map(x=>`<span class="tag">${x}</span>`).join("")}
+    </div>
+   `;
+  });
+
+  h+="</div>";
+  e.insertAdjacentHTML("beforeend", h);
+ });
+}
+
    <div class="char">${esc(c.character)}</div>
    <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
   `;
