@@ -1,0 +1,60 @@
+[
+  {
+    "character": "霧雨魔理沙",
+    "spell": "恋符「マスタースパーク」",
+    "type": "スペルカード1",
+    "bullets": [
+      {
+        "boost": 0,
+        "attribute": "星",
+        "bulletType": "レーザー弾"
+      },
+      {
+        "boost": 1,
+        "attribute": "星",
+        "bulletType": "レーザー弾"
+      }
+    ]
+  },
+  {
+    "character": "チルノ",
+    "spell": "氷符「アイシクルフォール」",
+    "type": "スペルカード1",
+    "bullets": [
+      {
+        "boost": 0,
+        "attribute": "水",
+        "bulletType": "流体弾"
+      }
+    ]
+  },
+  {
+    "character": "博麗霊夢",
+    "spell": "霊符「夢想妙珠」",
+    "type": "スペルカード1",
+    "bullets": [
+      {
+        "boost": 0,
+        "attribute": "日",
+        "bulletType": "御札弾"
+      }
+    ]
+  },
+  {
+    "character": "レミリア・スカーレット",
+    "spell": "神槍「スピア・ザ・グングニル」",
+    "type": "スペルカード1",
+    "bullets": [
+      {
+        "boost": 0,
+        "attribute": "火",
+        "bulletType": "尖弾"
+      },
+      {
+        "boost": 1,
+        "attribute": "月",
+        "bulletType": "尖弾"
+      }
+    ]
+  }
+]
