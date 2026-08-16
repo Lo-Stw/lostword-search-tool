@@ -7,7 +7,6 @@
 <title>東方ロストワード 弾幕検索</title>
 
 <style>
-
 * {
     box-sizing: border-box;
 }
@@ -19,7 +18,6 @@ body {
         BlinkMacSystemFont,
         "Noto Sans JP",
         sans-serif;
-
     background: #f3f4f6;
     color: #222;
 }
@@ -33,24 +31,20 @@ header {
 
 header h1 {
     margin: 0;
-    font-size: 21px;
+    font-size: 22px;
 }
 
 header p {
-    margin: 6px 0 0;
-    font-size: 12px;
+    margin: 7px 0 0;
+    font-size: 13px;
     opacity: .75;
 }
 
 .container {
-    max-width: 800px;
+    max-width: 850px;
     margin: auto;
-    padding: 12px;
+    padding: 10px;
 }
-
-/* =========================
-   タブ
-========================= */
 
 .tabs {
     display: flex;
@@ -61,13 +55,12 @@ header p {
 .tab {
     flex: 1;
     border: none;
+    background: white;
     border-radius: 12px;
     padding: 13px 8px;
-    background: white;
     font-size: 14px;
     font-weight: bold;
-    color: #555;
-    box-shadow: 0 2px 6px rgba(0,0,0,.06);
+    color: #666;
 }
 
 .tab.active {
@@ -75,56 +68,33 @@ header p {
     color: white;
 }
 
-/* =========================
-   ボックス
-========================= */
-
 .box {
     background: white;
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 15px;
+    padding: 15px;
     margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,.07);
 }
 
 .section {
-    margin-bottom: 20px;
-}
-
-.section:last-child {
-    margin-bottom: 0;
+    margin-bottom: 18px;
 }
 
 .title {
     font-size: 15px;
     font-weight: bold;
-    margin-bottom: 9px;
+    margin-bottom: 8px;
 }
-
-/* =========================
-   入力
-========================= */
 
 .input,
 .select {
     width: 100%;
     padding: 12px;
     border: 1px solid #ccc;
-    border-radius: 10px;
+    border-radius: 9px;
     background: #fafafa;
     font-size: 16px;
-    outline: none;
 }
-
-.input:focus,
-.select:focus {
-    border-color: #555;
-    background: white;
-}
-
-/* =========================
-   ボタン
-========================= */
 
 .buttons {
     display: flex;
@@ -136,7 +106,7 @@ header p {
     border: 1px solid #ccc;
     background: white;
     border-radius: 20px;
-    padding: 8px 13px;
+    padding: 8px 12px;
     font-size: 13px;
 }
 
@@ -146,10 +116,6 @@ header p {
     border-color: #333;
 }
 
-/* =========================
-   検索
-========================= */
-
 .mode {
     display: flex;
     gap: 8px;
@@ -157,11 +123,10 @@ header p {
 
 .mode button {
     flex: 1;
-    padding: 11px;
+    padding: 10px;
     border: 1px solid #ccc;
-    border-radius: 9px;
     background: white;
-    font-size: 14px;
+    border-radius: 8px;
 }
 
 .mode button.selected {
@@ -169,19 +134,16 @@ header p {
     color: white;
 }
 
-.reset,
 .main-button,
-.secondary-button {
+.secondary-button,
+.reset-button,
+.danger-button {
     width: 100%;
     padding: 12px;
     border: none;
-    border-radius: 10px;
+    border-radius: 9px;
     font-size: 15px;
     font-weight: bold;
-}
-
-.reset {
-    background: #e7e7e7;
 }
 
 .main-button {
@@ -194,9 +156,14 @@ header p {
     color: #333;
 }
 
-/* =========================
-   検索結果
-========================= */
+.reset-button {
+    background: #e5e5e5;
+}
+
+.danger-button {
+    background: #ffe2e2;
+    color: #a00000;
+}
 
 .result-count {
     font-weight: bold;
@@ -205,7 +172,7 @@ header p {
 
 .result {
     background: white;
-    border-radius: 14px;
+    border-radius: 13px;
     padding: 15px;
     margin-bottom: 10px;
     box-shadow: 0 2px 6px rgba(0,0,0,.06);
@@ -216,31 +183,53 @@ header p {
     font-weight: bold;
 }
 
-.spell {
-    margin-top: 5px;
-    font-size: 15px;
-}
-
-.type {
-    margin-top: 5px;
+.symbol {
     color: #777;
     font-size: 13px;
+    margin-top: 3px;
 }
 
-.tags {
-    margin-top: 9px;
+.type-tag {
+    display: inline-block;
+    background: #e8ddff;
+    padding: 4px 7px;
+    border-radius: 5px;
+    font-size: 12px;
+    margin-top: 7px;
+}
+
+.attack-card {
+    margin-top: 12px;
+    background: #f6f6f6;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.attack-name {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.range {
+    display: inline-block;
+    background: #ddd;
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 11px;
+    margin-left: 5px;
+}
+
+.spell-name {
+    margin-top: 5px;
+    font-size: 14px;
 }
 
 .tag {
     display: inline-block;
-    border-radius: 6px;
-    padding: 5px 8px;
-    margin: 2px;
+    padding: 4px 7px;
+    margin: 3px 2px;
+    border-radius: 5px;
     font-size: 12px;
-}
-
-.type-tag {
-    background: #e8ddff;
 }
 
 .attribute {
@@ -251,31 +240,30 @@ header p {
     background: #dceeff;
 }
 
-/* =========================
-   弾幕入力
-========================= */
-
-.bullet-card {
+.attack-editor {
     background: #f5f5f5;
     border-radius: 12px;
     padding: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
-.bullet-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+.attack-editor-title {
     font-weight: bold;
+    margin-bottom: 10px;
 }
 
-.remove-button {
-    border: none;
-    background: #ddd;
-    border-radius: 7px;
-    padding: 6px 9px;
-    color: #555;
+.bullet-editor {
+    background: white;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+}
+
+.bullet-title {
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 8px;
 }
 
 .two-column {
@@ -294,57 +282,67 @@ header p {
     margin-bottom: 5px;
 }
 
-/* =========================
-   作成データ
-========================= */
+.remove-button {
+    border: none;
+    background: #ddd;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    float: right;
+}
 
-.preview {
-    background: #f7f7f7;
-    border-radius: 10px;
-    padding: 12px;
+.message {
     margin-top: 12px;
+    padding: 11px;
+    border-radius: 9px;
     font-size: 13px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
 }
 
 .success {
-    background: #e6f7e9;
+    background: #e5f7e8;
     color: #216b2c;
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 12px;
-    font-size: 13px;
 }
 
-/* =========================
-   非表示
-========================= */
+.error {
+    background: #ffe5e5;
+    color: #8b2222;
+}
+
+.loading {
+    text-align: center;
+    padding: 30px;
+    color: #777;
+}
+
+.empty {
+    text-align: center;
+    padding: 30px;
+    color: #777;
+}
 
 .hidden {
     display: none;
 }
 
-/* =========================
-   スマホ
-========================= */
+hr {
+    border: 0;
+    border-top: 1px solid #ddd;
+    margin: 15px 0;
+}
 
-@media (max-width: 480px) {
-
+@media(max-width:480px) {
     .container {
-        padding: 9px;
+        padding: 7px;
     }
 
     .box {
-        padding: 14px;
+        padding: 13px;
     }
 
     .two-column {
         flex-direction: column;
     }
-
 }
-
 </style>
 </head>
 
@@ -352,17 +350,12 @@ header p {
 
 <header>
     <h1>東方ロストワード</h1>
-    <p>弾幕検索ツール</p>
+    <p>弾幕・スペカ検索ツール</p>
 </header>
 
 <div class="container">
 
-    <!-- =========================
-         タブ
-    ========================== -->
-
     <div class="tabs">
-
         <button
             id="searchTab"
             class="tab active"
@@ -378,73 +371,57 @@ header p {
         >
             ➕ キャラ追加
         </button>
-
     </div>
 
 
-    <!-- ==================================================
+    <!-- =========================
          検索ページ
-    =================================================== -->
+    ========================== -->
 
     <div id="searchPage">
 
         <div class="box">
 
             <div class="section">
-
                 <div class="title">
-                    キャラクター・スペカ検索
+                    キャラクター・汎異記号・スペカ検索
                 </div>
 
                 <input
                     id="keyword"
                     class="input"
-                    type="text"
-                    placeholder="キャラ名・スペカ名を入力"
+                    placeholder="キャラ名・汎異記号・スペカ名"
                 >
-
             </div>
 
 
             <div class="section">
-
-                <div class="title">
-                    式
-                </div>
-
-                <div
-                    id="typeButtons"
-                    class="buttons"
-                ></div>
-
+                <div class="title">式</div>
+                <div id="typeButtons" class="buttons"></div>
             </div>
 
 
             <div class="section">
-
-                <div class="title">
-                    属性
-                </div>
-
-                <div
-                    id="attributeButtons"
-                    class="buttons"
-                ></div>
-
+                <div class="title">攻撃種</div>
+                <div id="attackButtons" class="buttons"></div>
             </div>
 
 
             <div class="section">
+                <div class="title">全体・単体</div>
+                <div id="rangeButtons" class="buttons"></div>
+            </div>
 
-                <div class="title">
-                    弾種
-                </div>
 
-                <div
-                    id="bulletButtons"
-                    class="buttons"
-                ></div>
+            <div class="section">
+                <div class="title">属性</div>
+                <div id="attributeButtons" class="buttons"></div>
+            </div>
 
+
+            <div class="section">
+                <div class="title">弾種</div>
+                <div id="bulletButtons" class="buttons"></div>
             </div>
 
 
@@ -463,9 +440,7 @@ header p {
                         AND
                     </button>
 
-                    <button
-                        id="orButton"
-                    >
+                    <button id="orButton">
                         OR
                     </button>
 
@@ -476,7 +451,7 @@ header p {
 
             <button
                 id="resetButton"
-                class="reset"
+                class="reset-button"
             >
                 条件をリセット
             </button>
@@ -485,19 +460,17 @@ header p {
 
 
         <div id="results">
-
-            <div style="text-align:center;padding:30px">
+            <div class="loading">
                 データを読み込んでいます……
             </div>
-
         </div>
 
     </div>
 
 
-    <!-- ==================================================
+    <!-- =========================
          キャラ追加ページ
-    =================================================== -->
+    ========================== -->
 
     <div
         id="addPage"
@@ -515,7 +488,6 @@ header p {
                 <input
                     id="addCharacter"
                     class="input"
-                    type="text"
                     placeholder="例：霧雨魔理沙"
                 >
 
@@ -525,14 +497,13 @@ header p {
             <div class="section">
 
                 <div class="title">
-                    スペカ名
+                    汎異記号
                 </div>
 
                 <input
-                    id="addSpell"
+                    id="addSymbol"
                     class="input"
-                    type="text"
-                    placeholder="例：恋符「マスタースパーク」"
+                    placeholder="例：A6"
                 >
 
             </div>
@@ -544,17 +515,52 @@ header p {
                     式
                 </div>
 
-                <input
+                <select
                     id="addType"
-                    class="input"
-                    type="text"
-                    list="typeList"
-                    placeholder="例：スペルカード1"
+                    class="select"
                 >
 
-                <datalist id="typeList"></datalist>
+                    <option value="">
+                        式を選択してください
+                    </option>
+
+                    <option>攻撃式</option>
+                    <option>技巧式</option>
+                    <option>速攻式</option>
+                    <option>破壊式</option>
+                    <option>防御式</option>
+                    <option>支援式</option>
+                    <option>回復式</option>
+                    <option>妨害式</option>
+
+                </select>
 
             </div>
+
+        </div>
+
+
+        <div class="box">
+
+            <div class="title">
+                ショット・スペルカード
+            </div>
+
+            <div id="attackEditors"></div>
+
+        </div>
+
+
+        <div class="box">
+
+            <button
+                class="main-button"
+                onclick="saveCharacter()"
+            >
+                ☁️ Supabaseに保存
+            </button>
+
+            <div id="addMessage"></div>
 
         </div>
 
@@ -562,323 +568,1654 @@ header p {
 
 </div>
 
+
 <script>
 
+/* ==================================================
+   Supabase設定
+================================================== */
+
+const SUPABASE_URL =
+    "https://tuzeswyyprzudnznalue.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
+
+const TABLE =
+    "characters";
+
+
+/* ==================================================
+   固定設定
+================================================== */
+
+const attackDefinitions = [
+
+    {
+        key: "spread",
+        label: "拡散ショット"
+    },
+
+    {
+        key: "focus",
+        label: "集中ショット"
+    },
+
+    {
+        key: "spell1",
+        label: "スペルカード1"
+    },
+
+    {
+        key: "spell2",
+        label: "スペルカード2"
+    },
+
+    {
+        key: "lastWord",
+        label: "ラストワード"
+    }
+
+];
+
+
+const types = [
+    "攻撃式",
+    "技巧式",
+    "速攻式",
+    "破壊式",
+    "防御式",
+    "支援式",
+    "回復式",
+    "妨害式"
+];
+
+
+const ranges = [
+    "全体",
+    "単体"
+];
+
+
+const attributes = [
+    "日",
+    "月",
+    "火",
+    "水",
+    "木",
+    "金",
+    "土",
+    "星"
+];
+
+
+const bulletTypes = [
+    "通常弾",
+    "光弾",
+    "レーザー弾",
+    "質量弾",
+    "エネルギー弾",
+    "流体弾",
+    "尖弾",
+    "御札弾",
+    "斬撃弾",
+    "肉弾",
+    "ミサイル弾"
+];
+
+
+/* ==================================================
+   状態
+================================================== */
+
 let data = [];
+
 let selectedTypes = [];
+let selectedAttacks = [];
+let selectedRanges = [];
 let selectedAttributes = [];
 let selectedBullets = [];
-let isAndMode = true;
 
-loadData();
+let searchMode = "AND";
+
+
+/* ==================================================
+   新規キャラ
+================================================== */
+
+function createEmptyAttacks() {
+
+    const result = {};
+
+    attackDefinitions.forEach(attack => {
+
+        result[attack.key] = {
+
+            name: attack.label,
+
+            range:
+                attack.key === "focus" ||
+                attack.key === "spell2"
+                    ? "単体"
+                    : "全体",
+
+            bullets: []
+
+        };
+
+    });
+
+    return result;
+
+}
+
+
+let newAttacks =
+    createEmptyAttacks();
+
+
+/* ==================================================
+   ページ切替
+================================================== */
+
+function showPage(page) {
+
+    const searchPage =
+        document.getElementById("searchPage");
+
+    const addPage =
+        document.getElementById("addPage");
+
+    const searchTab =
+        document.getElementById("searchTab");
+
+    const addTab =
+        document.getElementById("addTab");
+
+
+    if(page === "search") {
+
+        searchPage.classList.remove("hidden");
+        addPage.classList.add("hidden");
+
+        searchTab.classList.add("active");
+        addTab.classList.remove("active");
+
+        loadData();
+
+    } else {
+
+        searchPage.classList.add("hidden");
+        addPage.classList.remove("hidden");
+
+        searchTab.classList.remove("active");
+        addTab.classList.add("active");
+
+        renderAttackEditors();
+
+    }
+
+}
+
+
+/* ==================================================
+   Supabaseから取得
+================================================== */
 
 async function loadData() {
 
-    const resultsArea =
+    const area =
         document.getElementById("results");
+
+
+    area.innerHTML = `
+        <div class="loading">
+            データを読み込んでいます……
+        </div>
+    `;
+
 
     try {
 
-        resultsArea.innerHTML = `
-            <div class="result">
-                データを読み込んでいます……
-            </div>
-        `;
+        const response =
+            await fetch(
+                SUPABASE_URL +
+                "/rest/v1/" +
+                TABLE +
+                "?select=*",
+                {
+                    method: "GET",
 
-        const response = await fetch(
-            "./data.json?" + Date.now()
-        );
+                    headers: {
+                        "apikey":
+                            SUPABASE_KEY,
 
-        if (!response.ok) {
-            throw new Error(
-                "HTTP " + response.status
+                        "Authorization":
+                            "Bearer " +
+                            SUPABASE_KEY
+                    }
+                }
             );
+
+
+        const text =
+            await response.text();
+
+
+        if(!response.ok) {
+
+            throw new Error(
+                text
+            );
+
         }
 
-        const text = await response.text();
 
-        if (!text.trim()) {
-            throw new Error(
-                "data.jsonが空です"
-            );
-        }
+        data =
+            JSON.parse(text);
 
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            throw new Error(
-                "data.jsonのJSON形式が正しくありません"
-            );
-        }
 
-        if (!Array.isArray(data)) {
-            throw new Error(
-                "data.jsonの先頭は [ ] にしてください"
-            );
-        }
-
-        createFilterButtons();
-        updateDataPreview();
-        updateTypeList();
+        createSearchButtons();
 
         search();
 
-    } catch (error) {
+
+    } catch(error) {
 
         console.error(error);
 
-        resultsArea.innerHTML = `
+
+        area.innerHTML = `
+
             <div class="result">
 
                 <div class="character">
-                    ⚠️ データを読み込めませんでした
+                    ⚠️ データ読み込みエラー
                 </div>
 
                 <br>
 
-                <div>
-                    ${escapeHTML(error.message)}
-                </div>
-
-                <br>
-
-                <small>
-                    data.jsonがindex.htmlと同じ場所にあるか確認してください。
-                </small>
+                ${escapeHTML(
+                    error.message
+                )}
 
             </div>
+
         `;
 
     }
 
 }
 
-function escapeHTML(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+
+/* ==================================================
+   検索ボタン生成
+================================================== */
+
+function createSearchButtons() {
+
+    createButtons(
+        "typeButtons",
+        types,
+        selectedTypes,
+        toggleType
+    );
+
+
+    createButtons(
+        "attackButtons",
+        attackDefinitions.map(
+            x => x.label
+        ),
+        selectedAttacks,
+        toggleAttack
+    );
+
+
+    createButtons(
+        "rangeButtons",
+        ranges,
+        selectedRanges,
+        toggleRange
+    );
+
+
+    createButtons(
+        "attributeButtons",
+        attributes,
+        selectedAttributes,
+        toggleAttribute
+    );
+
+
+    createButtons(
+        "bulletButtons",
+        bulletTypes,
+        selectedBullets,
+        toggleBullet
+    );
+
 }
 
-function createFilterButtons() {
 
-    const types = [... new Set(data.map(item => item.type))];
-    const attributes = [... new Set(data.map(item => item.attribute))];
-    const bullets = [... new Set(data.map(item => item.bullet))];
+function createButtons(
+    id,
+    values,
+    selected,
+    callback
+) {
 
-    const typeButtons = document.getElementById("typeButtons");
-    typeButtons.innerHTML = types.map(type => `
-        <button class="filter-button" onclick="toggleFilter('type', '${escapeHTML(type)}')">
-            ${escapeHTML(type)}
-        </button>
-    `).join("");
+    const area =
+        document.getElementById(id);
 
-    const attributeButtons = document.getElementById("attributeButtons");
-    attributeButtons.innerHTML = attributes.map(attr => `
-        <button class="filter-button" onclick="toggleFilter('attribute', '${escapeHTML(attr)}')">
-            ${escapeHTML(attr)}
-        </button>
-    `).join("");
+    area.innerHTML = "";
 
-    const bulletButtons = document.getElementById("bulletButtons");
-    bulletButtons.innerHTML = bullets.map(bullet => `
-        <button class="filter-button" onclick="toggleFilter('bullet', '${escapeHTML(bullet)}')">
-            ${escapeHTML(bullet)}
-        </button>
-    `).join("");
+
+    values.forEach(value => {
+
+        const button =
+            document.createElement("button");
+
+
+        button.className =
+            "filter-button";
+
+
+        button.textContent =
+            value;
+
+
+        if(selected.includes(value)) {
+
+            button.classList.add(
+                "selected"
+            );
+
+        }
+
+
+        button.onclick = () => {
+
+            callback(
+                value,
+                button
+            );
+
+        };
+
+
+        area.appendChild(button);
+
+    });
 
 }
 
-function toggleFilter(filterType, value) {
 
-    let selectedArray;
-    if (filterType === "type") {
-        selectedArray = selectedTypes;
-    } else if (filterType === "attribute") {
-        selectedArray = selectedAttributes;
-    } else if (filterType === "bullet") {
-        selectedArray = selectedBullets;
-    }
+/* ==================================================
+   フィルター
+================================================== */
 
-    const index = selectedArray.indexOf(value);
-    if (index > -1) {
-        selectedArray.splice(index, 1);
-    } else {
-        selectedArray.push(value);
-    }
+function toggleType(value, button) {
 
-    updateButtonStates(filterType);
+    toggleArray(
+        selectedTypes,
+        value,
+        button
+    );
+
     search();
 
 }
 
-function updateButtonStates(filterType) {
 
-    let selectedArray, buttonIds;
+function toggleAttack(value, button) {
 
-    if (filterType === "type") {
-        selectedArray = selectedTypes;
-        buttonIds = "typeButtons";
-    } else if (filterType === "attribute") {
-        selectedArray = selectedAttributes;
-        buttonIds = "attributeButtons";
-    } else if (filterType === "bullet") {
-        selectedArray = selectedBullets;
-        buttonIds = "bulletButtons";
-    }
+    toggleArray(
+        selectedAttacks,
+        value,
+        button
+    );
 
-    const buttons = document.getElementById(buttonIds).querySelectorAll(".filter-button");
-    buttons.forEach(button => {
-        const value = button.textContent;
-        if (selectedArray.includes(value)) {
-            button.classList.add("selected");
-        } else {
-            button.classList.remove("selected");
-        }
-    });
+    search();
 
 }
 
+
+function toggleRange(value, button) {
+
+    toggleArray(
+        selectedRanges,
+        value,
+        button
+    );
+
+    search();
+
+}
+
+
+function toggleAttribute(value, button) {
+
+    toggleArray(
+        selectedAttributes,
+        value,
+        button
+    );
+
+    search();
+
+}
+
+
+function toggleBullet(value, button) {
+
+    toggleArray(
+        selectedBullets,
+        value,
+        button
+    );
+
+    search();
+
+}
+
+
+function toggleArray(
+    array,
+    value,
+    button
+) {
+
+    const index =
+        array.indexOf(value);
+
+
+    if(index >= 0) {
+
+        array.splice(index, 1);
+
+        button.classList.remove(
+            "selected"
+        );
+
+    } else {
+
+        array.push(value);
+
+        button.classList.add(
+            "selected"
+        );
+
+    }
+
+}
+
+
+/* ==================================================
+   条件判定
+================================================== */
+
+function matches(
+    selected,
+    values
+) {
+
+    if(selected.length === 0) {
+        return true;
+    }
+
+
+    if(searchMode === "AND") {
+
+        return selected.every(
+            x => values.includes(x)
+        );
+
+    }
+
+
+    return selected.some(
+        x => values.includes(x)
+    );
+
+}
+
+
+/* ==================================================
+   検索
+================================================== */
+
 function search() {
 
-    const keyword = document.getElementById("keyword").value.toLowerCase();
+    const keyword =
+        document
+            .getElementById("keyword")
+            .value
+            .trim()
+            .toLowerCase();
 
-    let results = data.filter(item => {
 
-        const matchesKeyword =
-            !keyword ||
-            item.character.toLowerCase().includes(keyword) ||
-            item.spell.toLowerCase().includes(keyword);
+    const results =
+        data.filter(character => {
 
-        if (!matchesKeyword) return false;
+            const characterName =
+                String(
+                    character.character || ""
+                ).toLowerCase();
 
-        if (selectedTypes.length === 0 &&
-            selectedAttributes.length === 0 &&
-            selectedBullets.length === 0) {
+
+            const symbol =
+                String(
+                    character.symbol || ""
+                ).toLowerCase();
+
+
+            const attacks =
+                character.attacks || {};
+
+
+            const spellNames =
+                Object.values(attacks)
+                    .map(
+                        attack =>
+                            attack.name || ""
+                    )
+                    .join(" ")
+                    .toLowerCase();
+
+
+            if(
+                keyword &&
+                !characterName.includes(keyword) &&
+                !symbol.includes(keyword) &&
+                !spellNames.includes(keyword)
+            ) {
+
+                return false;
+
+            }
+
+
+            if(
+                !matches(
+                    selectedTypes,
+                    [character.type]
+                )
+            ) {
+
+                return false;
+
+            }
+
+
+            const attackEntries =
+                Object.entries(attacks);
+
+
+            const matchingAttacks =
+                attackEntries.filter(
+                    ([key, attack]) => {
+
+                        const definition =
+                            attackDefinitions.find(
+                                x =>
+                                    x.key === key
+                            );
+
+
+                        if(!definition) {
+                            return false;
+                        }
+
+
+                        const attackOK =
+                            matches(
+                                selectedAttacks,
+                                [definition.label]
+                            );
+
+
+                        const rangeOK =
+                            matches(
+                                selectedRanges,
+                                [attack.range]
+                            );
+
+
+                        const bullets =
+                            attack.bullets || [];
+
+
+                        const attributes =
+                            bullets.map(
+                                b =>
+                                    b.attribute
+                            );
+
+
+                        const bulletKinds =
+                            bullets.map(
+                                b =>
+                                    b.bulletType
+                            );
+
+
+                        const attributeOK =
+                            matches(
+                                selectedAttributes,
+                                attributes
+                            );
+
+
+                        const bulletOK =
+                            matches(
+                                selectedBullets,
+                                bulletKinds
+                            );
+
+
+                        return (
+                            attackOK &&
+                            rangeOK &&
+                            attributeOK &&
+                            bulletOK
+                        );
+
+                    }
+                );
+
+
+            const attackFilters =
+                selectedAttacks.length ||
+                selectedRanges.length ||
+                selectedAttributes.length ||
+                selectedBullets.length;
+
+
+            if(
+                attackFilters &&
+                matchingAttacks.length === 0
+            ) {
+
+                return false;
+
+            }
+
+
             return true;
-        }
 
-        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(item.type);
-        const attributeMatch = selectedAttributes.length === 0 || selectedAttributes.includes(item.attribute);
-        const bulletMatch = selectedBullets.length === 0 || selectedBullets.includes(item.bullet);
+        });
 
-        if (isAndMode) {
-            return typeMatch && attributeMatch && bulletMatch;
-        } else {
-            return typeMatch || attributeMatch || bulletMatch;
-        }
-
-    });
 
     displayResults(results);
 
 }
 
+
+/* ==================================================
+   結果表示
+================================================== */
+
 function displayResults(results) {
 
-    const resultsArea = document.getElementById("results");
+    const area =
+        document.getElementById("results");
 
-    if (results.length === 0) {
-        resultsArea.innerHTML = `
-            <div class="result">
-                <div class="character">
-                    検索結果がありません
-                </div>
+
+    if(results.length === 0) {
+
+        area.innerHTML = `
+            <div class="empty">
+                該当するデータがありません。
             </div>
         `;
+
         return;
+
     }
 
-    const html = `
+
+    area.innerHTML = `
+
         <div class="result-count">
-            検索結果：${results.length}件
+            ${results.length}件
         </div>
-        ${results.map(item => `
-            <div class="result">
-                <div class="character">
-                    ${escapeHTML(item.character)}
-                </div>
-                <div class="spell">
-                    ${escapeHTML(item.spell)}
-                </div>
-                <div class="type">
-                    ${escapeHTML(item.type)}
-                </div>
-                <div class="tags">
-                    ${item.attribute ? `<span class="tag attribute">${escapeHTML(item.attribute)}</span>` : ""}
-                    ${item.bullet ? `<span class="tag bullet">${escapeHTML(item.bullet)}</span>` : ""}
-                </div>
-            </div>
-        `).join("")}
+
     `;
 
-    resultsArea.innerHTML = html;
+
+    results.forEach(character => {
+
+        const div =
+            document.createElement("div");
+
+
+        div.className =
+            "result";
+
+
+        let html = `
+
+            <div class="character">
+                ${escapeHTML(
+                    character.character
+                )}
+            </div>
+
+        `;
+
+
+        if(character.symbol) {
+
+            html += `
+
+                <div class="symbol">
+                    汎異記号：
+                    ${escapeHTML(
+                        character.symbol
+                    )}
+                </div>
+
+            `;
+
+        }
+
+
+        html += `
+
+            <span class="type-tag">
+                ${escapeHTML(
+                    character.type
+                )}
+            </span>
+
+        `;
+
+        Object.entries(
+            character.attacks || {}
+        ).forEach(
+            ([key, attack]) => {
+
+                if(
+                    !attack ||
+                    !attack.name
+                ) {
+                    return;
+                }
+
+
+                const definition =
+                    attackDefinitions.find(
+                        x =>
+                            x.key === key
+                    );
+
+
+                if(!definition) {
+                    return;
+                }
+
+
+                html += `
+
+                    <div class="attack-card">
+
+                        <div class="attack-name">
+
+                            ${escapeHTML(
+                                definition.label
+                            )}
+
+                            <span class="range">
+
+                                ${escapeHTML(
+                                    attack.range
+                                )}
+
+                            </span>
+
+                        </div>
+
+                        <div class="spell-name">
+
+                            ${escapeHTML(
+                                attack.name
+                            )}
+
+                        </div>
+
+                `;
+
+
+                (attack.bullets || [])
+                    .forEach(bullet => {
+
+                        html += `
+
+                            <span class="tag attribute">
+
+                                属性：
+                                ${escapeHTML(
+                                    bullet.attribute
+                                )}
+
+                            </span>
+
+                            <span class="tag bullet">
+
+                                ${escapeHTML(
+                                    bullet.bulletType
+                                )}
+
+                            </span>
+
+                            <span class="tag">
+
+                                Boost
+                                ${escapeHTML(
+                                    bullet.boost
+                                )}
+
+                            </span>
+
+                        `;
+
+                    });
+
+
+                html += `
+                    </div>
+                `;
+
+            }
+        );
+
+
+        div.innerHTML =
+            html;
+
+
+        area.appendChild(div);
+
+    });
 
 }
 
-function resetFilters() {
-    selectedTypes = [];
-    selectedAttributes = [];
-    selectedBullets = [];
-    document.getElementById("keyword").value = "";
-    updateButtonStates("type");
-    updateButtonStates("attribute");
-    updateButtonStates("bullet");
-    search();
+
+/* ==================================================
+   キャラ追加画面
+================================================== */
+
+function renderAttackEditors() {
+
+    const area =
+        document.getElementById(
+            "attackEditors"
+        );
+
+
+    area.innerHTML = "";
+
+
+    attackDefinitions.forEach(
+        attack => {
+
+            const item =
+                newAttacks[
+                    attack.key
+                ];
+
+
+            const card =
+                document.createElement(
+                    "div"
+                );
+
+
+            card.className =
+                "attack-editor";
+
+
+            card.innerHTML = `
+
+                <div class="attack-editor-title">
+
+                    ${attack.label}
+
+                </div>
+
+
+                <div class="section">
+
+                    <label class="small-label">
+                        名前
+                    </label>
+
+                    <input
+                        class="input"
+                        value="${escapeAttribute(
+                            item.name
+                        )}"
+                        placeholder="${attack.label}"
+                        oninput="
+                            updateAttackName(
+                                '${attack.key}',
+                                this.value
+                            )
+                        "
+                    >
+
+                </div>
+
+
+                <div class="section">
+
+                    <label class="small-label">
+                        全体・単体
+                    </label>
+
+                    <select
+                        class="select"
+                        onchange="
+                            updateAttackRange(
+                                '${attack.key}',
+                                this.value
+                            )
+                        "
+                    >
+
+                        <option
+                            value="全体"
+                            ${
+                                item.range === "全体"
+                                ? "selected"
+                                : ""
+                            }
+                        >
+                            全体
+                        </option>
+
+                        <option
+                            value="単体"
+                            ${
+                                item.range === "単体"
+                                ? "selected"
+                                : ""
+                            }
+                        >
+                            単体
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div>
+
+                    <label class="small-label">
+                        弾幕
+                    </label>
+
+                    <div
+                        id="bullets-${attack.key}"
+                    ></div>
+
+                    <button
+                        class="secondary-button"
+                        onclick="
+                            addBullet(
+                                '${attack.key}'
+                            )
+                        "
+                    >
+                        ＋ 弾幕を追加
+                    </button>
+
+                </div>
+
+            `;
+
+
+            area.appendChild(card);
+
+
+            renderBullets(
+                attack.key
+            );
+
+        }
+    );
+
 }
 
-function showPage(page) {
-    const searchPage = document.getElementById("searchPage");
-    const addPage = document.getElementById("addPage");
-    const searchTab = document.getElementById("searchTab");
-    const addTab = document.getElementById("addTab");
 
-    if (page === "search") {
-        searchPage.classList.remove("hidden");
-        addPage.classList.add("hidden");
-        searchTab.classList.add("active");
-        addTab.classList.remove("active");
-    } else {
-        searchPage.classList.add("hidden");
-        addPage.classList.remove("hidden");
-        searchTab.classList.remove("active");
-        addTab.classList.add("active");
+/* ==================================================
+   攻撃名・範囲
+================================================== */
+
+function updateAttackName(
+    key,
+    value
+) {
+
+    newAttacks[key].name =
+        value;
+
+}
+
+
+function updateAttackRange(
+    key,
+    value
+) {
+
+    newAttacks[key].range =
+        value;
+
+}
+
+
+/* ==================================================
+   弾幕
+================================================== */
+
+function addBullet(key) {
+
+    newAttacks[key].bullets.push({
+
+        boost: 0,
+
+        attribute: "星",
+
+        bulletType: "通常弾"
+
+    });
+
+
+    renderBullets(key);
+
+}
+
+
+function removeBullet(
+    key,
+    index
+) {
+
+    newAttacks[key]
+        .bullets
+        .splice(index, 1);
+
+
+    renderBullets(key);
+
+}
+
+
+function updateBullet(
+    key,
+    index,
+    property,
+    value
+) {
+
+    newAttacks[key]
+        .bullets[index][property] =
+            property === "boost"
+                ? Number(value)
+                : value;
+
+}
+
+
+function renderBullets(key) {
+
+    const area =
+        document.getElementById(
+            "bullets-" + key
+        );
+
+
+    if(!area) return;
+
+
+    area.innerHTML = "";
+
+
+    newAttacks[key]
+        .bullets
+        .forEach(
+            (bullet, index) => {
+
+                const div =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                div.className =
+                    "bullet-editor";
+
+
+                div.innerHTML = `
+
+                    <div class="bullet-title">
+
+                        弾幕 ${index + 1}
+
+                        <button
+                            class="remove-button"
+                            onclick="
+                                removeBullet(
+                                    '${key}',
+                                    ${index}
+                                )
+                            "
+                        >
+                            削除
+                        </button>
+
+                    </div>
+
+
+                    <div class="two-column">
+
+                        <div>
+
+                            <label class="small-label">
+                                ブースト
+                            </label>
+
+                            <select
+                                class="select"
+                                onchange="
+                                    updateBullet(
+                                        '${key}',
+                                        ${index},
+                                        'boost',
+                                        this.value
+                                    )
+                                "
+                            >
+
+                                ${createOptions(
+                                    [0,1,2,3,4,5],
+                                    Number(
+                                        bullet.boost
+                                    )
+                                )}
+
+                            </select>
+
+                        </div>
+
+
+                        <div>
+
+                            <label class="small-label">
+                                属性
+                            </label>
+
+                            <select
+                                class="select"
+                                onchange="
+                                    updateBullet(
+                                        '${key}',
+                                        ${index},
+                                        'attribute',
+                                        this.value
+                                    )
+                                "
+                            >
+
+                                ${createOptions(
+                                    attributes,
+                                    bullet.attribute
+                                )}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    <br>
+
+
+                    <label class="small-label">
+                        弾種
+                    </label>
+
+                    <select
+                        class="select"
+                        onchange="
+                            updateBullet(
+                                '${key}',
+                                ${index},
+                                'bulletType',
+                                this.value
+                            )
+                        "
+                    >
+
+                        ${createOptions(
+                            bulletTypes,
+                            bullet.bulletType
+                        )}
+
+                    </select>
+
+                `;
+
+
+                area.appendChild(div);
+
+            }
+        );
+
+}
+
+
+/* ==================================================
+   セレクト
+================================================== */
+
+function createOptions(
+    values,
+    selected
+) {
+
+    return values
+        .map(value => `
+
+            <option
+                value="${escapeAttribute(value)}"
+                ${
+                    String(value) ===
+                    String(selected)
+                        ? "selected"
+                        : ""
+                }
+            >
+                ${escapeHTML(value)}
+            </option>
+
+        `)
+        .join("");
+
+}
+
+
+/* ==================================================
+   Supabaseに保存
+================================================== */
+
+async function saveCharacter() {
+
+    const message =
+        document.getElementById(
+            "addMessage"
+        );
+
+
+    const character =
+        document
+            .getElementById(
+                "addCharacter"
+            )
+            .value
+            .trim();
+
+
+    const symbol =
+        document
+            .getElementById(
+                "addSymbol"
+            )
+            .value
+            .trim();
+
+
+    const type =
+        document
+            .getElementById(
+                "addType"
+            )
+            .value;
+
+
+    if(!character) {
+
+        showMessage(
+            message,
+            "キャラクター名を入力してください。",
+            false
+        );
+
+        return;
+
     }
-}
 
-function updateDataPreview() {
-    const preview = document.getElementById("dataPreview");
-    if (preview) {
-        preview.textContent = JSON.stringify(data, null, 2);
+
+    if(!type) {
+
+        showMessage(
+            message,
+            "式を選択してください。",
+            false
+        );
+
+        return;
+
     }
+
+
+    const record = {
+
+        character: character,
+
+        symbol: symbol,
+
+        type: type,
+
+        attacks:
+            JSON.parse(
+                JSON.stringify(
+                    newAttacks
+                )
+            )
+
+    };
+
+
+    try {
+
+        showMessage(
+            message,
+            "保存しています……",
+            true
+        );
+
+
+        const response =
+            await fetch(
+                SUPABASE_URL +
+                "/rest/v1/" +
+                TABLE,
+                {
+
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json",
+
+                        "apikey":
+                            SUPABASE_KEY,
+
+                        "Authorization":
+                            "Bearer " +
+                            SUPABASE_KEY,
+
+                        "Prefer":
+                            "return=minimal"
+
+                    },
+
+                    body:
+                        JSON.stringify(
+                            record
+                        )
+
+                }
+            );
+
+
+        const text =
+            await response.text();
+
+
+        if(!response.ok) {
+
+            throw new Error(
+                text
+            );
+
+        }
+
+
+        showMessage(
+            message,
+            "☁️ 保存しました！",
+            true
+        );
+
+
+        document
+            .getElementById(
+                "addCharacter"
+            )
+            .value = "";
+
+
+        document
+            .getElementById(
+                "addSymbol"
+            )
+            .value = "";
+
+
+        document
+            .getElementById(
+                "addType"
+            )
+            .value = "";
+
+
+        newAttacks =
+            createEmptyAttacks();
+
+
+        renderAttackEditors();
+
+
+        await loadData();
+
+
+    } catch(error) {
+
+        console.error(error);
+
+
+        showMessage(
+            message,
+            "保存に失敗しました：\n" +
+            error.message,
+            false
+        );
+
+    }
+
 }
 
-function updateTypeList() {
-    const types = [... new Set(data.map(item => item.type))];
-    const typeList = document.getElementById("typeList");
-    typeList.innerHTML = types.map(type => `<option value="${escapeHTML(type)}"></option>`).join("");
+
+/* ==================================================
+   メッセージ
+================================================== */
+
+function showMessage(
+    element,
+    text,
+    success
+) {
+
+    element.innerHTML = `
+
+        <div class="message ${
+            success
+                ? "success"
+                : "error"
+        }">
+
+            ${escapeHTML(text)}
+
+        </div>
+
+    `;
+
 }
 
-document.getElementById("andButton").addEventListener("click", function() {
-    isAndMode = true;
-    this.classList.add("selected");
-    document.getElementById("orButton").classList.remove("selected");
-    search();
-});
 
-document.getElementById("orButton").addEventListener("click", function() {
-    isAndMode = false;
-    this.classList.add("selected");
-    document.getElementById("andButton").classList.remove("selected");
-    search();
-});
+/* ==================================================
+   AND / OR
+================================================== */
 
-document.getElementById("resetButton").addEventListener("click", resetFilters);
-document.getElementById("keyword").addEventListener("input", search);
+document
+    .getElementById(
+        "andButton"
+    )
+    .onclick = () => {
+
+        searchMode = "AND";
+
+        document
+            .getElementById(
+                "andButton"
+            )
+            .classList
+            .add("selected");
+
+        document
+            .getElementById(
+                "orButton"
+            )
+            .classList
+            .remove("selected");
+
+        search();
+
+    };
+
+
+document
+    .getElementById(
+        "orButton"
+    )
+    .onclick = () => {
+
+        searchMode = "OR";
+
+        document
+            .getElementById(
+                "orButton"
+            )
+            .classList
+            .add("selected");
+
+        document
+            .getElementById(
+                "andButton"
+            )
+            .classList
+            .remove("selected");
+
+        search();
+
+    };
+
+
+/* ==================================================
+   リセット
+================================================== */
+
+document
+    .getElementById(
+        "resetButton"
+    )
+    .onclick = () => {
+
+        selectedTypes = [];
+        selectedAttacks = [];
+        selectedRanges = [];
+        selectedAttributes = [];
+        selectedBullets = [];
+
+
+        document
+            .querySelectorAll(
+                ".filter-button"
+            )
+            .forEach(button => {
+
+                button.classList
+                    .remove(
+                        "selected"
+                    );
+
+            });
+
+
+        document
+            .getElementById(
+                "keyword"
+            )
+            .value = "";
+
+
+        search();
+
+    };
+
+
+/* ==================================================
+   キーワード
+================================================== */
+
+document
+    .getElementById(
+        "keyword"
+    )
+    .addEventListener(
+        "input",
+        search
+    );
+
+
+/* ==================================================
+   エスケープ
+================================================== */
+
+function escapeHTML(text) {
+
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+}
+
+
+function escapeAttribute(text) {
+
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+}
+
+
+/* ==================================================
+   起動
+================================================== */
+
+loadData();
 
 </script>
 
