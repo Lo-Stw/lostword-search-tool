@@ -82,17 +82,20 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
 .char:hover{color:#003366}
 .muted{color:#777;font-size:12px}
 .tag{
- display:inline-block;padding:4px 7px;margin:3px 2px;
- border-radius:5px;font-size:11px;background:#eee
+ display:inline-block;padding:3px 7px;margin:2px 2px;
+ border-radius:5px;font-size:11px;background:#eee;color:#333;font-weight:600
 }
-.attr{background:#fff1b8}
-.bullet{background:#dceeff}
+.attr{background:#fff1b8;color:#856404}
+.bullet{background:#dceeff;color:#004085}
+.tag-buff{background:#d4edda;color:#155724}
+.tag-debuff{background:#f8d7da;color:#721c24}
+.tag-kind{background:#e2e3e5;color:#383d41}
 
 .attack{
  background:#f6f6f6;border-radius:10px;
  padding:10px;margin-top:10px
 }
-.attack h4{margin:0 0 5px}
+.attack h4{margin:0 0 5px;cursor:pointer}
 
 .editor{
  background:#f6f6f6;border-radius:12px;
@@ -116,9 +119,47 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
 .switch button{flex:1;padding:8px;border:1px solid #ccc;background:#fff;border-radius:8px;cursor:pointer}
 .switch button.on{background:#333;color:#fff}
 
-.rank-item{background:#fff;border:1px solid #eee;border-radius:8px;padding:8px;margin-top:6px;position:relative}
-.btn-del{background:#ff4d4f;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer;float:right}
-.btn-add{width:100%;padding:6px;margin-top:6px;border:1px dashed #aaa;background:#fff;border-radius:6px;cursor:pointer;font-size:12px}
+/* バレットアコーディオンスタイル */
+.bullet-accordion{
+ border:1px solid #e0e0e0;border-radius:8px;
+ margin-top:8px;background:#fff;overflow:hidden
+}
+.bullet-header{
+ padding:10px 12px;background:#f0f2f5;font-weight:700;
+ cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px
+}
+.bullet-body{padding:12px;display:none;border-top:1px solid #eee}
+.bullet-body.show{display:block}
+
+/* ゲーム風バレットカードスタイル */
+.bullet-card{
+ display:flex;align-items:stretch;border-radius:8px;
+ overflow:hidden;background:#2b3a42;color:#fff;
+ margin-bottom:8px;border:1px solid #1f2a30;box-shadow:0 2px 4px rgba(0,0,0,0.15)
+}
+.bullet-card-main{
+ flex:1;padding:8px 12px;display:flex;flex-direction:column;gap:4px
+}
+.bullet-card-top{
+ display:flex;justify-content:space-between;align-items:center
+}
+.bullet-card-title{
+ font-weight:700;font-size:14px;color:#ffffff;letter-spacing:0.5px
+}
+.bullet-card-count{
+ font-weight:900;font-size:15px;color:#ffd700;font-style:italic
+}
+.bullet-card-tags{
+ display:flex;flex-wrap:wrap;gap:2px;align-items:center
+}
+.bullet-p-badge{
+ width:36px;display:flex;align-items:center;justify-content:center;
+ font-weight:900;font-size:13px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)
+}
+.p-bg-P0{background:#6c757d}
+.p-bg-P1{background:#007bff}
+.p-bg-P2{background:#ff9800}
+.p-bg-P3{background:#e53935}
 
 .msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;white-space:pre-wrap}
 .ok{background:#e4f6e7}
@@ -132,7 +173,7 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
  justify-content:center;z-index:1000;padding:10px
 }
 .modal-content{
- background:#fff;border-radius:15px;max-width:700px;
+ background:#fff;border-radius:15px;max-width:750px;
  width:100%;max-height:90vh;overflow-y:auto;padding:20px;
  position:relative
 }
@@ -177,7 +218,7 @@ footer a{color:#444;text-decoration:underline}
 
 <div class="section">
 <div class="title">キャラクター・スペカ検索</div>
-<input id="q" class="input" placeholder="キャラ名・スペカ名">
+<input id="q" class="input" placeholder="キャラ名・スペカ名・バレット名">
 </div>
 
 <div class="section">
@@ -355,11 +396,6 @@ footer a{color:#444;text-decoration:underline}
 <footer>
   <p>当ツールは個人が制作した非公式のファンツールです。ゲーム運営会社様および権利者様とは一切関係ありません。</p>
   <p>©上海アリス幻樂団 ©GOOD SMILE COMPANY, INC. / NextNinja Co., Ltd.</p>
-  <p>
-    参考データ：
-    <a href="https://wikiwiki.jp/toho_lw/" target="_blank" rel="noopener noreferrer">東方LostWord Wiki*</a> | 
-    <a href="https://altema.jp/lostword/" target="_blank" rel="noopener noreferrer">アルテマ 東方ロストワード攻略</a>
-  </p>
 </footer>
 
 <script>
@@ -373,13 +409,15 @@ const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
 
 /* =========================================================
-   基本データ
+   基本データ定義
 ========================================================= */
 
 const TYPES=["攻撃式","技巧式","速攻式","破壊式","防御式","支援式","回復式","妨害式"];
 const ATTR=["日","月","火","水","木","金","土","星","無"];
 const ABNORMAL=["毒霧","帯電","燃焼","凍結","暗闇"];
 const STATS=["陽攻","陰攻","陽防","陰防","CRI攻撃","CRI防御","CRI命中","CRI回避","速力","命中","回避"];
+const STAT_TARGETS=["速力","陽攻","陰攻","陽防","陰防","命中","回避","注目","CRI攻撃","CRI命中","CRI回避","CRI防御"];
+const BULLET_KINDS=["陽気","陰気","貫通","確定"];
 const STAT_TYPES_SHORT=["速力","陽攻","陰攻","陽防","陰防"];
 const RANK2_STATS=["陽攻","陰攻","陽防","陰防","速力","回避","CRI攻撃","CRI命中","CRI回避"];
 const RANK2_SOURCES=["スキル","スペルカード1","スペルカード2","ラストワード"];
@@ -416,8 +454,32 @@ const selected={
 let statMode="";
 
 /* =========================================================
-   データ構造初期化
+   初期構造生成関数
 ========================================================= */
+
+function createBuffDebuffStructure(){
+ return {
+  buff:{ stat:"", rate:"", rank:"" },
+  debuff:{ stat:"", rate:"", rank:"" }
+ };
+}
+
+function createBulletStructure(index){
+ const b = {
+  index: index,
+  name: "",
+  count: "",
+  pStage: "P0",
+  attr: "",
+  kind: "陽気",
+  specials: {},
+  hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
+  buff:{ stat:"", rate:"", rank:"" },
+  debuff:{ stat:"", rate:"", rank:"" }
+ };
+ SPECIALS.forEach(x => { b.specials[x] = false; });
+ return b;
+}
 
 const attackData={};
 ATTACKS.forEach(([key])=>{
@@ -427,7 +489,10 @@ ATTACKS.forEach(([key])=>{
   attributes:[],
   bulletTypes:[],
   specials:{},
-  hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:""
+  hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
+  buff:{ stat:"", rate:"", rank:"" },
+  debuff:{ stat:"", rate:"", rank:"" },
+  bullets: [1,2,3,4,5,6].map(i => createBulletStructure(i))
  };
  SPECIALS.forEach(x=>{ attackData[key].specials[x]=false; });
 });
@@ -558,7 +623,6 @@ function buildSpecialDetail(skill, e){
    if(d.list.length === 0) d.list.push({ source:"スキル", stat:"", stage:"" });
    renderRank2List(skill, e);
    break;
-
   case "畜力":
    e.innerHTML=`
     <select class="select" data-power-kind>
@@ -568,7 +632,6 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
    `;
    break;
-
   case "蓄積":
    e.innerHTML=`
     <div class="mini">参照するステータス</div>
@@ -585,7 +648,6 @@ function buildSpecialDetail(skill, e){
     </select>
    `;
    break;
-
   case "バディコネクト":
    e.innerHTML=`
     <select class="select" data-stat-target>
@@ -595,7 +657,6 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
    `;
    break;
-
   case "共鳴":
    e.innerHTML=`
     <select class="select" data-resonance-stat>
@@ -605,16 +666,13 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="${d.stat==="霊力"?"数値":"倍率 %"}" data-special-value value="${esc(d.value||"")}">
    `;
    break;
-
   case "X-Change":
    e.innerHTML=`<input class="input" placeholder="効果詳細" data-special-effect value="${esc(d.effect||"")}">`;
    break;
-
   case "有利属性ダメージアップ":
   case "不利属性ダメージアップ":
    e.innerHTML=`<input class="input" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">`;
    break;
-
   case "属性強化":
    e.innerHTML=`
     <select class="select" data-special-attr>
@@ -624,7 +682,6 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
    `;
    break;
-
   case "弾強化":
    e.innerHTML=`
     <select class="select" data-special-bullet>
@@ -634,7 +691,6 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
    `;
    break;
-
   case "弱点付与":
    e.innerHTML=`
     <select class="select" data-special-attr>
@@ -643,7 +699,6 @@ function buildSpecialDetail(skill, e){
     </select>
    `;
    break;
-
   case "団結":
    e.innerHTML=`
     <select class="select" data-team-stat>
@@ -654,7 +709,6 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="1人あたり" data-team-per value="${esc(d.per||"")}">
    `;
    break;
-
   case "ゾーン":
    e.innerHTML=`
     <select class="select" data-zone-stat>
@@ -665,12 +719,10 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="1人あたりの倍率 %" data-zone-per value="${esc(d.per||"")}">
    `;
    break;
-
   case "スキル再使用ターン数短縮":
   case "スペルゲージ遅延":
    e.innerHTML=`<input class="input" type="number" placeholder="数値 (ターン / ゲージ数)" data-special-value value="${esc(d.value||"")}">`;
    break;
-
   case "大結界":
    e.innerHTML=`
     <div class="mini">味方全体の強化</div>
@@ -688,7 +740,6 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" placeholder="破界効果" data-break-effect value="${esc(d.breakEffect||"")}">
    `;
    break;
-
   case "逆相":
    e.innerHTML=`
     <div class="mini">アップ項目</div>
@@ -705,11 +756,9 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-reverse-down-ratio value="${esc(d.downRatio||"")}">
    `;
    break;
-
   case "全体耐性ダウン":
    e.innerHTML=`<input class="input" type="number" placeholder="何段階ダウン" data-rank-stage value="${esc(d.stage||"")}">`;
    break;
-
   case "持続":
    e.innerHTML=`
     <input class="input" type="number" placeholder="持続ターン数" data-duration value="${esc(d.duration||"")}">
@@ -724,13 +773,11 @@ function buildSpecialDetail(skill, e){
     <input class="input" style="margin-top:6px" type="number" placeholder="数値" data-duration-value value="${esc(d.value||"")}">
    `;
    break;
-
   case "ダメージダウン":
    if(!d.list) d.list = [];
    if(d.list.length === 0) d.list.push({ kind:"", target:"", ratio:"" });
    renderDamageDownList(e);
    break;
-
   default:
    break;
  }
@@ -1011,7 +1058,110 @@ function setTargetButtons(on,off){
 }
 
 /* =========================================================
-   攻撃編集UI
+   つよさ上昇/低下 (バフ/デバフ) UI生成関数
+========================================================= */
+
+function renderBuffDebuffFields(prefix, targetObj) {
+ if (!targetObj.buff) targetObj.buff = { stat:"", rate:"", rank:"" };
+ if (!targetObj.debuff) targetObj.debuff = { stat:"", rate:"", rank:"" };
+
+ return `
+  <div style="background:#f0f7ff; border:1px solid #cce5ff; border-radius:8px; padding:8px; margin-top:8px;">
+   <div style="font-size:12px; font-weight:700; color:#004085; margin-bottom:4px;">つよさ上昇 / 自身</div>
+   <div class="row3">
+    <select class="select" id="${prefix}-buff-stat">
+     <option value="">ステータス選択</option>
+     ${STAT_TARGETS.map(s => `<option ${targetObj.buff.stat===s?"selected":""}>${s}</option>`).join("")}
+    </select>
+    <input class="input" type="number" id="${prefix}-buff-rate" placeholder="確率 %" value="${esc(targetObj.buff.rate||"")}">
+    <input class="input" type="number" id="${prefix}-buff-rank" placeholder="ランク数" value="${esc(targetObj.buff.rank||"")}">
+   </div>
+  </div>
+
+  <div style="background:#fff0f0; border:1px solid #ffcdd2; border-radius:8px; padding:8px; margin-top:8px;">
+   <div style="font-size:12px; font-weight:700; color:#721c24; margin-bottom:4px;">つよさ低下 / 対象</div>
+   <div class="row3">
+    <select class="select" id="${prefix}-debuff-stat">
+     <option value="">ステータス選択</option>
+     ${STAT_TARGETS.map(s => `<option ${targetObj.debuff.stat===s?"selected":""}>${s}</option>`).join("")}
+    </select>
+    <input class="input" type="number" id="${prefix}-debuff-rate" placeholder="確率 %" value="${esc(targetObj.debuff.rate||"")}">
+    <input class="input" type="number" id="${prefix}-debuff-rank" placeholder="ランク数" value="${esc(targetObj.debuff.rank||"")}">
+   </div>
+  </div>
+ `;
+}
+
+function bindBuffDebuffEvents(prefix, targetObj) {
+ const bs = document.getElementById(`${prefix}-buff-stat`);
+ const br = document.getElementById(`${prefix}-buff-rate`);
+ const bk = document.getElementById(`${prefix}-buff-rank`);
+ if(bs) bs.onchange = e => { targetObj.buff.stat = e.target.value; };
+ if(br) br.oninput = e => { targetObj.buff.rate = e.target.value; };
+ if(bk) bk.oninput = e => { targetObj.buff.rank = e.target.value; };
+
+ const ds = document.getElementById(`${prefix}-debuff-stat`);
+ const dr = document.getElementById(`${prefix}-debuff-rate`);
+ const dk = document.getElementById(`${prefix}-debuff-rank`);
+ if(ds) ds.onchange = e => { targetObj.debuff.stat = e.target.value; };
+ if(dr) dr.oninput = e => { targetObj.debuff.rate = e.target.value; };
+ if(dk) dk.oninput = e => { targetObj.debuff.rank = e.target.value; };
+}
+
+/* =========================================================
+   特殊弾コントロール生成関数（特攻弾対応）
+========================================================= */
+
+function buildSpecialControlsForObject(prefix, obj, container) {
+ container.innerHTML = "";
+ SPECIALS.forEach(x => {
+  const isChecked = !!obj.specials[x];
+  const row = document.createElement("div");
+  row.className = "special-row";
+  row.innerHTML = `
+   <div class="special-head">
+    <b>${x}</b>
+    <button type="button">${isChecked ? "あり" : "なし"}</button>
+   </div>
+   <div class="special-detail ${isChecked ? "show" : ""}"></div>
+  `;
+  container.appendChild(row);
+
+  const btn = row.querySelector("button");
+  const detail = row.querySelector(".special-detail");
+  btn.classList.toggle("on", isChecked);
+
+  btn.onclick = () => {
+   obj.specials[x] = !obj.specials[x];
+   btn.classList.toggle("on", obj.specials[x]);
+   btn.textContent = obj.specials[x] ? "あり" : "なし";
+   detail.classList.toggle("show", obj.specials[x]);
+   buildBulletSpecialDetailSingle(x, obj, detail);
+  };
+
+  buildBulletSpecialDetailSingle(x, obj, detail);
+ });
+}
+
+function buildBulletSpecialDetailSingle(x, obj, detail) {
+ if (!obj.specials[x]) { detail.innerHTML = ""; return; }
+ let prop = null, placeholder = "";
+ if (x === "硬質弾") { prop = "hardRatio"; placeholder = "倍率 %"; }
+ if (x === "斬裂弾") { prop = "sharpRatio"; placeholder = "倍率 %"; }
+ if (x === "粘着弾") { prop = "stickyRate"; placeholder = "発動率 %"; }
+ if (x === "衝撃弾") { prop = "impactRate"; placeholder = "発動率 %"; }
+ if (x === "吸収弾") { prop = "absorbRatio"; placeholder = "倍率"; }
+ if (x === "反動弾") { prop = "recoilRatio"; placeholder = "倍率"; }
+ if (x === "特効弾") { prop = "specialTarget"; placeholder = "対象種族名（例：妖怪）"; }
+
+ if (prop) {
+  detail.innerHTML = `<input class="input" type="${prop === "specialTarget" ? "text" : "number"}" placeholder="${placeholder}" value="${esc(obj[prop]||"")}">`;
+  detail.querySelector("input").oninput = e => { obj[prop] = e.target.value; };
+ }
+}
+
+/* =========================================================
+   攻撃編集UI構築
 ========================================================= */
 
 function initEditors(){
@@ -1020,6 +1170,10 @@ function initEditors(){
 
  ATTACKS.forEach(([key,label])=>{
   const a=attackData[key];
+  if(!a.bullets || a.bullets.length < 6) {
+   a.bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
+  }
+
   const d=document.createElement("div");
   d.className="editor";
   d.innerHTML=`
@@ -1035,17 +1189,28 @@ function initEditors(){
      <option ${a.range==="単体"?"selected":""}>単体</option>
     </select>
    </div>
+
    <div class="section">
-    <div class="mini">属性</div>
+    <div class="mini">ショット・スペカ全体のつよさ変化</div>
+    ${renderBuffDebuffFields(`att-${key}`, a)}
+   </div>
+
+   <div class="section">
+    <div class="mini">属性（全体概要）</div>
     <div id="aa-${key}" class="buttons"></div>
    </div>
    <div class="section">
-    <div class="mini">弾種</div>
+    <div class="mini">弾種（全体概要）</div>
     <div id="ab-${key}" class="buttons"></div>
    </div>
    <div class="section">
-    <div class="mini">特殊弾</div>
+    <div class="mini">特殊弾（全体概要）</div>
     <div id="as-${key}" class="special-grid"></div>
+   </div>
+
+   <div class="section" style="margin-top:16px;">
+    <div class="title" style="color:#0056b3;">バレット個別設定 (全6弾)</div>
+    <div id="bullets-container-${key}"></div>
    </div>
   `;
   e.appendChild(d);
@@ -1057,7 +1222,11 @@ function initEditors(){
   });
 
   buildBulletControls(key);
-  buildSpecialControls(key);
+  buildSpecialControlsForObject(`att-${key}`, a, document.getElementById("as-"+key));
+  bindBuffDebuffEvents(`att-${key}`, a);
+
+  // 各バレットのUI作成
+  buildBulletsEditorUI(key);
  });
 
  document.querySelectorAll("[data-p]").forEach(el=>{
@@ -1087,57 +1256,102 @@ function buildBulletControls(key){
  });
 }
 
-function buildSpecialControls(key){
- const a=attackData[key];
- const e=document.getElementById("as-"+key);
- e.innerHTML="";
+function buildBulletsEditorUI(attackKey){
+ const a = attackData[attackKey];
+ const container = document.getElementById(`bullets-container-${attackKey}`);
+ container.innerHTML = "";
 
- SPECIALS.forEach(x=>{
-  const row=document.createElement("div");
-  row.className="special-row";
-  row.innerHTML=`
-   <div class="special-head">
-    <b>${x}</b>
-    <button type="button">${a.specials[x]?"あり":"なし"}</button>
+ a.bullets.forEach((bulletObj, idx) => {
+  const bulletIndex = idx + 1;
+  const prefix = `blt-${attackKey}-${bulletIndex}`;
+
+  const acc = document.createElement("div");
+  acc.className = "bullet-accordion";
+  acc.innerHTML = `
+   <div class="bullet-header">
+    <span>バレット ${bulletIndex}：${esc(bulletObj.name || "未命名")}</span>
+    <span class="muted" id="${prefix}-summary">タップして詳細編集</span>
    </div>
-   <div class="special-detail ${a.specials[x]?"show":""}"></div>
+   <div class="bullet-body" id="${prefix}-body">
+    
+    <!-- 技名・発数・解放P段階 -->
+    <div class="row3" style="margin-bottom:10px;">
+     <div>
+      <div class="mini">バレット名（技名）</div>
+      <input class="input" id="${prefix}-name" placeholder="例：露骨な深層心理" value="${esc(bulletObj.name||"")}">
+     </div>
+     <div>
+      <div class="mini">発数</div>
+      <input class="input" type="number" id="${prefix}-count" placeholder="例：18" value="${esc(bulletObj.count||"")}">
+     </div>
+     <div>
+      <div class="mini">解放ブースト(P)</div>
+      <select class="select" id="${prefix}-pStage">
+       <option value="P0" ${bulletObj.pStage==="P0"?"selected":""}>初期 (P0)</option>
+       <option value="P1" ${bulletObj.pStage==="P1"?"selected":""}>1ブースト (P1)</option>
+       <option value="P2" ${bulletObj.pStage==="P2"?"selected":""}>2ブースト (P2)</option>
+       <option value="P3" ${bulletObj.pStage==="P3"?"selected":""}>3ブースト (P3)</option>
+      </select>
+     </div>
+    </div>
+
+    <div class="row">
+     <div>
+      <div class="mini">属性</div>
+      <select class="select" id="${prefix}-attr">
+       <option value="">属性を選択</option>
+       ${ATTR.map(x=>`<option ${bulletObj.attr===x?"selected":""}>${x}</option>`).join("")}
+      </select>
+     </div>
+     <div>
+      <div class="mini">気質・タイプ</div>
+      <select class="select" id="${prefix}-kind">
+       ${BULLET_KINDS.map(x=>`<option ${bulletObj.kind===x?"selected":""}>${x}</option>`).join("")}
+      </select>
+     </div>
+    </div>
+
+    <div style="margin-top:10px;">
+     <div class="mini">つよさ変化</div>
+     ${renderBuffDebuffFields(prefix, bulletObj)}
+    </div>
+
+    <div style="margin-top:10px;">
+     <div class="mini">特殊弾設定</div>
+     <div id="${prefix}-specials" class="special-grid"></div>
+    </div>
+   </div>
   `;
-  e.appendChild(row);
+  container.appendChild(acc);
 
-  const btn=row.querySelector("button");
-  const detail=row.querySelector(".special-detail");
-  btn.classList.toggle("on",a.specials[x]);
-
-  btn.onclick=()=>{
-   a.specials[x]=!a.specials[x];
-   btn.classList.toggle("on",a.specials[x]);
-   btn.textContent=a.specials[x]?"あり":"なし";
-   detail.classList.toggle("show",a.specials[x]);
-   buildBulletSpecialDetail(x,a,detail);
+  const header = acc.querySelector(".bullet-header");
+  const body = acc.querySelector(".bullet-body");
+  header.onclick = () => {
+   body.classList.toggle("show");
   };
 
-  buildBulletSpecialDetail(x,a,detail);
+  const nameInput = acc.querySelector(`#${prefix}-name`);
+  const countInput = acc.querySelector(`#${prefix}-count`);
+  const pStageSelect = acc.querySelector(`#${prefix}-pStage`);
+  const attrSelect = acc.querySelector(`#${prefix}-attr`);
+  const kindSelect = acc.querySelector(`#${prefix}-kind`);
+
+  nameInput.oninput = e => { 
+   bulletObj.name = e.target.value; 
+   header.querySelector("span").textContent = `バレット ${bulletIndex}：${e.target.value || "未命名"}`;
+  };
+  countInput.oninput = e => { bulletObj.count = e.target.value; };
+  pStageSelect.onchange = e => { bulletObj.pStage = e.target.value; };
+  attrSelect.onchange = e => { bulletObj.attr = e.target.value; };
+  kindSelect.onchange = e => { bulletObj.kind = e.target.value; };
+
+  bindBuffDebuffEvents(prefix, bulletObj);
+  buildSpecialControlsForObject(prefix, bulletObj, acc.querySelector(`#${prefix}-specials`));
  });
 }
 
-function buildBulletSpecialDetail(x,a,detail){
- if(!a.specials[x]){ detail.innerHTML=""; return; }
- let prop=null, placeholder="";
- if(x==="硬質弾"){ prop="hardRatio"; placeholder="倍率 %"; }
- if(x==="斬裂弾"){ prop="sharpRatio"; placeholder="倍率 %"; }
- if(x==="粘着弾"){ prop="stickyRate"; placeholder="発動率 %"; }
- if(x==="衝撃弾"){ prop="impactRate"; placeholder="発動率 %"; }
- if(x==="吸収弾"){ prop="absorbRatio"; placeholder="倍率"; }
- if(x==="反動弾"){ prop="recoilRatio"; placeholder="倍率"; }
-
- if(prop){
-  detail.innerHTML=`<input class="input" type="number" placeholder="${placeholder}" value="${esc(a[prop])}">`;
-  detail.querySelector("input").oninput=e=>{ a[prop]=e.target.value; };
- }
-}
-
 /* =========================================================
-   検索ロジック（修正版）
+   検索ロジック
 ========================================================= */
 
 function matchArray(sel, vals, currentMode) {
@@ -1152,11 +1366,20 @@ function matchArray(sel, vals, currentMode) {
 function checkAttackMatch(a, attackLabel) {
  if (selected.attack.length && !matchArray(selected.attack, [attackLabel], mode)) return false;
  if (selected.range.length && !matchArray(selected.range, [a.range], mode)) return false;
- if (selected.attr.length && !matchArray(selected.attr, a.attributes || [], mode)) return false;
+ if (selected.attr.length) {
+  let allAttrs = [...(a.attributes || [])];
+  (a.bullets || []).forEach(b => { if (b.attr) allAttrs.push(b.attr); });
+  if (!matchArray(selected.attr, allAttrs, mode)) return false;
+ }
  if (selected.bullet.length && !matchArray(selected.bullet, a.bulletTypes || [], mode)) return false;
 
  if (selected.special.length) {
-  const activeSpecials = Object.keys(a.specials || {}).filter(x => a.specials[x]);
+  let activeSpecials = Object.keys(a.specials || {}).filter(x => a.specials[x]);
+  (a.bullets || []).forEach(b => {
+   Object.keys(b.specials || {}).forEach(x => {
+    if (b.specials[x] && !activeSpecials.includes(x)) activeSpecials.push(x);
+   });
+  });
   if (!matchArray(selected.special, activeSpecials, mode)) return false;
  }
 
@@ -1180,7 +1403,11 @@ function search() {
  const out = data.filter(c => {
   if (q) {
    const attackNames = Object.values(c.attacks || {}).map(a => a.name);
-   const names = [c.character, ...attackNames].join(" ").toLowerCase();
+   const bulletNames = [];
+   Object.values(c.attacks || {}).forEach(a => {
+    (a.bullets || []).forEach(b => { if(b.name) bulletNames.push(b.name); });
+   });
+   const names = [c.character, ...attackNames, ...bulletNames].join(" ").toLowerCase();
    if (!names.includes(q)) return false;
   }
 
@@ -1215,7 +1442,62 @@ function search() {
 }
 
 /* =========================================================
-   結果描写
+   バフ・デバフテキスト整形表示
+========================================================= */
+
+function getBuffDebuffHtml(obj) {
+ let h = "";
+ if (obj && obj.buff && obj.buff.stat && obj.buff.rate && obj.buff.rank) {
+  h += `<span class="tag tag-buff">自身「${esc(obj.buff.stat)}」${esc(obj.buff.rate)}%の確率で${esc(obj.buff.rank)}ランクUP</span> `;
+ }
+ if (obj && obj.debuff && obj.debuff.stat && obj.debuff.rate && obj.debuff.rank) {
+  h += `<span class="tag tag-debuff">対象「${esc(obj.debuff.stat)}」${esc(obj.debuff.rate)}%の確率で${esc(obj.debuff.rank)}ランクDOWN</span> `;
+ }
+ return h;
+}
+
+/* =========================================================
+   ゲーム風カード表示用HTML作成関数
+========================================================= */
+
+function renderBulletCardHtml(b, bIdx) {
+ const activeSpecials = Object.keys(b.specials || {}).filter(x => b.specials[x]);
+ let specialTexts = [];
+ activeSpecials.forEach(sp => {
+  let txt = sp;
+  if (sp === "硬質弾" && b.hardRatio) txt += `(${b.hardRatio}%)`;
+  if (sp === "斬裂弾" && b.sharpRatio) txt += `(${b.sharpRatio}%)`;
+  if (sp === "粘着弾" && b.stickyRate) txt += `(${b.stickyRate}%)`;
+  if (sp === "衝撃弾" && b.impactRate) txt += `(${b.impactRate}%)`;
+  if (sp === "吸収弾" && b.absorbRatio) txt += `(${b.absorbRatio}倍)`;
+  if (sp === "反動弾" && b.recoilRatio) txt += `(${b.recoilRatio}倍)`;
+  if (sp === "特効弾" && b.specialTarget) txt += `[対象:${esc(b.specialTarget)}]`;
+  specialTexts.push(txt);
+ });
+
+ const pStage = b.pStage || "P0";
+
+ return `
+  <div class="bullet-card">
+   <div class="bullet-card-main">
+    <div class="bullet-card-top">
+     <div class="bullet-card-title">${esc(b.name || `バレット ${bIdx+1}`)}</div>
+     <div class="bullet-card-count">${b.count ? `×${esc(b.count)}` : ''}</div>
+    </div>
+    <div class="bullet-card-tags">
+     <span class="tag tag-kind">${esc(b.kind||"陽気")}</span>
+     ${b.attr ? `<span class="tag attr">${esc(b.attr)}属性</span>` : ''}
+     ${getBuffDebuffHtml(b)}
+     ${specialTexts.map(x => `<span class="tag">${esc(x)}</span>`).join("")}
+    </div>
+   </div>
+   <div class="bullet-p-badge p-bg-${pStage}">${esc(pStage)}</div>
+  </div>
+ `;
+}
+
+/* =========================================================
+   結果描写（統合）
 ========================================================= */
 
 function renderResults(arr){
@@ -1263,7 +1545,8 @@ function renderResults(arr){
      h+=`
       <div class="attack">
        <h4>${label} <span class="tag">${esc(a.range)}</span></h4>
-       <div>${esc(a.name)}</div>
+       <div style="font-weight:700;margin-bottom:4px;">${esc(a.name)}</div>
+       ${getBuffDebuffHtml(a)}
        ${(a.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
        ${(a.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
        ${Object.keys(a.specials||{}).filter(x=>a.specials[x]).map(x=>`<span class="tag">${x}</span>`).join("")}
@@ -1279,7 +1562,7 @@ function renderResults(arr){
 }
 
 /* =========================================================
-   モーダル詳細表示
+   モーダル詳細表示（ゲーム風カード配置）
 ========================================================= */
 
 function openModal(id){
@@ -1314,18 +1597,30 @@ function openModal(id){
   </div>
 
   <div class="box" style="background:#f9f9f9">
-   <div class="title">ショット・スペルカード（全項目）</div>
+   <div class="title">ショット・スペルカード詳細</div>
  `;
 
  Object.entries(c.attacks || {}).forEach(([k, a]) => {
   const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
   h += `
-   <div class="attack" style="background:#fff; border:1px solid #eee">
-    <h4>${label} <span class="tag">${esc(a.range)}</span></h4>
-    <div style="font-weight:700;margin-bottom:4px">${esc(a.name || "名称未設定")}</div>
-    <div>${(a.attributes || []).map(x => `<span class="tag attr">属性：${esc(x)}</span>`).join("")}</div>
+   <div class="attack" style="background:#fff; border:1px solid #ddd; margin-bottom:16px;">
+    <h4 style="font-size:16px; color:#333; margin-bottom:4px;">${label} <span class="tag">${esc(a.range)}</span></h4>
+    <div style="font-weight:700; font-size:15px; margin-bottom:6px;">${esc(a.name || "名称未設定")}</div>
+    <div>${getBuffDebuffHtml(a)}</div>
+    <div style="margin-top:4px;">${(a.attributes || []).map(x => `<span class="tag attr">属性：${esc(x)}</span>`).join("")}</div>
     <div>${(a.bulletTypes || []).map(x => `<span class="tag bullet">${esc(x)}</span>`).join("")}</div>
-    <div>${Object.keys(a.specials || {}).filter(x => a.specials[x]).map(x => `<span class="tag">${x}</span>`).join("")}</div>
+
+    <!-- バレットカード一覧表示 -->
+    <div style="margin-top:12px;">
+     <div style="font-weight:700; font-size:13px; color:#444; margin-bottom:6px;">バレット構成 (全6弾)</div>
+  `;
+
+  (a.bullets || []).forEach((b, bIdx) => {
+   h += renderBulletCardHtml(b, bIdx);
+  });
+
+  h += `
+    </div>
    </div>
   `;
  });
