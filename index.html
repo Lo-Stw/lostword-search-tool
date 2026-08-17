@@ -989,10 +989,10 @@ function initAbilities(){
 
  <div class="ability">
   <div class="ability-title">ブースト使用時バフ</div>
-  <div class="switch">
-   <button type="button" id="boostTargetSelf" class="${bo.target!=="味方全体"?"selected":""}">自身</button>
-   <button type="button" id="boostTargetAll" class="${bo.target==="味方全体"?"selected":""}">味方全体</button>
-  </div>
+<div class="switch">
+   <button type="button" id="boostTargetSelf" class="${bo.target!=="味方全体"?"on":""}">自身</button>
+   <button type="button" id="boostTargetAll" class="${bo.target==="味方全体"?"on":""}">味方全体</button>
+</div>
   <select id="boostStat" class="select" style="margin-top:7px">
    <option value="">強化する能力</option>
    ${STATS.map(x=>`<option ${bo.stat===x?"selected":""}>${x}</option>`).join("")}
@@ -1002,10 +1002,10 @@ function initAbilities(){
 
  <div class="ability">
   <div class="ability-title">グレイズ使用時バフ</div>
-  <div class="switch">
-   <button type="button" id="grazeTargetSelf" class="${gr.target!=="味方全体"?"selected":""}">自身</button>
-   <button type="button" id="grazeTargetAll" class="${gr.target==="味方全体"?"selected":""}">味方全体</button>
-  </div>
+ <div class="switch">
+   <button type="button" id="grazeTargetSelf" class="${gr.target!=="味方全体"?"on":""}">自身</button>
+   <button type="button" id="grazeTargetAll" class="${gr.target==="味方全体"?"on":""}">味方全体</button>
+</div>
   <select id="grazeStat" class="select" style="margin-top:7px">
    <option value="">強化する能力</option>
    ${STATS.map(x=>`<option ${gr.stat===x?"selected":""}>${x}</option>`).join("")}
@@ -1073,8 +1073,8 @@ function bindAbilityUI(){
 }
 
 function setTargetButtons(on,off){
- document.getElementById(on).classList.add("selected");
- document.getElementById(off).classList.remove("selected");
+ document.getElementById(on).classList.add("on");
+ document.getElementById(off).classList.remove("on");
 }
 
 /* =========================================================
