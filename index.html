@@ -232,10 +232,37 @@ footer a{color:#444;text-decoration:underline}
  .row,.row3{grid-template-columns:1fr}
  .container{padding:8px}
 }
+
+/* 認証UI */
+.auth-bar{
+ background:#1a1a1a;color:#fff;padding:10px 14px;
+ display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font-size:13px
+}
+.auth-bar input{
+ padding:7px 9px;border-radius:6px;border:1px solid #555;
+ background:#2a2a2a;color:#fff;font-size:13px;width:150px
+}
+.auth-bar button{
+ padding:7px 12px;border-radius:6px;border:0;
+ background:#0056b3;color:#fff;font-size:13px;font-weight:700;cursor:pointer
+}
+.auth-bar button.secondary{background:#444}
+.auth-bar button.logout{background:#dc3545}
+.auth-status{font-size:12px;opacity:.85}
+.auth-msg{width:100%;text-align:center;font-size:12px;padding-top:2px}
+.auth-msg.ok{color:#8ee2a0;background:none}
+.auth-msg.err{color:#ff9c9c;background:none}
+.login-required{
+ text-align:center;padding:40px 20px;color:#666;background:#fff;
+ border-radius:15px;margin-bottom:12px
+}
+.login-required b{display:block;margin-bottom:10px;font-size:15px;color:#333}
 </style>
 </head>
 
 <body>
+
+<div class="auth-bar" id="authBar"></div>
 
 <header>
 <h1>東方ロストワード</h1>
@@ -441,6 +468,7 @@ footer a{color:#444;text-decoration:underline}
   <p>©上海アリス幻樂団 ©GOOD SMILE COMPANY, INC. / NextNinja Co., Ltd.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 
 /* =========================================================
@@ -450,6 +478,8 @@ footer a{color:#444;text-decoration:underline}
 const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
+
+const sb = supabase.createClient(URL, KEY);
 
 /* =========================================================
    基本データ定義
@@ -490,6 +520,98 @@ const selected={
 };
 
 let statMode="";
+
+/* =========================================================
+   認証
+========================================================= */
+
+let currentSession=null;
+
+function isLoggedIn(){
+ return !!currentSession;
+}
+
+function renderAuthBar(msg, msgType){
+ const bar=document.getElementById("authBar");
+
+ if(isLoggedIn()){
+  bar.innerHTML=`
+   <span class="auth-status">ログイン中：${esc(currentSession.user.email)}</span>
+   <button type="button" id="logoutBtn" class="logout">ログアウト</button>
+   ${msg?`<div class="auth-msg ${msgType||''}">${esc(msg)}</div>`:""}
+  `;
+  document.getElementById("logoutBtn").onclick=doLogout;
+ }else{
+  bar.innerHTML=`
+   <input type="email" id="authEmail" placeholder="メールアドレス">
+   <input type="password" id="authPassword" placeholder="パスワード">
+   <button type="button" id="signInBtn">サインイン</button>
+   <button type="button" id="signUpBtn" class="secondary">サインアップ</button>
+   ${msg?`<div class="auth-msg ${msgType||''}">${esc(msg)}</div>`:""}
+  `;
+  document.getElementById("signInBtn").onclick=doSignIn;
+  document.getElementById("signUpBtn").onclick=doSignUp;
+ }
+
+ updateEditGuard();
+}
+
+async function doSignIn(){
+ const email=document.getElementById("authEmail").value.trim();
+ const password=document.getElementById("authPassword").value;
+ if(!email||!password){ renderAuthBar("メールアドレスとパスワードを入力してください。","err"); return; }
+
+ renderAuthBar("サインイン中……");
+ const {data:res, error}=await sb.auth.signInWithPassword({email,password});
+ if(error){ renderAuthBar("サインイン失敗："+error.message,"err"); return; }
+ currentSession=res.session;
+ renderAuthBar("サインインしました。","ok");
+ search();
+}
+
+async function doSignUp(){
+ const email=document.getElementById("authEmail").value.trim();
+ const password=document.getElementById("authPassword").value;
+ if(!email||!password){ renderAuthBar("メールアドレスとパスワードを入力してください。","err"); return; }
+ if(password.length<6){ renderAuthBar("パスワードは6文字以上にしてください。","err"); return; }
+
+ renderAuthBar("サインアップ中……");
+ const {data:res, error}=await sb.auth.signUp({email,password});
+ if(error){ renderAuthBar("サインアップ失敗："+error.message,"err"); return; }
+
+ if(res.session){
+  currentSession=res.session;
+  renderAuthBar("サインアップしました。","ok");
+  search();
+ }else{
+  renderAuthBar("確認メールを送信しました。メール内のリンクを開いて認証を完了してください。","ok");
+ }
+}
+
+async function doLogout(){
+ await sb.auth.signOut();
+ currentSession=null;
+ renderAuthBar("ログアウトしました。","ok");
+ if(!document.getElementById("addPage").classList.contains("hidden")){
+  search();
+ }
+ renderResults(lastResults||[]);
+}
+
+function updateEditGuard(){
+ const addPage=document.getElementById("addPage");
+ const existingGuard=document.getElementById("loginRequiredNotice");
+ if(existingGuard) existingGuard.remove();
+
+ const formBox=addPage.querySelector(".box");
+ if(!isLoggedIn()){
+  const notice=document.createElement("div");
+  notice.id="loginRequiredNotice";
+  notice.className="login-required";
+  notice.innerHTML=`<b>キャラクターの追加・編集にはログインが必要です</b>上部のバーからサインイン、またはサインアップしてください。`;
+  addPage.insertBefore(notice, addPage.firstChild);
+ }
+}
 
 /* =========================================================
    初期構造生成関数
@@ -1526,6 +1648,8 @@ function hasSpecial(c, x) {
  return !!s[x]?.enabled;
 }
 
+let lastResults=[];
+
 function search() {
  const q = document.getElementById("q").value.trim().toLowerCase();
  const qs = document.getElementById("qSymbol").value.trim().toLowerCase();
@@ -1572,6 +1696,7 @@ function search() {
   return true;
  });
 
+ lastResults=out;
  renderResults(out);
 }
 
@@ -1643,6 +1768,12 @@ function renderBulletCardHtml(b, bIdx) {
 ========================================================= */
 
 function editCharacter(id) {
+ if(!isLoggedIn()){
+  renderAuthBar("編集にはログインが必要です。","err");
+  document.getElementById("authBar").scrollIntoView({behavior:"smooth"});
+  return;
+ }
+
  const c = data.find(x => String(x.id) === String(id));
  if (!c) return;
 
@@ -1788,6 +1919,7 @@ function renderResults(arr){
  }
 
  const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
+ const loggedIn = isLoggedIn();
 
  e.innerHTML=`<div class="result-count">${arr.length}件</div>`;
  arr.forEach(c=>{
@@ -1796,8 +1928,10 @@ function renderResults(arr){
    <div class="char-row">
     <div class="char" onclick="openModal('${esc(c.id)}')">${esc(c.character)}</div>
      <div>
+      ${loggedIn ? `
       <button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">編集</button>
       <button class="btn-delete" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+      ` : ""}
      </div>
    </div>
    <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
@@ -1877,6 +2011,7 @@ function openAttackModal(id, attackKey){
   const attack = c?.attacks?.[attackKey];
   if(!c || !attack) return;
 
+  const loggedIn = isLoggedIn();
   const body = document.getElementById("modalBody");
   body.innerHTML = `
    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -1885,8 +2020,10 @@ function openAttackModal(id, attackKey){
      <div class="muted" style="margin-bottom:12px;">${esc(c.symbol||"未登録")} / ${esc(c.type||"未設定")}</div>
     </div>
     <div>
+     ${loggedIn ? `
      <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
      <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+     ` : ""}
     </div>
    </div>
    <div class="box" style="background:#f9f9f9">
@@ -1901,6 +2038,7 @@ function openModal(id){
  const c = data.find(x => String(x.id) === String(id));
  if(!c) return;
 
+ const loggedIn = isLoggedIn();
  const body = document.getElementById("modalBody");
  const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
  const details = c.details || {};
@@ -1913,8 +2051,10 @@ function openModal(id){
     <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
    </div>
     <div>
+     ${loggedIn ? `
      <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
      <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+     ` : ""}
     </div>
   </div>
   
@@ -1963,10 +2103,15 @@ document.getElementById("detailModal").onclick = (e) => {
    Supabase 読み込み・保存 (POST/PATCH対応)
 ========================================================= */
 
+function authHeaders(){
+ const token = currentSession ? currentSession.access_token : KEY;
+ return { apikey:KEY, Authorization:"Bearer "+token };
+}
+
 async function load(){
  try{
   const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{
-   headers:{ apikey:KEY, Authorization:"Bearer "+KEY }
+   headers: authHeaders()
   });
   const t=await r.text();
   if(!r.ok) throw Error(t);
@@ -1979,6 +2124,11 @@ async function load(){
 }
 
 async function deleteCharacter(id){
+  if(!isLoggedIn()){
+   renderAuthBar("削除にはログインが必要です。","err");
+   return;
+  }
+
   const character = data.find(x => String(x.id) === String(id));
   if(!character) return;
 
@@ -1994,8 +2144,7 @@ async function deleteCharacter(id){
         method:"DELETE",
         headers:{
           "Accept":"application/json",
-          apikey:KEY,
-          Authorization:"Bearer "+KEY,
+          ...authHeaders(),
           Prefer:"return=representation"
         }
       }
@@ -2040,6 +2189,13 @@ function num(id){
 
 async function save(){
  const msg=document.getElementById("message");
+
+ if(!isLoggedIn()){
+  msg.className="msg err";
+  msg.textContent="保存にはログインが必要です。上部のバーからサインインしてください。";
+  return;
+ }
+
  const character=document.getElementById("aCharacter").value.trim();
  const symbol=document.getElementById("aSymbol").value.trim();
  const type=document.getElementById("aType").value;
@@ -2076,8 +2232,7 @@ async function save(){
    method: method,
    headers:{
     "Content-Type":"application/json",
-    apikey:KEY,
-    Authorization:"Bearer "+KEY,
+    ...authHeaders(),
     Prefer:"return=minimal"
    },
    body:JSON.stringify(record)
@@ -2129,6 +2284,7 @@ document.getElementById("tabAdd").onclick=()=>{
   initSpecialSkills();
   initAbilities();
  }
+ updateEditGuard();
 };
 
 document.getElementById("q").oninput=search;
@@ -2176,8 +2332,26 @@ document.getElementById("reset").onclick=()=>{
  search();
 };
 
-/* 初期起動 */
-load();
+/* =========================================================
+   初期起動（セッション復元 → データ読み込み）
+========================================================= */
+
+async function init(){
+ const { data:sessionData } = await sb.auth.getSession();
+ currentSession = sessionData.session;
+ renderAuthBar();
+
+ sb.auth.onAuthStateChange((event, session)=>{
+  currentSession = session;
+  renderAuthBar();
+  renderResults(lastResults);
+  updateEditGuard();
+ });
+
+ await load();
+}
+
+init();
 
 </script>
  
