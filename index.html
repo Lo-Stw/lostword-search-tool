@@ -1647,30 +1647,44 @@ function editCharacter(id) {
  document.getElementById("sYangDef").value = s.yangDef ?? "";
  document.getElementById("sYinDef").value = s.yinDef ?? "";
 
- if (c.attacks) {
+if (c.attacks) {
   attackData = JSON.parse(JSON.stringify(c.attacks));
   ATTACKS.forEach(([key]) => {
    if(!attackData[key]) {
     attackData[key] = {
      name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
      buffs:[], debuffs:[],
-     bullets:[1,2,3,4,5,6].map(i => createBulletStructure(i))
+     bullets: [1,2,3,4,5,6].map(i => createBulletStructure(i))
     };
    }
-   if(!attackData[key].bullets) {
-    attackData[key].bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
-   } else {
-    while(attackData[key].bullets.length < 6) {
-     attackData[key].bullets.push(createBulletStructure(attackData[key].bullets.length + 1));
-    }
-    if(attackData[key].bullets.length > 6) {
-     attackData[key].bullets = attackData[key].bullets.slice(0, 6);
-    }
+   
+   // 既存のバレット配列がない、または配列でない場合は新規作成
+   if(!Array.isArray(attackData[key].bullets)) {
+    attackData[key].bullets = [];
    }
+
+   // ★重要：既存のバレットデータを消さずに、6個未満のときだけ不足分を追加する
+   for(let i = attackData[key].bullets.length; i < 6; i++) {
+    attackData[key].bullets.push(createBulletStructure(i + 1));
+   }
+
+   // 6個より多い場合は6個に切り詰める
+   if(attackData[key].bullets.length > 6) {
+    attackData[key].bullets = attackData[key].bullets.slice(0, 6);
+   }
+
+   // 各バレットに不足しているプロパティ（特殊弾やバフ等）がある場合も安全に補完
+   attackData[key].bullets.forEach((b, idx) => {
+    if(!b.specials) b.specials = {};
+    SPECIALS.forEach(x => {
+     if(b.specials[x] === undefined) b.specials[x] = false;
+    });
+    if(!b.pStage) b.pStage = "P0";
+   });
   });
- } else {
+} else {
   resetAttackData();
- }
+}
 
  if (c.details && c.details.specialSkills) {
   specialData = JSON.parse(JSON.stringify(c.details.specialSkills));
