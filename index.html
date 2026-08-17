@@ -2607,6 +2607,18 @@ async function init(){
  renderAuthBar();
  await load();
 }
+ // 検索ボタンのクリックイベント設定
+document.getElementById("execSearchBtn").onclick = () => {
+  // 1. 検索履歴を保存
+  const qVal = document.getElementById("q").value.trim();
+  if (qVal) {
+    addSearchHistory(qVal);
+  }
+  
+  // 2. 検索処理を実行
+  search();
+};
+
 // タブボタンの切り替え処理部分に追加・修正
 document.getElementById("tabSearch").onclick = () => {
  document.getElementById("searchPage").classList.remove("hidden");
