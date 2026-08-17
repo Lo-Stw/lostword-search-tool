@@ -76,6 +76,13 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
 }
 .btn-edit:hover{background:#0056b3;color:#fff}
 
+.btn-delete{
+  padding:4px 10px;border:1px solid #dc3545;border-radius:6px;
+  background:#fff0f0;color:#dc3545;font-size:12px;font-weight:700;
+  cursor:pointer;margin-left:6px;display:inline-block
+}
+.btn-delete:hover{background:#dc3545;color:#fff}
+
 .btn-add{
  width:100%;padding:6px;border:1px dashed #0056b3;border-radius:6px;
  background:#f0f7ff;color:#0056b3;font-size:12px;font-weight:700;
@@ -117,6 +124,17 @@ header p{margin:7px 0 0;font-size:13px;opacity:.8}
  padding:10px;margin-top:10px
 }
 .attack h4{margin:0 0 5px;cursor:pointer}
+.attack.clickable{
+  cursor:pointer;
+  border:1px solid transparent;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease
+}
+.attack.clickable:hover{
+  transform:translateY(-1px);
+  border-color:#0056b3;
+  box-shadow:0 3px 8px #00000018
+}
+.attack.clickable:active{transform:translateY(0)}
 
 .editor{
  background:#f6f6f6;border-radius:12px;
@@ -1744,6 +1762,24 @@ function resetFormToNew() {
    結果描写（統合）
 ========================================================= */
 
+function renderSearchAttackCard(characterId, attackKey, attack, label){
+  return `
+   <div class="attack clickable"
+        role="button"
+        tabindex="0"
+        onclick="openAttackModal('${esc(characterId)}','${esc(attackKey)}')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAttackModal('${esc(characterId)}','${esc(attackKey)}')}">
+    <h4>${esc(label)} <span class="tag">${esc(attack.range||"")}</span></h4>
+    <div style="font-weight:700;margin-bottom:4px;">${esc(attack.name)}</div>
+    ${getBuffDebuffHtml(attack)}
+    ${(attack.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
+    ${(attack.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
+    ${Object.keys(attack.specials||{}).filter(x=>attack.specials[x]).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}
+    <div class="muted" style="margin-top:8px;">タップしてバレットを表示</div>
+   </div>
+  `;
+}
+
 function renderResults(arr){
  const e=document.getElementById("results");
  if(!arr.length){
@@ -1759,7 +1795,10 @@ function renderResults(arr){
    <div class="result">
    <div class="char-row">
     <div class="char" onclick="openModal('${esc(c.id)}')">${esc(c.character)}</div>
-    <button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">✏️ 編集</button>
+     <div>
+      <button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">編集</button>
+      <button class="btn-delete" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+     </div>
    </div>
    <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
   `;
@@ -1784,24 +1823,20 @@ function renderResults(arr){
    </div>
   `;
 
-  if(hasAttackFilter){
-   Object.entries(c.attacks||{}).forEach(([k,a])=>{
+   const visibleAttacks = Object.entries(c.attacks||{}).filter(([k,a])=>{
     const label=ATTACKS.find(x=>x[0]===k)?.[1]||k;
-    if(!a.name)return;
-    if(checkAttackMatch(a, label)){
-     h+=`
-      <div class="attack">
-       <h4>${label} <span class="tag">${esc(a.range)}</span></h4>
-       <div style="font-weight:700;margin-bottom:4px;">${esc(a.name)}</div>
-       ${getBuffDebuffHtml(a)}
-       ${(a.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
-       ${(a.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
-       ${Object.keys(a.specials||{}).filter(x=>a.specials[x]).map(x=>`<span class="tag">${x}</span>`).join("")}
-      </div>
-     `;
-    }
+    if(!a || !a.name) return false;
+    return !hasAttackFilter || checkAttackMatch(a, label);
    });
-  }
+
+   if(visibleAttacks.length){
+    h += visibleAttacks
+     .map(([k,a])=>{
+      const label=ATTACKS.find(x=>x[0]===k)?.[1]||k;
+      return renderSearchAttackCard(c.id,k,a,label);
+     })
+     .join("");
+   }
 
   h+="</div>";
   e.insertAdjacentHTML("beforeend", h);
@@ -1811,6 +1846,56 @@ function renderResults(arr){
 /* =========================================================
    モーダル詳細表示
 ========================================================= */
+
+function renderAttackDetailHtml(k, a){
+  const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
+  let h = `
+   <div class="attack" style="background:#fff; border:1px solid #ddd; margin-bottom:16px;">
+    <h4 style="font-size:16px; color:#333; margin-bottom:4px;">${esc(label)} <span class="tag">${esc(a.range||"")}</span></h4>
+    <div style="font-weight:700; font-size:15px; margin-bottom:6px;">${esc(a.name || "名称未設定")}</div>
+    <div>${getBuffDebuffHtml(a)}</div>
+    <div style="margin-top:4px;">${(a.attributes || []).map(x => `<span class="tag attr">属性：${esc(x)}</span>`).join("")}</div>
+    <div>${(a.bulletTypes || []).map(x => `<span class="tag bullet">${esc(x)}</span>`).join("")}</div>
+
+    <div style="margin-top:12px;">
+     <div style="font-weight:700; font-size:13px; color:#444; margin-bottom:6px;">バレット構成 (全6弾)</div>
+  `;
+
+  (a.bullets || []).forEach((b, bIdx) => {
+   h += renderBulletCardHtml(b, bIdx);
+  });
+
+  h += `
+    </div>
+   </div>
+  `;
+  return h;
+}
+
+function openAttackModal(id, attackKey){
+  const c = data.find(x => String(x.id) === String(id));
+  const attack = c?.attacks?.[attackKey];
+  if(!c || !attack) return;
+
+  const body = document.getElementById("modalBody");
+  body.innerHTML = `
+   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+     <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
+     <div class="muted" style="margin-bottom:12px;">${esc(c.symbol||"未登録")} / ${esc(c.type||"未設定")}</div>
+    </div>
+    <div>
+     <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
+     <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+    </div>
+   </div>
+   <div class="box" style="background:#f9f9f9">
+    <div class="title">ショット・スペルカード詳細</div>
+    ${renderAttackDetailHtml(attackKey, attack)}
+   </div>
+  `;
+  document.getElementById("detailModal").classList.remove("hidden");
+}
 
 function openModal(id){
  const c = data.find(x => String(x.id) === String(id));
@@ -1827,7 +1912,10 @@ function openModal(id){
     <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
     <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
    </div>
-   <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">✏️ 編集する</button>
+    <div>
+     <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
+     <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+    </div>
   </div>
   
   <div class="box" style="background:#f9f9f9">
@@ -1852,29 +1940,9 @@ function openModal(id){
    <div class="title">ショット・スペルカード詳細</div>
  `;
 
- Object.entries(c.attacks || {}).forEach(([k, a]) => {
-  const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
-  h += `
-   <div class="attack" style="background:#fff; border:1px solid #ddd; margin-bottom:16px;">
-    <h4 style="font-size:16px; color:#333; margin-bottom:4px;">${label} <span class="tag">${esc(a.range)}</span></h4>
-    <div style="font-weight:700; font-size:15px; margin-bottom:6px;">${esc(a.name || "名称未設定")}</div>
-    <div>${getBuffDebuffHtml(a)}</div>
-    <div style="margin-top:4px;">${(a.attributes || []).map(x => `<span class="tag attr">属性：${esc(x)}</span>`).join("")}</div>
-    <div>${(a.bulletTypes || []).map(x => `<span class="tag bullet">${esc(x)}</span>`).join("")}</div>
-
-    <div style="margin-top:12px;">
-     <div style="font-weight:700; font-size:13px; color:#444; margin-bottom:6px;">バレット構成 (全6弾)</div>
-  `;
-
-  (a.bullets || []).forEach((b, bIdx) => {
-   h += renderBulletCardHtml(b, bIdx);
+  Object.entries(c.attacks || {}).forEach(([k, a]) => {
+   h += renderAttackDetailHtml(k, a);
   });
-
-  h += `
-    </div>
-   </div>
-  `;
- });
 
  h += `</div>`;
  body.innerHTML = h;
@@ -1908,6 +1976,40 @@ async function load(){
  }catch(e){
   document.getElementById("results").innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`;
  }
+}
+
+async function deleteCharacter(id){
+  const character = data.find(x => String(x.id) === String(id));
+  if(!character) return;
+
+  const confirmed = confirm(
+    `「${character.character}」を削除しますか？\nこの操作は元に戻せません。`
+  );
+  if(!confirmed) return;
+
+  try{
+    const r = await fetch(
+      `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`,
+      {
+        method:"DELETE",
+        headers:{
+          apikey:KEY,
+          Authorization:"Bearer "+KEY,
+          Prefer:"return=minimal"
+        }
+      }
+    );
+    const t = await r.text();
+    if(!r.ok) throw Error(t);
+
+    if(String(editingId) === String(id)){
+      resetFormToNew();
+    }
+    document.getElementById("detailModal").classList.add("hidden");
+    await load();
+  }catch(e){
+    alert("削除に失敗しました。\n"+(e?.message || e));
+  }
 }
 
 function num(id){
