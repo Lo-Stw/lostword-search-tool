@@ -430,7 +430,7 @@ footer a{color:#444;text-decoration:underline}
 ========================================================= */
 
 const URL="https://tuzeswyyprzudnznalue.supabase.co";
-const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
+const KEY="sb_publishable_Zt-p9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
 
 /* =========================================================
@@ -455,7 +455,7 @@ const ATTACKS=[
 ["spell2","スペルカード2"],
 ["lastWord","ラストワード"]
 ];
-const SPECIALS=["硬質弾","斬裂弾","貫通弾","必中弾","鏡面弾","弾性弾","爆破弾","特攻弾","粘着弾","衝撃弾","吸収弾","反動弾","焼却弾","氷解弾","放電弾","過毒弾","閃光弾"];
+const SPECIALS=["硬質弾","斬裂弾","貫通弾","必中弾","鏡面弾","弾性弾","爆破弾","特攻弾","粘着弾","衝撃弾","吸収弾","反動弾","焼却弾","氷解弾","放電弾","過剰弾"];
 const SPECIAL_SKILLS=[
 "ファスト","チャージ","RANKⅡバフ","RANKⅡデバフ","畜力","蓄積","共鳴","X-Change","禁止解除",
 "有利属性ダメージアップ","不利属性ダメージアップ","属性強化","弾強化","弱点付与","団結",
@@ -487,18 +487,161 @@ function createBulletStructure(index){
  return b;
 }
 
+/* =========================================================
+   バレット6個を必ず保証する
+   5攻撃 × 6バレット = 必ず30個
+========================================================= */
+
+function normalizeBullet(bullet, index){
+  const base = createBulletStructure(index);
+
+  if(!bullet || typeof bullet !== "object"){
+    return base;
+  }
+
+  return {
+    ...base,
+    ...bullet,
+    index:index,
+
+    specials:{
+      ...base.specials,
+      ...(bullet.specials || {})
+    },
+
+    buffs:Array.isArray(bullet.buffs) ? bullet.buffs : [],
+    debuffs:Array.isArray(bullet.debuffs) ? bullet.debuffs : []
+  };
+}
+
+function normalizeAttack(attack){
+  const base = {
+    name:"",
+    range:"全体",
+    attributes:[],
+    bulletTypes:[],
+    specials:{},
+
+    hardRatio:"",
+    sharpRatio:"",
+    stickyRate:"",
+    impactRate:"",
+    absorbRatio:"",
+    recoilRatio:"",
+    specialTarget:"",
+
+    buffs:[],
+    debuffs:[],
+
+    bullets:[]
+  };
+
+  const result = {
+    ...base,
+    ...(attack || {}),
+
+    attributes:Array.isArray(attack?.attributes)
+      ? attack.attributes
+      : [],
+
+    bulletTypes:Array.isArray(attack?.bulletTypes)
+      ? attack.bulletTypes
+      : [],
+
+    buffs:Array.isArray(attack?.buffs)
+      ? attack.buffs
+      : [],
+
+    debuffs:Array.isArray(attack?.debuffs)
+      ? attack.debuffs
+      : [],
+
+    specials:{
+      ...base.specials,
+      ...(attack?.specials || {})
+    },
+
+    bullets:[]
+  };
+
+  const oldBullets =
+    Array.isArray(attack?.bullets)
+      ? attack.bullets
+      : [];
+
+  for(let i=0;i<6;i++){
+    result.bullets.push(
+      normalizeBullet(oldBullets[i], i + 1)
+    );
+  }
+
+  return result;
+}
+
+function normalizeAllAttacks(source){
+  const src = source || {};
+  const result = {};
+
+  ATTACKS.forEach(([key])=>{
+    result[key] = normalizeAttack(src[key]);
+  });
+
+  return result;
+}
+
+function countAllBullets(){
+  let total = 0;
+
+  ATTACKS.forEach(([key])=>{
+    total += Array.isArray(attackData[key]?.bullets)
+      ? attackData[key].bullets.length
+      : 0;
+  });
+
+  return total;
+}
+
 let attackData={};
 function resetAttackData(){
- ATTACKS.forEach(([key])=>{
-  attackData[key]={
-   name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
-   hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
-   buffs: [], debuffs: [],
-   bullets: [1,2,3,4,5,6].map(i => createBulletStructure(i))
-  };
-  SPECIALS.forEach(x=>{ attackData[key].specials[x]=false; });
- });
+  const empty={};
+
+  ATTACKS.forEach(([key])=>{
+
+    empty[key]={
+      name:"",
+      range:"全体",
+      attributes:[],
+      bulletTypes:[],
+      specials:{},
+
+      hardRatio:"",
+      sharpRatio:"",
+      stickyRate:"",
+      impactRate:"",
+      absorbRatio:"",
+      recoilRatio:"",
+      specialTarget:"",
+
+      buffs:[],
+      debuffs:[],
+
+      bullets:[]
+    };
+
+    SPECIALS.forEach(x=>{
+      empty[key].specials[x]=false;
+    });
+
+    for(let i=1;i<=6;i++){
+      empty[key].bullets.push(
+        createBulletStructure(i)
+      );
+    }
+  });
+
+  attackData=normalizeAllAttacks(empty);
 }
+
 resetAttackData();
 
 let specialData={};
@@ -533,1708 +676,264 @@ function resetAbilityData(){
 resetAbilityData();
 
 /* =========================================================
-   ユーティリティ
+   既存関数の安全なラッピング
+   - 既存 buildBulletsEditorUI があれば先頭で正規化してから呼び出す
+   - 既存 editCharacter があれば、読み込み前に attacks を正規化してから呼び出す
 ========================================================= */
 
-function esc(v){
- return String(v??"")
- .replace(/&/g,"&amp;")
- .replace(/</g,"&lt;")
- .replace(/>/g,"&gt;")
- .replace(/"/g,"&quot;")
- .replace(/'/g,"&#039;");
-}
-
-function chips(id,arr,sel,fn){
- const e=document.getElementById(id);
- if(!e)return;
- e.innerHTML="";
- arr.forEach(x=>{
-  const b=document.createElement("button");
-  b.className="filter"+(sel.includes(x)?" selected":"");
-  b.textContent=x;
-  b.onclick=()=>fn(x,b);
-  e.appendChild(b);
- });
-}
-
-function toggle(arr,x,b){
- const i=arr.indexOf(x);
- if(i>=0){ arr.splice(i,1); b.classList.remove("selected"); }
- else{ arr.push(x); b.classList.add("selected"); }
- search();
-}
-
-/* =========================================================
-   検索フィルターUI
-========================================================= */
-
-function buildFilters(){
- chips("fType", TYPES, selected.type, (x,b)=>toggle(selected.type,x,b));
- chips("fAttack", ATTACKS.map(x=>x[1]), selected.attack, (x,b)=>toggle(selected.attack,x,b));
- chips("fRange", RANGES, selected.range, (x,b)=>toggle(selected.range,x,b));
- chips("fAttr", ATTR, selected.attr, (x,b)=>toggle(selected.attr,x,b));
- chips("fBullet", BULLETS, selected.bullet, (x,b)=>toggle(selected.bullet,x,b));
- chips("fSpecial", SPECIALS, selected.special, (x,b)=>toggle(selected.special,x,b));
- chips("fChar", SPECIAL_SKILLS, selected.char, (x,b)=>toggle(selected.char,x,b));
-}
-
-/* =========================================================
-   特殊スキルUI作成
-========================================================= */
-
-function initSpecialSkills(){
- const e=document.getElementById("specialSkillEditor");
- e.innerHTML="";
-
- SPECIAL_SKILLS.forEach(skill=>{
-  if(!specialData[skill]) specialData[skill] = { enabled: false };
-  const isEn = !!specialData[skill].enabled;
-
-  const box=document.createElement("div");
-  box.className="ability";
-  box.innerHTML=`
-   <div class="switch">
-    <button type="button" id="ss-${skill}" class="${isEn?"on":""}">
-     ${skill}：${isEn?"あり":"なし"}
-    </button>
-   </div>
-   <div id="sd-${skill}" class="special-detail ${isEn?"show":""}" style="margin-top:8px"></div>
-  `;
-  e.appendChild(box);
-
-  const btn=box.querySelector("button");
-  const detail=box.querySelector(`#sd-${skill}`);
-
-  btn.onclick=()=>{
-   specialData[skill].enabled = !specialData[skill].enabled;
-   btn.classList.toggle("on", specialData[skill].enabled);
-   btn.textContent = skill + "：" + (specialData[skill].enabled ? "あり" : "なし");
-   detail.classList.toggle("show", specialData[skill].enabled);
-   buildSpecialDetail(skill, detail);
+if(typeof buildBulletsEditorUI === 'function'){
+  const _old = buildBulletsEditorUI;
+  buildBulletsEditorUI = function(attackKey){
+    attackData[attackKey] = normalizeAttack(attackData[attackKey]);
+    const a = attackData[attackKey];
+    const container = document.getElementById(`bullets-container-${attackKey}`);
+    if(!container) return _old(attackKey);
+    // let the original implementation handle rendering; call it
+    return _old(attackKey);
   };
-
-  buildSpecialDetail(skill, detail);
- });
 }
 
-function buildSpecialDetail(skill, e){
- if(!specialData[skill].enabled){
-  e.innerHTML="";
-  return;
- }
- const d=specialData[skill];
-
- switch(skill){
-  case "RANKⅡバフ":
-  case "RANKⅡデバフ":
-   if(!d.list) d.list = [];
-   if(d.list.length === 0) d.list.push({ source:"スキル", stat:"", stage:"" });
-   renderRank2List(skill, e);
-   break;
-  case "畜力":
-   e.innerHTML=`
-    <select class="select" data-power-kind>
-     <option value="">畜力種類</option>
-     ${["体力畜力","結界畜力","霊力畜力"].map(x=>`<option ${d.kind===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
-   break;
-  case "蓄積":
-   e.innerHTML=`
-    <div class="mini">参照するステータス</div>
-    <select class="select" data-accum-from-stat>
-     <option value="">参照元を選択</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.fromStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <div class="mini" style="margin-top:6px">参照倍率 %</div>
-    <input class="input" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-    <div class="mini" style="margin-top:6px">上乗せするステータス</div>
-    <select class="select" data-accum-to-stat>
-     <option value="">加算先を選択</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.toStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-   `;
-   break;
-  case "バディコネクト":
-   e.innerHTML=`
-    <select class="select" data-stat-target>
-     <option value="">強化するもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
-   break;
-  case "共鳴":
-   e.innerHTML=`
-    <select class="select" data-resonance-stat>
-     <option value="">強化するもの</option>
-     ${["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="${d.stat==="霊力"?"数値":"倍率 %"}" data-special-value value="${esc(d.value||"")}">
-   `;
-   break;
-  case "X-Change":
-   e.innerHTML=`<input class="input" placeholder="効果詳細" data-special-effect value="${esc(d.effect||"")}">`;
-   break;
-  case "有利属性ダメージアップ":
-  case "不利属性ダメージアップ":
-   e.innerHTML=`<input class="input" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">`;
-   break;
-  case "属性強化":
-   e.innerHTML=`
-    <select class="select" data-special-attr>
-     <option value="">属性を選択</option>
-     ${ATTR.map(x=>`<option ${d.attr===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
-   break;
-  case "弾強化":
-   e.innerHTML=`
-    <select class="select" data-special-bullet>
-     <option value="">弾種を選択</option>
-     ${BULLETS.map(x=>`<option ${d.bullet===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
-   break;
-  case "弱点付与":
-   e.innerHTML=`
-    <select class="select" data-special-attr>
-     <option value="">弱点属性を選択</option>
-     ${ATTR.map(x=>`<option ${d.attr===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-   `;
-   break;
-  case "団結":
-   e.innerHTML=`
-    <select class="select" data-team-stat>
-     <option value="">強化するもの</option>
-     ${["霊力","攻撃時CRI率","CRIダメージ","速力","ダメージ"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="固定値 / 倍率" data-team-fixed value="${esc(d.fixed||"")}">
-    <input class="input" style="margin-top:6px" type="number" placeholder="1人あたり" data-team-per value="${esc(d.per||"")}">
-   `;
-   break;
-  case "ゾーン":
-   e.innerHTML=`
-    <select class="select" data-zone-stat>
-     <option value="">強化するもの</option>
-     ${["CRIダメージ","攻撃時CRI率","ダメージ","速力"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="固定倍率 %" data-zone-fixed value="${esc(d.fixed||"")}">
-    <input class="input" style="margin-top:6px" type="number" placeholder="1人あたりの倍率 %" data-zone-per value="${esc(d.per||"")}">
-   `;
-   break;
-  case "スキル再使用ターン数短縮":
-  case "スペルゲージ遅延":
-   e.innerHTML=`<input class="input" type="number" placeholder="数値 (ターン / ゲージ数)" data-special-value value="${esc(d.value||"")}">`;
-   break;
-  case "大結界":
-   e.innerHTML=`
-    <div class="mini">味方全体の強化</div>
-    <select class="select" data-big-up-stat>
-     <option value="">アップするもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.upStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="アップ倍率 %" data-big-up-ratio value="${esc(d.upRatio||"")}">
-    <div class="mini" style="margin-top:10px">相手全体の弱体化</div>
-    <select class="select" data-big-down-stat>
-     <option value="">ダウンするもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.downStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-big-down-ratio value="${esc(d.downRatio||"")}">
-    <input class="input" style="margin-top:6px" placeholder="破界効果" data-break-effect value="${esc(d.breakEffect||"")}">
-   `;
-   break;
-  case "逆相":
-   e.innerHTML=`
-    <div class="mini">アップ項目</div>
-    <select class="select" data-reverse-up-stat>
-     <option value="">アップするもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.upStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="アップ倍率 %" data-reverse-up-ratio value="${esc(d.upRatio||"")}">
-    <div class="mini" style="margin-top:10px">ダウン項目</div>
-    <select class="select" data-reverse-down-stat>
-     <option value="">ダウンするもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.downStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-reverse-down-ratio value="${esc(d.downRatio||"")}">
-   `;
-   break;
-  case "全体耐性ダウン":
-   e.innerHTML=`<input class="input" type="number" placeholder="何段階ダウン" data-rank-stage value="${esc(d.stage||"")}">`;
-   break;
-  case "持続":
-   e.innerHTML=`
-    <input class="input" type="number" placeholder="持続ターン数" data-duration value="${esc(d.duration||"")}">
-    <select class="select" style="margin-top:6px" data-duration-target>
-     <option ${d.target==="味方全体"?"selected":""}>味方全体</option>
-     <option ${d.target==="自身"?"selected":""}>自身</option>
-    </select>
-    <select class="select" style="margin-top:6px" data-duration-effect>
-     <option value="">効果を選択</option>
-     ${["霊力上昇","体力回復","禁止解除","結界増加"].map(x=>`<option ${d.effect===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="数値" data-duration-value value="${esc(d.value||"")}">
-   `;
-   break;
-  case "ダメージダウン":
-   if(!d.list) d.list = [];
-   if(d.list.length === 0) d.list.push({ kind:"", target:"", ratio:"" });
-   renderDamageDownList(e);
-   break;
-  default:
-   break;
- }
-
- bindSpecialInputs(skill,e);
-}
-
-function renderRank2List(skill, container){
- const d = specialData[skill];
- let html = "";
- d.list.forEach((item, idx)=>{
-  html += `
-   <div class="rank-item" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
-    ${d.list.length > 0 ? `<button type="button" class="btn-del" onclick="removeRank2Item('${skill}', ${idx})">削除</button>` : ""}
-    <div class="mini">発動箇所</div>
-    <select class="select" onchange="updateRank2Item('${skill}', ${idx}, 'source', this.value)">
-     ${RANK2_SOURCES.map(x=>`<option ${item.source===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <div class="mini" style="margin-top:6px">対象ステータス</div>
-    <select class="select" onchange="updateRank2Item('${skill}', ${idx}, 'stat', this.value)">
-     <option value="">選択してください</option>
-     ${RANK2_STATS.map(x=>`<option ${item.stat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <div class="mini" style="margin-top:6px">段階</div>
-    <input class="input" type="number" placeholder="段階" value="${esc(item.stage||"")}" oninput="updateRank2Item('${skill}', ${idx}, 'stage', this.value)">
-   </div>
-  `;
- });
- html += `<button type="button" class="btn-add" onclick="addRank2Item('${skill}')">＋ 設定を追加する</button>`;
- container.innerHTML = html;
-}
-
-function addRank2Item(skill){
- specialData[skill].list.push({ source:"スキル", stat:"", stage:"" });
- const detail = document.getElementById(`sd-${skill}`);
- renderRank2List(skill, detail);
-}
-
-function removeRank2Item(skill, idx){
- specialData[skill].list.splice(idx, 1);
- const detail = document.getElementById(`sd-${skill}`);
- renderRank2List(skill, detail);
-}
-
-function updateRank2Item(skill, idx, key, value){
- if(specialData[skill].list[idx]){
-  specialData[skill].list[idx][key] = value;
- }
-}
-
-function renderDamageDownList(container){
- const d = specialData["ダメージダウン"];
- let html = "";
- d.list.forEach((item, idx)=>{
-  html += `
-   <div class="rank-item" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
-    ${d.list.length > 0 ? `<button type="button" class="btn-del" onclick="removeDamageDownItem(${idx})">削除</button>` : ""}
-    <div class="mini">特防種類</div>
-    <select class="select" onchange="updateDamageDownItem(${idx}, 'kind', this.value)">
-     <option value="">選択してください</option>
-     ${["属性特防","弾特防","種族特防"].map(x=>`<option ${item.kind===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <div style="margin-top:6px">
-     ${
-       item.kind === "属性特防" ? `<select class="select" onchange="updateDamageDownItem(${idx}, 'target', this.value)"><option value="">対象属性</option>${ATTR.map(x=>`<option ${item.target===x?"selected":""}>${x}</option>`).join("")}</select>` :
-       item.kind === "弾特防" ? `<select class="select" onchange="updateDamageDownItem(${idx}, 'target', this.value)"><option value="">対象弾種</option>${BULLETS.map(x=>`<option ${item.target===x?"selected":""}>${x}</option>`).join("")}</select>` :
-       item.kind === "種族特防" ? `<input class="input" placeholder="対象種族名" value="${esc(item.target||"")}" oninput="updateDamageDownItem(${idx}, 'target', this.value)">` : ""
-     }
-    </div>
-    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" value="${esc(item.ratio||"")}" oninput="updateDamageDownItem(${idx}, 'ratio', this.value)">
-   </div>
-  `;
- });
- html += `<button type="button" class="btn-add" onclick="addDamageDownItem()">＋ 設定を追加する</button>`;
- container.innerHTML = html;
-}
-
-function addDamageDownItem(){
- specialData["ダメージダウン"].list.push({ kind:"", target:"", ratio:"" });
- const detail = document.getElementById("sd-ダメージダウン");
- renderDamageDownList(detail);
-}
-
-function removeDamageDownItem(idx){
- specialData["ダメージダウン"].list.splice(idx, 1);
- const detail = document.getElementById("sd-ダメージダウン");
- renderDamageDownList(detail);
-}
-
-function updateDamageDownItem(idx, key, value){
- if(specialData["ダメージダウン"].list[idx]){
-  specialData["ダメージダウン"].list[idx][key] = value;
-  if(key === "kind"){
-   specialData["ダメージダウン"].list[idx].target = "";
-   const detail = document.getElementById("sd-ダメージダウン");
-   renderDamageDownList(detail);
-  }
- }
-}
-
-function bindSpecialInputs(skill,e){
- e.querySelectorAll("input,select").forEach(el=>{
-  el.oninput=()=>saveSpecialField(skill,el,e);
-  el.onchange=()=>saveSpecialField(skill,el,e);
- });
-}
-
-function saveSpecialField(skill,el,e){
- const d=specialData[skill];
- if(el.dataset.specialRatio!==undefined) d.ratio=el.value;
- if(el.dataset.specialAttr!==undefined) d.attr=el.value;
- if(el.dataset.specialBullet!==undefined) d.bullet=el.value;
- if(el.dataset.specialValue!==undefined) d.value=el.value;
- if(el.dataset.specialEffect!==undefined) d.effect=el.value;
- if(el.dataset.powerKind!==undefined) d.kind=el.value;
- if(el.dataset.statTarget!==undefined) d.stat=el.value;
- if(el.dataset.resonanceStat!==undefined) { d.stat=el.value; buildSpecialDetail(skill,e); }
- if(el.dataset.zoneStat!==undefined) d.stat=el.value;
- if(el.dataset.zoneFixed!==undefined) d.fixed=el.value;
- if(el.dataset.zonePer!==undefined) d.per=el.value;
- if(el.dataset.teamStat!==undefined) { d.stat=el.value; buildSpecialDetail(skill,e); }
- if(el.dataset.teamFixed!==undefined) d.fixed=el.value;
- if(el.dataset.teamPer!==undefined) d.per=el.value;
- if(el.dataset.duration!==undefined) d.duration=el.value;
- if(el.dataset.durationTarget!==undefined) d.target=el.value;
- if(el.dataset.durationEffect!==undefined) d.effect=el.value;
- if(el.dataset.durationValue!==undefined) d.value=el.value;
- if(el.dataset.bigUpStat!==undefined) d.upStat=el.value;
- if(el.dataset.bigUpRatio!==undefined) d.upRatio=el.value;
- if(el.dataset.bigDownStat!==undefined) d.downStat=el.value;
- if(el.dataset.bigDownRatio!==undefined) d.downRatio=el.value;
- if(el.dataset.breakEffect!==undefined) d.breakEffect=el.value;
- if(el.dataset.reverseUpStat!==undefined) d.upStat=el.value;
- if(el.dataset.reverseUpRatio!==undefined) d.upRatio=el.value;
- if(el.dataset.reverseDownStat!==undefined) d.downStat=el.value;
- if(el.dataset.reverseDownRatio!==undefined) d.downRatio=el.value;
- if(el.dataset.accumFromStat!==undefined) d.fromStat=el.value;
- if(el.dataset.accumToStat!==undefined) d.toStat=el.value;
-}
-
-/* =========================================================
-   能力UI
-========================================================= */
-
-function abnormalChipsHtml(type){
- return `
- <div class="buttons" id="${type}">
-  ${ABNORMAL.map(x=>`<button type="button" class="filter" data-abnormal="${type}" data-value="${x}">${x}</button>`).join("")}
- </div>
- `;
-}
-
-function initAbilities(){
- const e=document.getElementById("abilityEditor");
- const conv = abilityData.conversion || {};
- const imm = abilityData.immunity || {};
- const dd = abilityData.damageDown || {};
- const du = abilityData.damageUp || {};
- const bo = abilityData.boost || {};
- const gr = abilityData.graze || {};
-
- e.innerHTML=`
- <div class="ability">
-  <div class="ability-title">結界異常変換系</div>
-  <label><input type="checkbox" id="convAtk" ${conv.atkRank?"checked":""}> Rank上昇：陽攻・陰攻・CRI攻撃・CRI命中</label>
-  ${abnormalChipsHtml("convAtkAbnormal")}
-  <label><input type="checkbox" id="convDef" ${conv.defRank?"checked":""}> Rank上昇：陽防・陰防・CRI防御・CRI回避</label>
-  ${abnormalChipsHtml("convDefAbnormal")}
-  <label><input type="checkbox" id="convSpeed" ${conv.speedRank?"checked":""}> Rank上昇：速力・命中・回避</label>
-  ${abnormalChipsHtml("convSpeedAbnormal")}
-  <label><input type="checkbox" id="convSpirit" ${conv.spirit?"checked":""}> 霊力上昇：結界異常にかかずに霊力上昇</label>
-  ${abnormalChipsHtml("convSpiritAbnormal")}
-  <input id="convSpiritValue" class="input" type="number" step="0.01" placeholder="霊力上昇量" value="${esc(conv.spiritValue||"")}">
-  <label><input type="checkbox" id="convHeal" ${conv.heal?"checked":""}> 体力回復：結界異常にかからずに体力回復</label>
-  ${abnormalChipsHtml("convHealAbnormal")}
-  <input id="convHealValue" class="input" type="number" placeholder="体力回復 %" value="${esc(conv.healValue||"")}">
- </div>
-
- <div class="ability">
-  <div class="ability-title">結界異常無効系</div>
-  <label><input type="checkbox" id="immEffect" ${imm.effect?"checked":""}> 効果無効：結界異常の効果を受けない</label>
-  ${abnormalChipsHtml("immEffectAbnormal")}
-  <label><input type="checkbox" id="immNone" ${imm.none?"checked":""}> 無効：結界異常にかからない</label>
-  ${abnormalChipsHtml("immNoneAbnormal")}
-  <label><input type="checkbox" id="immReflect" ${imm.reflect?"checked":""}> 反射：受けた結界異常を対象に付与</label>
-  ${abnormalChipsHtml("immReflectAbnormal")}
- </div>
-
- <div class="ability">
-  <div class="ability-title">ダメージ軽減系</div>
-  <input id="damageGood" class="input" type="number" placeholder="有利属性から受けるダメージ ○○%ダウン" value="${esc(dd.good||"")}">
-  <input id="damageBad" class="input" style="margin-top:6px" type="number" placeholder="不利属性から受けるダメージ ○○%ダウン" value="${esc(dd.bad||"")}">
- </div>
-
- <div class="ability">
-  <div class="ability-title">威力上昇系</div>
-  <input id="powerGood" class="input" type="number" placeholder="有利属性に与えるダメージ ○○%アップ" value="${esc(du.good||"")}">
-  <input id="powerBad" class="input" style="margin-top:6px" type="number" placeholder="不利属性に与えるダメージ ○○%アップ" value="${esc(du.bad||"")}">
- </div>
-
- <div class="ability">
-  <div class="ability-title">ブースト使用時バフ</div>
-  <div class="switch">
-   <button type="button" id="boostTargetSelf" class="${bo.target!=="味方全体"?"selected":""}">自身</button>
-   <button type="button" id="boostTargetAll" class="${bo.target==="味方全体"?"selected":""}">味方全体</button>
-  </div>
-  <select id="boostStat" class="select" style="margin-top:7px">
-   <option value="">強化する能力</option>
-   ${STATS.map(x=>`<option ${bo.stat===x?"selected":""}>${x}</option>`).join("")}
-  </select>
-  <div class="mini" style="margin-top:6px">1段階アップ（1T）</div>
- </div>
-
- <div class="ability">
-  <div class="ability-title">グレイズ使用時バフ</div>
-  <div class="switch">
-   <button type="button" id="grazeTargetSelf" class="${gr.target!=="味方全体"?"selected":""}">自身</button>
-   <button type="button" id="grazeTargetAll" class="${gr.target==="味方全体"?"selected":""}">味方全体</button>
-  </div>
-  <select id="grazeStat" class="select" style="margin-top:7px">
-   <option value="">強化する能力</option>
-   ${STATS.map(x=>`<option ${gr.stat===x?"selected":""}>${x}</option>`).join("")}
-  </select>
-  <div class="mini" style="margin-top:6px">1段階アップ（1T）</div>
- </div>
- `;
-
- bindAbilityUI();
-}
-
-function bindAbilityUI(){
- const checkboxMap={
-  convAtk:"atkRank", convDef:"defRank", convSpeed:"speedRank", convSpirit:"spirit", convHeal:"heal",
-  immEffect:"effect", immNone:"none", immReflect:"reflect"
- };
-
- Object.entries(checkboxMap).forEach(([id,key])=>{
-  const el=document.getElementById(id);
-  if(!el) return;
-  el.onchange=e=>{
-   if(["atkRank","defRank","speedRank","spirit","heal"].includes(key))
-    abilityData.conversion[key]=e.target.checked;
-   else
-    abilityData.immunity[key]=e.target.checked;
-  };
- });
-
- const abnormalMap={
-  convAtkAbnormal:"atkAbnormal", convDefAbnormal:"defAbnormal", convSpeedAbnormal:"speedAbnormal",
-  convSpiritAbnormal:"spiritAbnormal", convHealAbnormal:"healAbnormal",
-  immEffectAbnormal:"effectAbnormal", immNoneAbnormal:"noneAbnormal", immReflectAbnormal:"reflectAbnormal"
- };
-
- Object.entries(abnormalMap).forEach(([id,key])=>{
-  let parent=id.startsWith("imm")?abilityData.immunity:abilityData.conversion;
-  if(!parent[key]) parent[key] = [];
-  document.querySelectorAll(`[data-abnormal="${id}"]`).forEach(btn=>{
-   if(parent[key].includes(btn.dataset.value)){
-    btn.classList.add("selected");
-   }
-   btn.onclick=()=>{
-    const arr=parent[key];
-    const i=arr.indexOf(btn.dataset.value);
-    if(i>=0){ arr.splice(i,1); btn.classList.remove("selected"); }
-    else{ arr.push(btn.dataset.value); btn.classList.add("selected"); }
-   };
-  });
- });
-
- document.getElementById("convSpiritValue").oninput=e=>{ abilityData.conversion.spiritValue=e.target.value; };
- document.getElementById("convHealValue").oninput=e=>{ abilityData.conversion.healValue=e.target.value; };
- document.getElementById("damageGood").oninput=e=>{ abilityData.damageDown.good=e.target.value; };
- document.getElementById("damageBad").oninput=e=>{ abilityData.damageDown.bad=e.target.value; };
- document.getElementById("powerGood").oninput=e=>{ abilityData.damageUp.good=e.target.value; };
- document.getElementById("powerBad").oninput=e=>{ abilityData.damageUp.bad=e.target.value; };
-
- document.getElementById("boostTargetSelf").onclick=()=>{ abilityData.boost.target="自身"; setTargetButtons("boostTargetSelf","boostTargetAll"); };
- document.getElementById("boostTargetAll").onclick=()=>{ abilityData.boost.target="味方全体"; setTargetButtons("boostTargetAll","boostTargetSelf"); };
- document.getElementById("boostStat").onchange=e=>{ abilityData.boost.stat=e.target.value; };
-
- document.getElementById("grazeTargetSelf").onclick=()=>{ abilityData.graze.target="自身"; setTargetButtons("grazeTargetSelf","grazeTargetAll"); };
- document.getElementById("grazeTargetAll").onclick=()=>{ abilityData.graze.target="味方全体"; setTargetButtons("grazeTargetAll","grazeTargetSelf"); };
- document.getElementById("grazeStat").onchange=e=>{ abilityData.graze.stat=e.target.value; };
-}
-
-function setTargetButtons(on,off){
- document.getElementById(on).classList.add("selected");
- document.getElementById(off).classList.remove("selected");
-}
-
-/* =========================================================
-   つよさ上昇/低下 (バフ/デバフ) UI生成関数（複数対応）
-========================================================= */
-
-function renderBuffDebuffFields(prefix, targetObj, title) {
- if (targetObj.buff && !targetObj.buffs) {
-  targetObj.buffs = targetObj.buff.stat ? [targetObj.buff] : [];
-  delete targetObj.buff;
- }
- if (targetObj.debuff && !targetObj.debuffs) {
-  targetObj.debuffs = targetObj.debuff.stat ? [targetObj.debuff] : [];
-  delete targetObj.debuff;
- }
-
- if (!targetObj.buffs) targetObj.buffs = [];
- if (!targetObj.debuffs) targetObj.debuffs = [];
-
- let html = '';
- if (title) {
-  html += `<div class="mini">${title}</div>`;
- }
- html += `<div style="margin-top:4px;">`;
-
- // バフ（上昇）一覧
- html += `<div style="font-size:13px; font-weight:700; color:#004085; margin-bottom:4px;">つよさ上昇 / 自身</div>`;
- targetObj.buffs.forEach((b, idx) => {
-  html += `
-   <div style="background:#f0f7ff; border:1px solid #cce5ff; border-radius:8px; padding:8px; margin-bottom:6px;">
-    <button type="button" class="btn-del" onclick="removeBuffItem('${prefix}', ${idx})">削除</button>
-    <div class="row3" style="margin-top:4px;">
-     <select class="select" onchange="updateBuffItem('${prefix}', ${idx}, 'stat', this.value)">
-      <option value="">ステータス選択</option>
-      ${STAT_TARGETS.map(s => `<option ${b.stat===s?"selected":""}>${s}</option>`).join("")}
-     </select>
-     <input class="input" type="number" placeholder="確率 %" value="${esc(b.rate||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rate', this.value)">
-     <input class="input" type="number" placeholder="ランク数" value="${esc(b.rank||"")}" oninput="updateBuffItem('${prefix}', ${idx}, 'rank', this.value)">
-    </div>
-   </div>
-  `;
- });
- html += `<button type="button" class="btn-add" onclick="addBuffItem('${prefix}')">＋ つよさ上昇を追加</button>`;
-
- // デバフ（低下）一覧
- html += `<div style="font-size:13px; font-weight:700; color:#721c24; margin-top:12px; margin-bottom:4px;">つよさ低下 / 対象</div>`;
- targetObj.debuffs.forEach((d, idx) => {
-  html += `
-   <div style="background:#fff0f0; border:1px solid #ffcdd2; border-radius:8px; padding:8px; margin-bottom:6px;">
-    <button type="button" class="btn-del" onclick="removeDebuffItem('${prefix}', ${idx})">削除</button>
-    <div class="row3" style="margin-top:4px;">
-     <select class="select" onchange="updateDebuffItem('${prefix}', ${idx}, 'stat', this.value)">
-      <option value="">ステータス選択</option>
-      ${STAT_TARGETS.map(s => `<option ${d.stat===s?"selected":""}>${s}</option>`).join("")}
-     </select>
-     <input class="input" type="number" placeholder="確率 %" value="${esc(d.rate||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rate', this.value)">
-     <input class="input" type="number" placeholder="ランク数" value="${esc(d.rank||"")}" oninput="updateDebuffItem('${prefix}', ${idx}, 'rank', this.value)">
-    </div>
-   </div>
-  `;
- });
- html += `<button type="button" class="btn-add" onclick="addDebuffItem('${prefix}')">＋ つよさ低下を追加</button>`;
-
- html += `</div>`;
- return html;
-}
-
-// ターゲットオブジェクトを取得するヘルパー
-function getTargetObjectByPrefix(prefix) {
- if (prefix.startsWith("att-")) {
-  const key = prefix.replace("att-", "");
-  return attackData[key];
- } else if (prefix.startsWith("blt-")) {
-  const parts = prefix.replace("blt-", "").split("-");
-  const attKey = parts[0];
-  const bltIdx = Number(parts[1]) - 1;
-  return attackData[attKey]?.bullets[bltIdx];
- }
- return null;
-}
-
-function addBuffItem(prefix) {
- const obj = getTargetObjectByPrefix(prefix);
- if (obj) {
-  if (!obj.buffs) obj.buffs = [];
-  obj.buffs.push({ stat: "", rate: "", rank: "" });
-  refreshBuffDebuffContainer(prefix);
- }
-}
-
-function removeBuffItem(prefix, idx) {
- const obj = getTargetObjectByPrefix(prefix);
- if (obj && obj.buffs) {
-  obj.buffs.splice(idx, 1);
-  refreshBuffDebuffContainer(prefix);
- }
-}
-
-function updateBuffItem(prefix, idx, key, value) {
- const obj = getTargetObjectByPrefix(prefix);
- if (obj && obj.buffs && obj.buffs[idx]) {
-  obj.buffs[idx][key] = value;
- }
-}
-
-function addDebuffItem(prefix) {
- const obj = getTargetObjectByPrefix(prefix);
- if (obj) {
-  if (!obj.debuffs) obj.debuffs = [];
-  obj.debuffs.push({ stat: "", rate: "", rank: "" });
-  refreshBuffDebuffContainer(prefix);
- }
-}
-
-function removeDebuffItem(prefix, idx) {
- const obj = getTargetObjectByPrefix(prefix);
- if (obj && obj.debuffs) {
-  obj.debuffs.splice(idx, 1);
-  refreshBuffDebuffContainer(prefix);
- }
-}
-
-function updateDebuffItem(prefix, idx, key, value) {
- const obj = getTargetObjectByPrefix(prefix);
- if (obj && obj.debuffs && obj.debuffs[idx]) {
-  obj.debuffs[idx][key] = value;
- }
-}
-
-function refreshBuffDebuffContainer(prefix) {
- const obj = getTargetObjectByPrefix(prefix);
- if (!obj) return;
- const containerEl = document.getElementById(`buff-container-${prefix}`);
- if (containerEl) {
-  const title = prefix.startsWith("att-") ? "ショット・スペカ全体のつよさ変化" : "つよさ変化";
-  containerEl.innerHTML = renderBuffDebuffFields(prefix, obj, title);
- }
-}
-
-/* =========================================================
-   特殊弾コントロール生成関数（特攻弾対応）
-========================================================= */
-
-function buildSpecialControlsForObject(prefix, obj, container) {
- container.innerHTML = "";
- if(!obj.specials) obj.specials = {};
- SPECIALS.forEach(x => {
-  const isChecked = !!obj.specials[x];
-  const row = document.createElement("div");
-  row.className = "special-row";
-  row.innerHTML = `
-   <div class="special-head">
-    <b>${x}</b>
-    <button type="button">${isChecked ? "あり" : "なし"}</button>
-   </div>
-   <div class="special-detail ${isChecked ? "show" : ""}"></div>
-  `;
-  container.appendChild(row);
-
-  const btn = row.querySelector("button");
-  const detail = row.querySelector(".special-detail");
-  btn.classList.toggle("on", isChecked);
-
-  btn.onclick = () => {
-   obj.specials[x] = !obj.specials[x];
-   btn.classList.toggle("on", obj.specials[x]);
-   btn.textContent = obj.specials[x] ? "あり" : "なし";
-   detail.classList.toggle("show", obj.specials[x]);
-   buildBulletSpecialDetailSingle(x, obj, detail);
-  };
-
-  buildBulletSpecialDetailSingle(x, obj, detail);
- });
-}
-
-function buildBulletSpecialDetailSingle(x, obj, detail) {
- if (!obj.specials[x]) { detail.innerHTML = ""; return; }
- let prop = null, placeholder = "";
- if (x === "硬質弾") { prop = "hardRatio"; placeholder = "倍率 %"; }
- if (x === "斬裂弾") { prop = "sharpRatio"; placeholder = "倍率 %"; }
- if (x === "粘着弾") { prop = "stickyRate"; placeholder = "発動率 %"; }
- if (x === "衝撃弾") { prop = "impactRate"; placeholder = "発動率 %"; }
- if (x === "吸収弾") { prop = "absorbRatio"; placeholder = "倍率"; }
- if (x === "反動弾") { prop = "recoilRatio"; placeholder = "倍率"; }
- if (x === "特攻弾") { prop = "specialTarget"; placeholder = "対象種族名（例：妖怪）"; }
-
- if (prop) {
-  detail.innerHTML = `<input class="input" type="${prop === "specialTarget" ? "text" : "number"}" placeholder="${placeholder}" value="${esc(obj[prop]||"")}">`;
-  detail.querySelector("input").oninput = e => { obj[prop] = e.target.value; };
- }
-}
-
-/* =========================================================
-   攻撃編集UI構築
-========================================================= */
-
-function initEditors(){
- const e=document.getElementById("attackEditors");
- e.innerHTML="";
-
- ATTACKS.forEach(([key,label])=>{
-  const a=attackData[key];
-  if(!a.bullets || a.bullets.length < 6) {
-   a.bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
-  }
-
-  const d=document.createElement("div");
-  d.className="editor";
-  d.innerHTML=`
-   <h3>${label}</h3>
-   <div class="section">
-    <div class="mini">名前</div>
-    <input class="input" value="${esc(a.name)}" data-k="${key}" data-p="name">
-   </div>
-   <div class="section">
-    <div class="mini">全体・単体</div>
-    <select class="select" data-k="${key}" data-p="range">
-     <option ${a.range==="全体"?"selected":""}>全体</option>
-     <option ${a.range==="単体"?"selected":""}>単体</option>
-    </select>
-   </div>
-
-   <div class="section" id="buff-container-att-${key}">
-    ${renderBuffDebuffFields(`att-${key}`, a, "ショット・スペカ全体のつよさ変化")}
-   </div>
-
-   <div class="section">
-    <div class="mini">属性（全体概要）</div>
-    <div id="aa-${key}" class="buttons"></div>
-   </div>
-   <div class="section">
-    <div class="mini">弾種（全体概要）</div>
-    <div id="ab-${key}" class="buttons"></div>
-   </div>
-   <div class="section">
-    <div class="mini">特殊弾（全体概要）</div>
-    <div id="as-${key}" class="special-grid"></div>
-   </div>
-
-   <div class="section" style="margin-top:16px;">
-    <div class="title" style="color:#0056b3;">バレット個別設定 (全6弾)</div>
-    <div id="bullets-container-${key}"></div>
-   </div>
-  `;
-  e.appendChild(d);
-
-  chips("aa-"+key, ATTR, a.attributes || [], (x,b)=>{
-   if(!a.attributes) a.attributes = [];
-   const i=a.attributes.indexOf(x);
-   if(i>=0){ a.attributes.splice(i,1); b.classList.remove("selected"); }
-   else{ a.attributes.push(x); b.classList.add("selected"); }
-  });
-
-  buildBulletControls(key);
-  buildSpecialControlsForObject(`att-${key}`, a, document.getElementById("as-"+key));
-
-  buildBulletsEditorUI(key);
- });
-
- document.querySelectorAll("[data-p]").forEach(el=>{
-  el.oninput=()=>{ attackData[el.dataset.k][el.dataset.p]=el.value; };
- });
-}
-
-function buildBulletControls(key){
- const a=attackData[key];
- const e=document.getElementById("ab-"+key);
- e.innerHTML="";
- if(!a.bulletTypes) a.bulletTypes = [];
-
- BULLETS.forEach(x=>{
-  const b=document.createElement("button");
-  const has=a.bulletTypes.includes(x);
-  b.className="filter"+(has?" selected":"");
-  b.textContent=x+"："+(has?"あり":"なし");
-  b.onclick=()=>{
-   const i=a.bulletTypes.indexOf(x);
-   if(i>=0) a.bulletTypes.splice(i,1);
-   else a.bulletTypes.push(x);
-   const on=a.bulletTypes.includes(x);
-   b.classList.toggle("selected",on);
-   b.textContent=x+"："+(on?"あり":"なし");
-  };
-  e.appendChild(b);
- });
-}
-
-function buildBulletsEditorUI(attackKey){
- const a = attackData[attackKey];
- const container = document.getElementById(`bullets-container-${attackKey}`);
- container.innerHTML = "";
-
- a.bullets.forEach((bulletObj, idx) => {
-  const bulletIndex = idx + 1;
-  const prefix = `blt-${attackKey}-${bulletIndex}`;
-
-  const acc = document.createElement("div");
-  acc.className = "bullet-accordion";
-  acc.innerHTML = `
-   <div class="bullet-header">
-    <span>バレット ${bulletIndex}：${esc(bulletObj.name || "未命名")}</span>
-    <span class="muted" id="${prefix}-summary">タップして詳細編集</span>
-   </div>
-   <div class="bullet-body" id="${prefix}-body">
-    <div class="row3" style="margin-bottom:10px;">
-     <div>
-      <div class="mini">バレット名（技名）</div>
-      <input class="input" id="${prefix}-name" placeholder="例：露骨な深層心理" value="${esc(bulletObj.name||"")}">
-     </div>
-     <div>
-      <div class="mini">発数</div>
-      <input class="input" type="number" id="${prefix}-count" placeholder="例：18" value="${esc(bulletObj.count||"")}">
-     </div>
-     <div>
-      <div class="mini">解放ブースト(P)</div>
-      <select class="select" id="${prefix}-pStage">
-       <option value="P0" ${bulletObj.pStage==="P0"?"selected":""}>初期 (P0)</option>
-       <option value="P1" ${bulletObj.pStage==="P1"?"selected":""}>1ブースト (P1)</option>
-       <option value="P2" ${bulletObj.pStage==="P2"?"selected":""}>2ブースト (P2)</option>
-       <option value="P3" ${bulletObj.pStage==="P3"?"selected":""}>3ブースト (P3)</option>
-      </select>
-     </div>
-    </div>
-
-    <div class="row3" style="margin-bottom:10px;">
-     <div>
-      <div class="mini">属性</div>
-      <select class="select" id="${prefix}-attr">
-       <option value="">属性を選択</option>
-       ${ATTR.map(x=>`<option ${bulletObj.attr===x?"selected":""}>${x}</option>`).join("")}
-      </select>
-     </div>
-     <div>
-      <div class="mini">弾種</div>
-      <select class="select" id="${prefix}-bulletType">
-       <option value="">弾種を選択</option>
-       ${BULLETS.map(x=>`<option ${bulletObj.bulletType===x?"selected":""}>${x}</option>`).join("")}
-      </select>
-     </div>
-     <div>
-      <div class="mini">気質・タイプ</div>
-      <select class="select" id="${prefix}-kind">
-       ${BULLET_KINDS.map(x=>`<option ${bulletObj.kind===x?"selected":""}>${x}</option>`).join("")}
-      </select>
-     </div>
-    </div>
-
-    <div style="margin-top:10px;" id="buff-container-${prefix}">
-     ${renderBuffDebuffFields(prefix, bulletObj, "つよさ変化")}
-    </div>
-
-    <div style="margin-top:10px;">
-     <div class="mini">特殊弾設定</div>
-     <div id="${prefix}-specials" class="special-grid"></div>
-    </div>
-   </div>
-  `;
-  container.appendChild(acc);
-
-  const header = acc.querySelector(".bullet-header");
-  const body = acc.querySelector(".bullet-body");
-  header.onclick = () => { body.classList.toggle("show"); };
-
-  const nameInput = acc.querySelector(`#${prefix}-name`);
-  const countInput = acc.querySelector(`#${prefix}-count`);
-  const pStageSelect = acc.querySelector(`#${prefix}-pStage`);
-  const attrSelect = acc.querySelector(`#${prefix}-attr`);
-  const bulletTypeSelect = acc.querySelector(`#${prefix}-bulletType`);
-  const kindSelect = acc.querySelector(`#${prefix}-kind`);
-
-  nameInput.oninput = e => { 
-   bulletObj.name = e.target.value; 
-   header.querySelector("span").textContent = `バレット ${bulletIndex}：${e.target.value || "未命名"}`;
-  };
-  countInput.oninput = e => { bulletObj.count = e.target.value; };
-  pStageSelect.onchange = e => { bulletObj.pStage = e.target.value; };
-  attrSelect.onchange = e => { bulletObj.attr = e.target.value; };
-  bulletTypeSelect.onchange = e => { bulletObj.bulletType = e.target.value; };
-  kindSelect.onchange = e => { bulletObj.kind = e.target.value; };
-
-  buildSpecialControlsForObject(prefix, bulletObj, acc.querySelector(`#${prefix}-specials`));
- });
-}
-
-/* =========================================================
-   検索ロジック
-========================================================= */
-
-function matchArray(sel, vals, currentMode) {
- if (!sel.length) return true;
- if (currentMode === "AND") {
-  return sel.every(x => vals.includes(x));
- } else {
-  return sel.some(x => vals.includes(x));
- }
-}
-
-function checkAttackMatch(a, attackLabel) {
- if (selected.attack.length && !matchArray(selected.attack, [attackLabel], mode)) return false;
- if (selected.range.length && !matchArray(selected.range, [a.range], mode)) return false;
- if (selected.attr.length) {
-  let allAttrs = [...(a.attributes || [])];
-  (a.bullets || []).forEach(b => { if (b.attr) allAttrs.push(b.attr); });
-  if (!matchArray(selected.attr, allAttrs, mode)) return false;
- }
- if (selected.bullet.length) {
-  let allBullets = [...(a.bulletTypes || [])];
-  (a.bullets || []).forEach(b => { if (b.bulletType) allBullets.push(b.bulletType); });
-  if (!matchArray(selected.bullet, allBullets, mode)) return false;
- }
-
- if (selected.special.length) {
-  let activeSpecials = Object.keys(a.specials || {}).filter(x => a.specials[x]);
-  (a.bullets || []).forEach(b => {
-   Object.keys(b.specials || {}).forEach(x => {
-    if (b.specials[x] && !activeSpecials.includes(x)) activeSpecials.push(x);
-   });
-  });
-  if (!matchArray(selected.special, activeSpecials, mode)) return false;
- }
-
- return true;
-}
-
-function hasSpecial(c, x) {
- const d = c.details || {};
- const s = d.specialSkills || d.skills || {};
- return !!s[x]?.enabled;
-}
-
-function search() {
- const q = document.getElementById("q").value.trim().toLowerCase();
- const qs = document.getElementById("qSymbol").value.trim().toLowerCase();
- const stat = document.getElementById("statName").value;
- const sv = document.getElementById("statValue").value;
-
- const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
-
- const out = data.filter(c => {
-  if (q) {
-   const attackNames = Object.values(c.attacks || {}).map(a => a.name);
-   const bulletNames = [];
-   Object.values(c.attacks || {}).forEach(a => {
-    (a.bullets || []).forEach(b => { if(b.name) bulletNames.push(b.name); });
-   });
-   const names = [c.character, ...attackNames, ...bulletNames].join(" ").toLowerCase();
-   if (!names.includes(q)) return false;
-  }
-
-  if (qs && !String(c.symbol || "").toLowerCase().includes(qs)) return false;
-  if (!matchArray(selected.type, [c.type], mode)) return false;
-
-  if (selected.char.length) {
-   const activeChars = SPECIAL_SKILLS.filter(x => hasSpecial(c, x));
-   if (!matchArray(selected.char, activeChars, mode)) return false;
-  }
-
-  if (hasAttackFilter) {
-   const matchedAttacks = Object.entries(c.attacks || {}).filter(([k, a]) => {
-    const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
-    return checkAttackMatch(a, label);
-   });
-   if (matchedAttacks.length === 0) return false;
-  }
-
-  if (stat && sv !== "") {
-   const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
-   const v = Number(s[stat]);
-   if (!Number.isFinite(v)) return false;
-   if (statMode === "min" && v < Number(sv)) return false;
-   if (statMode === "max" && v > Number(sv)) return false;
-  }
-
-  return true;
- });
-
- renderResults(out);
-}
-
-/* =========================================================
-   バフ・デバフテキスト整形表示
-========================================================= */
-
-function getBuffDebuffHtml(obj) {
- let buffs = obj.buffs || (obj.buff && obj.buff.stat ? [obj.buff] : []);
- let debuffs = obj.debuffs || (obj.debuff && obj.debuff.stat ? [obj.debuff] : []);
-
- let h = "";
- buffs.forEach(b => {
-  if (b && b.stat && b.rate && b.rank) {
-   h += `<span class="tag tag-buff">自身「${esc(b.stat)}」${esc(b.rate)}%の確率で${esc(b.rank)}ランクUP</span> `;
-  }
- });
- debuffs.forEach(d => {
-  if (d && d.stat && d.rate && d.rank) {
-   h += `<span class="tag tag-debuff">対象「${esc(d.stat)}」${esc(d.rate)}%の確率で${esc(d.rank)}ランクDOWN</span> `;
-  }
- });
- return h;
-}
-
-/* =========================================================
-   ゲーム風カード表示用HTML作成関数
-========================================================= */
-
-function renderBulletCardHtml(b, bIdx) {
- const activeSpecials = Object.keys(b.specials || {}).filter(x => b.specials[x]);
- let specialTexts = [];
- activeSpecials.forEach(sp => {
-  let txt = sp;
-  if (sp === "硬質弾" && b.hardRatio) txt += `(${b.hardRatio}%)`;
-  if (sp === "斬裂弾" && b.sharpRatio) txt += `(${b.sharpRatio}%)`;
-  if (sp === "粘着弾" && b.stickyRate) txt += `(${b.stickyRate}%)`;
-  if (sp === "衝撃弾" && b.impactRate) txt += `(${b.impactRate}%)`;
-  if (sp === "吸収弾" && b.absorbRatio) txt += `(${b.absorbRatio}倍)`;
-  if (sp === "反動弾" && b.recoilRatio) txt += `(${b.recoilRatio}倍)`;
-  if (sp === "特攻弾" && b.specialTarget) txt += `[対象:${esc(b.specialTarget)}]`;
-  specialTexts.push(txt);
- });
-
- const pStage = b.pStage || "P0";
-
- return `
-  <div class="bullet-card">
-   <div class="bullet-card-main">
-    <div class="bullet-card-top">
-     <div class="bullet-card-title">${esc(b.name || `バレット ${bIdx+1}`)}</div>
-     <div class="bullet-card-count">${b.count ? `×${esc(b.count)}` : ''}</div>
-    </div>
-    <div class="bullet-card-tags">
-     <span class="tag tag-kind">${esc(b.kind||"陽気")}</span>
-     ${b.bulletType ? `<span class="tag bullet">${esc(b.bulletType)}</span>` : ''}
-     ${b.attr ? `<span class="tag attr">${esc(b.attr)}属性</span>` : ''}
-     ${getBuffDebuffHtml(b)}
-     ${specialTexts.map(x => `<span class="tag">${esc(x)}</span>`).join("")}
-    </div>
-   </div>
-   <div class="bullet-p-badge p-bg-${pStage}">${esc(pStage)}</div>
-  </div>
- `;
-}
-
-/* =========================================================
-   編集機能：キャラクターデータをフォームに呼び出す
-========================================================= */
-
-function editCharacter(id) {
- const c = data.find(x => String(x.id) === String(id));
- if (!c) return;
-
- editingId = c.id;
-
- document.getElementById("formTitle").textContent = `キャラクター編集（${c.character}）`;
- document.getElementById("resetEditBtn").classList.remove("hidden");
- document.getElementById("save").textContent = "🔄 データを更新保存する";
-
- document.getElementById("aCharacter").value = c.character || "";
- document.getElementById("aSymbol").value = c.symbol || "";
- document.getElementById("aType").value = c.type || "";
-
- const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
- document.getElementById("sPower").value = s.power ?? "";
- document.getElementById("sHp").value = s.hp ?? "";
- document.getElementById("sSpeed").value = s.speed ?? "";
- document.getElementById("sYangAtk").value = s.yangAtk ?? "";
- document.getElementById("sYinAtk").value = s.yinAtk ?? "";
- document.getElementById("sYangDef").value = s.yangDef ?? "";
- document.getElementById("sYinDef").value = s.yinDef ?? "";
-
- if (c.attacks) {
-  attackData = JSON.parse(JSON.stringify(c.attacks));
-  ATTACKS.forEach(([key]) => {
-   if(!attackData[key]) {
-    attackData[key] = {
-     name:"", range:"全体", attributes:[], bulletTypes:[], specials:{},
-     buffs:[], debuffs:[],
-     bullets:[1,2,3,4,5,6].map(i => createBulletStructure(i))
-    };
-   }
-   if(!attackData[key].bullets) {
- attackData[key].bullets=[];
-}
-
-for(let i=0;i<6;i++){
- if(!attackData[key].bullets[i]){
-  attackData[key].bullets[i]=createBulletStructure(i+1);
- }
-}
-  });
- } else {
-  resetAttackData();
- }
-
- if (c.details && c.details.specialSkills) {
-  specialData = JSON.parse(JSON.stringify(c.details.specialSkills));
- } else {
-  resetSpecialData();
- }
-
- if (c.details && c.details.abilities) {
-  abilityData = JSON.parse(JSON.stringify(c.details.abilities));
- } else {
-  resetAbilityData();
- }
-
- initEditors();
- initSpecialSkills();
- initAbilities();
-
- document.getElementById("detailModal").classList.add("hidden");
-
- document.getElementById("searchPage").classList.add("hidden");
- document.getElementById("addPage").classList.remove("hidden");
- document.getElementById("tabAdd").classList.add("active");
- document.getElementById("tabSearch").classList.remove("active");
-
- window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function resetFormToNew() {
- editingId = null;
- document.getElementById("formTitle").textContent = "新規キャラクター登録";
- document.getElementById("resetEditBtn").classList.add("hidden");
- document.getElementById("save").textContent = "☁️ Supabaseに保存";
- document.getElementById("message").textContent = "";
- document.getElementById("message").className = "msg";
-
- document.getElementById("aCharacter").value = "";
- document.getElementById("aSymbol").value = "";
- document.getElementById("aType").value = "";
- document.getElementById("sPower").value = "";
- document.getElementById("sHp").value = "";
- document.getElementById("sSpeed").value = "";
- document.getElementById("sYangAtk").value = "";
- document.getElementById("sYinAtk").value = "";
- document.getElementById("sYangDef").value = "";
- document.getElementById("sYinDef").value = "";
-
- resetAttackData();
- resetSpecialData();
- resetAbilityData();
-
- initEditors();
- initSpecialSkills();
- initAbilities();
-}
-
-/* =========================================================
-   結果描写（統合）
-========================================================= */
-
-function renderResults(arr){
- const e=document.getElementById("results");
- if(!arr.length){
-  e.innerHTML='<div class="loading">該当するデータがありません。</div>';
-  return;
- }
-
- const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
-
- e.innerHTML=`<div class="result-count">${arr.length}件</div>`;
- arr.forEach(c=>{
-  let h=`
-   <div class="result">
-   <div class="char-row">
-    <div class="char" onclick="openModal('${esc(c.id)}')">${esc(c.character)}</div>
-    <button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">✏️ 編集</button>
-   </div>
-   <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
-  `;
-
-  const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
-  const statMap = { 総合つよさ:s.power, 体力:s.hp, 速力:s.speed, 陽攻:s.yangAtk, 陰攻:s.yinAtk, 陽防:s.yangDef, 陰防:s.yinDef };
-
-  const statTags = Object.entries(statMap)
-   .filter(([_, val]) => val !== undefined && val !== null && val !== "")
-   .map(([label, val]) => `<span class="tag">${label}：${esc(val)}</span>`)
-   .join("");
-
-  if(statTags){
-   h += `<div style="margin: 6px 0;">${statTags}</div>`;
-  }
-
-  const details=c.details||{};
-  const ss=details.specialSkills||details.skills||{};
-  h+=`
-   <div>
-    ${SPECIAL_SKILLS.filter(x=>ss[x]?.enabled).map(x=>`<span class="tag">${x}</span>`).join("")}
-   </div>
-  `;
-
-  if(hasAttackFilter){
-   Object.entries(c.attacks||{}).forEach(([k,a])=>{
-    const label=ATTACKS.find(x=>x[0]===k)?.[1]||k;
-    if(!a.name)return;
-    if(checkAttackMatch(a, label)){
-     h+=`
-      <div class="attack">
-       <h4>${label} <span class="tag">${esc(a.range)}</span></h4>
-       <div style="font-weight:700;margin-bottom:4px;">${esc(a.name)}</div>
-       ${getBuffDebuffHtml(a)}
-       ${(a.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
-       ${(a.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
-       ${Object.keys(a.specials||{}).filter(x=>a.specials[x]).map(x=>`<span class="tag">${x}</span>`).join("")}
-      </div>
-     `;
+if(typeof editCharacter === 'function'){
+  const _oldEdit = editCharacter;
+  editCharacter = function(c){
+    if(c && c.attacks){
+      let savedAttacks;
+      try{
+        savedAttacks = typeof c.attacks === 'string' ? JSON.parse(c.attacks) : c.attacks;
+      }catch(e){
+        console.error('attacks JSON解析失敗:',e);
+        savedAttacks = {};
+      }
+      attackData = normalizeAllAttacks(savedAttacks);
+    }else{
+      resetAttackData();
     }
-   });
-  }
 
-  h+="</div>";
-  e.insertAdjacentHTML("beforeend", h);
- });
+    // Ensure final normalization
+    attackData = normalizeAllAttacks(attackData);
+
+    console.log('編集データのバレット数:', countAllBullets());
+
+    return _oldEdit(c);
+  };
 }
 
 /* =========================================================
-   モーダル詳細表示
+   保存処理の上書き（最後に定義された save が使用されます）
+   必ず30バレットを保証してから Supabase に送信
 ========================================================= */
-
-function openModal(id){
- const c = data.find(x => String(x.id) === String(id));
- if(!c) return;
-
- const body = document.getElementById("modalBody");
- const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
- const details = c.details || {};
- const ss = details.specialSkills || details.skills || {};
-
- let h = `
-  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-   <div>
-    <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
-    <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
-   </div>
-   <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">✏️ 編集する</button>
-  </div>
-  
-  <div class="box" style="background:#f9f9f9">
-   <div class="title">ステータス</div>
-   <div>
-    ${
-     Object.entries({総合つよさ:s.power, 体力:s.hp, 速力:s.speed, 陽攻:s.yangAtk, 陰攻:s.yinAtk, 陽防:s.yangDef, 陰防:s.yinDef})
-     .filter(x => x[1] !== undefined && x[1] !== null && x[1] !== "")
-     .map(x => `<span class="tag">${x[0]}：${esc(x[1])}</span>`).join("")
-    }
-   </div>
-  </div>
-
-  <div class="box" style="background:#f9f9f9">
-   <div class="title">特殊スキル</div>
-   <div>
-    ${SPECIAL_SKILLS.filter(x => ss[x]?.enabled).map(x => `<span class="tag">${x}</span>`).join("") || '<span class="muted">なし</span>'}
-   </div>
-  </div>
-
-  <div class="box" style="background:#f9f9f9">
-   <div class="title">ショット・スペルカード詳細</div>
- `;
-
- Object.entries(c.attacks || {}).forEach(([k, a]) => {
-  const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
-  h += `
-   <div class="attack" style="background:#fff; border:1px solid #ddd; margin-bottom:16px;">
-    <h4 style="font-size:16px; color:#333; margin-bottom:4px;">${label} <span class="tag">${esc(a.range)}</span></h4>
-    <div style="font-weight:700; font-size:15px; margin-bottom:6px;">${esc(a.name || "名称未設定")}</div>
-    <div>${getBuffDebuffHtml(a)}</div>
-    <div style="margin-top:4px;">${(a.attributes || []).map(x => `<span class="tag attr">属性：${esc(x)}</span>`).join("")}</div>
-    <div>${(a.bulletTypes || []).map(x => `<span class="tag bullet">${esc(x)}</span>`).join("")}</div>
-
-    <div style="margin-top:12px;">
-     <div style="font-weight:700; font-size:13px; color:#444; margin-bottom:6px;">バレット構成 (全6弾)</div>
-  `;
-
-  (a.bullets || []).forEach((b, bIdx) => {
-   h += renderBulletCardHtml(b, bIdx);
-  });
-
-  h += `
-    </div>
-   </div>
-  `;
- });
-
- h += `</div>`;
- body.innerHTML = h;
- document.getElementById("detailModal").classList.remove("hidden");
-}
-
-document.getElementById("modalClose").onclick = () => {
- document.getElementById("detailModal").classList.add("hidden");
-};
-
-document.getElementById("detailModal").onclick = (e) => {
- if (e.target === document.getElementById("detailModal")) {
-  document.getElementById("detailModal").classList.add("hidden");
- }
-};
-
-/* =========================================================
-   Supabase 読み込み・保存 (POST/PATCH対応)
-========================================================= */
-
-async function load(){
- try{
-  const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{
-   headers:{ apikey:KEY, Authorization:"Bearer "+KEY }
-  });
-  const t=await r.text();
-  if(!r.ok) throw Error(t);
-  data=JSON.parse(t);
-  buildFilters();
-  search();
- }catch(e){
-  document.getElementById("results").innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`;
- }
-}
-
-function num(id){
- const v=document.getElementById(id).value;
- return v===""?null:Number(v);
-}
 
 async function save(){
- const msg=document.getElementById("message");
 
- const character=document.getElementById("aCharacter").value.trim();
- const symbol=document.getElementById("aSymbol").value.trim();
- const type=document.getElementById("aType").value;
+  const msg=document.getElementById("message");
 
- if(!character||!type){
-  msg.className="msg err";
-  msg.textContent="キャラクター名と式を入力してください。";
-  return;
- }
+  const character=
+    document.getElementById("aCharacter").value.trim();
 
- /*
-  ========================================================
-  バレットデータを完全に正規化してから保存
-  ========================================================
- */
- function normalizeBullet(b,index){
-  const src=b || {};
+  const symbol=
+    document.getElementById("aSymbol").value.trim();
 
-  const result={
-   index:index,
+  const type=
+    document.getElementById("aType").value;
 
-   name:src.name ?? "",
-   count:src.count ?? "",
-   pStage:src.pStage ?? "P0",
-   attr:src.attr ?? "",
-   bulletType:src.bulletType ?? "",
-   kind:src.kind ?? "陽気",
+  if(!character || !type){
 
-   specials:{},
-   
-   hardRatio:src.hardRatio ?? "",
-   sharpRatio:src.sharpRatio ?? "",
-   stickyRate:src.stickyRate ?? "",
-   impactRate:src.impactRate ?? "",
-   absorbRatio:src.absorbRatio ?? "",
-   recoilRatio:src.recoilRatio ?? "",
-   specialTarget:src.specialTarget ?? "",
+    msg.className="msg err";
+    msg.textContent=
+      "キャラクター名と式を入力してください。";
 
-   buffs:Array.isArray(src.buffs)
-    ? JSON.parse(JSON.stringify(src.buffs))
-    : [],
-
-   debuffs:Array.isArray(src.debuffs)
-    ? JSON.parse(JSON.stringify(src.debuffs))
-    : []
-  };
-
-  /*
-   特殊弾は必ず全部保存する
-  */
-  SPECIALS.forEach(sp=>{
-   result.specials[sp]=!!(
-    src.specials &&
-    src.specials[sp]
-   );
-  });
-
-  return result;
- }
-
- /*
-  ========================================================
-  攻撃データを完全コピー
-  ========================================================
- */
- const savedAttacks={};
-
- ATTACKS.forEach(([key])=>{
-  const src=attackData[key] || {};
-
-  savedAttacks[key]={
-   name:src.name ?? "",
-   range:src.range ?? "全体",
-
-   attributes:Array.isArray(src.attributes)
-    ? [...src.attributes]
-    : [],
-
-   bulletTypes:Array.isArray(src.bulletTypes)
-    ? [...src.bulletTypes]
-    : [],
-
-   specials:{},
-
-   hardRatio:src.hardRatio ?? "",
-   sharpRatio:src.sharpRatio ?? "",
-   stickyRate:src.stickyRate ?? "",
-   impactRate:src.impactRate ?? "",
-   absorbRatio:src.absorbRatio ?? "",
-   recoilRatio:src.recoilRatio ?? "",
-   specialTarget:src.specialTarget ?? "",
-
-   buffs:Array.isArray(src.buffs)
-    ? JSON.parse(JSON.stringify(src.buffs))
-    : [],
-
-   debuffs:Array.isArray(src.debuffs)
-    ? JSON.parse(JSON.stringify(src.debuffs))
-    : [],
-
-   bullets:[]
-  };
-
-  /*
-   攻撃全体の特殊弾
-  */
-  SPECIALS.forEach(sp=>{
-   savedAttacks[key].specials[sp]=!!(
-    src.specials &&
-    src.specials[sp]
-   );
-  });
-
-  /*
-   ★ バレット6発を必ず保存
-  */
-  for(let i=0;i<6;i++){
-   savedAttacks[key].bullets.push(
-    normalizeBullet(
-     Array.isArray(src.bullets)
-      ? src.bullets[i]
-      : null,
-     i+1
-    )
-   );
-  }
- });
-
- /*
-  ========================================================
-  ステータス
-  ========================================================
- */
- const stats={
-  power:num("sPower"),
-  hp:num("sHp"),
-  speed:num("sSpeed"),
-  yangAtk:num("sYangAtk"),
-  yinAtk:num("sYinAtk"),
-  yangDef:num("sYangDef"),
-  yinDef:num("sYinDef")
- };
-
- /*
-  ========================================================
-  詳細データ
-  ========================================================
- */
- const details={
-  specialSkills:JSON.parse(
-   JSON.stringify(specialData || {})
-  ),
-
-  abilities:JSON.parse(
-   JSON.stringify(abilityData || {})
-  ),
-
-  stats:stats
- };
-
- /*
-  ========================================================
-  Supabaseへ送るデータ
-  ========================================================
- */
- const record={
-  character:character,
-  symbol:symbol,
-  type:type,
-
-  /*
-   ★ ここに完全なバレットデータを入れる
-  */
-  attacks:savedAttacks,
-
-  details:details
- };
-
- msg.className="msg";
- msg.textContent="保存中……";
-
- const isUpdate=!!editingId;
-
- const fetchUrl=isUpdate
-  ? `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(editingId)}`
-  : `${URL}/rest/v1/${TABLE}`;
-
- const method=isUpdate?"PATCH":"POST";
-
- try{
-
-  const r=await fetch(fetchUrl,{
-   method:method,
-
-   headers:{
-    "Content-Type":"application/json",
-    "apikey":KEY,
-    "Authorization":"Bearer "+KEY,
-
-    /*
-     更新・新規登録どちらでも
-     保存結果を返してもらう
-    */
-    "Prefer":"return=representation"
-   },
-
-   body:JSON.stringify(record)
-  });
-
-  const text=await r.text();
-
-  if(!r.ok){
-   throw new Error(text);
+    return;
   }
 
   /*
-   ======================================================
-   保存成功
-   ======================================================
+    =====================================================
+    保存直前に30バレットを必ず保証
+    =====================================================
   */
-  msg.className="msg ok";
 
-  msg.textContent=isUpdate
-   ? "データを更新しました！\nバレット情報も保存されています。"
-   : "新規登録しました！\nバレット情報も保存されています。";
+  attackData=normalizeAllAttacks(attackData);
 
-  /*
-   更新の場合はフォームをリセット
-  */
-  if(isUpdate){
-   editingId=null;
+  const bulletCount=countAllBullets();
 
-   document.getElementById("formTitle").textContent=
-    "新規キャラクター登録";
-
-   document.getElementById("resetEditBtn")
-    .classList.add("hidden");
-
-   document.getElementById("save").textContent=
-    "☁️ Supabaseに保存";
-  }
-
-  /*
-   ★ Supabaseから保存後の最新データを再取得
-   これで「画面上だけ保存されていた」という状態を防ぐ
-  */
-  await load();
-
- }catch(e){
-
-  msg.className="msg err";
-
-  msg.textContent=
-   "保存失敗：\n"+e.message;
-
-  console.error(
-   "Supabase保存エラー:",
-   e,
-   record
+  console.log(
+    "保存前バレット数:",
+    bulletCount
   );
- }
+
+  if(bulletCount !== 30){
+
+    msg.className="msg err";
+    msg.textContent=
+      `バレット数エラー：${bulletCount}/30`;
+
+    console.error(
+      "保存中止：バレット数が30ではありません。",
+      attackData
+    );
+
+    return;
+  }
+
+  const num = (id) => {
+    const v = document.getElementById(id)?.value;
+    if(!v && v !== 0) return null;
+    const n = Number(v);
+    return isNaN(n) ? null : n;
+  };
+
+  /*
+    =====================================================
+    ステータス
+    =====================================================
+  */
+
+  const stats={
+    power:num("sPower"),
+    hp:num("sHp"),
+    speed:num("sSpeed"),
+    yangAtk:num("sYangAtk"),
+    yinAtk:num("sYinAtk"),
+    yangDef:num("sYangDef"),
+    yinDef:num("sYinDef")
+  };
+
+  /*
+    =====================================================
+    details
+    =====================================================
+  */
+
+  const details={
+    specialSkills: JSON.parse(JSON.stringify(specialData)),
+    abilities: JSON.parse(JSON.stringify(abilityData)),
+    stats
+  };
+
+  /*
+    =====================================================
+    attacks
+    =====================================================
+    保存専用コピーを作る。
+  */
+
+  const savedAttacks =
+    JSON.parse(
+      JSON.stringify(
+        normalizeAllAttacks(attackData)
+      )
+    );
+
+  let savedBulletCount=0;
+
+  ATTACKS.forEach(([key])=>{
+
+    if(!savedAttacks[key]){
+      throw new Error(`${key} の攻撃データがありません`);
+    }
+
+    if(!Array.isArray(savedAttacks[key].bullets)){
+      throw new Error(`${key} のbulletsが配列ではありません`);
+    }
+
+    if(savedAttacks[key].bullets.length !== 6){
+      throw new Error(`${key} のバレット数が6ではありません`);
+    }
+
+    savedBulletCount += savedAttacks[key].bullets.length;
+  });
+
+  if(savedBulletCount !== 30){
+
+    msg.className="msg err";
+    msg.textContent=
+      `保存前チェック失敗：${savedBulletCount}/30`;
+
+    return;
+  }
+
+  const record={
+    character,
+    symbol,
+    type,
+    attacks:savedAttacks,
+    details:details
+  };
+
+  msg.className="msg";
+  msg.textContent=
+    `保存中……（バレット ${savedBulletCount}/30）`;
+
+  const isUpdate=!!editingId;
+
+  const fetchUrl=isUpdate
+    ? `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(editingId)}`
+    : `${URL}/rest/v1/${TABLE}`;
+
+  const method=isUpdate ? "PATCH" : "POST";
+
+  try{
+
+    const r=await fetch(fetchUrl,{
+
+      method,
+
+      headers:{
+        "Content-Type":"application/json",
+        apikey:KEY,
+        Authorization: "Bearer "+KEY,
+        Prefer: "return=minimal"
+      },
+
+      body:JSON.stringify(record)
+    });
+
+    const t=await r.text();
+
+    if(!r.ok){
+      throw new Error(t);
+    }
+
+    msg.className="msg ok";
+
+    msg.textContent=
+      isUpdate
+        ? "データを更新しました！\nバレット30個も保存済みです。"
+        : "新規登録しました！\nバレット30個も保存済みです。";
+
+    if(isUpdate){ resetFormToNew(); }
+
+    await load();
+
+  }catch(e){
+    console.error("Supabase保存エラー:", e);
+    msg.className="msg err";
+    msg.textContent = "保存失敗：\n"+e.message;
+  }
 }
+
 /* =========================================================
-   タブ切り替え・イベントハンドラ
+   buildBulletsEditorUI の先頭安全化（既存実装をラップ）
 ========================================================= */
+if(typeof buildBulletsEditorUI === 'function'){
+  // already wrapped above; nothing else needed
+} else {
+  // no-op placeholder to avoid errors
+  function buildBulletsEditorUI(attackKey){
+    attackData[attackKey] = normalizeAttack(attackData[attackKey]);
+    const a = attackData[attackKey];
+    const container = document.getElementById(`bullets-container-${attackKey}`);
+    if(!container) return;
+    container.innerHTML = '';
+    a.bullets.slice(0,6).forEach((bulletObj, idx)=>{
+      // minimal rendering to avoid breaking UI if original is missing
+      const div = document.createElement('div');
+      div.textContent = `${attackKey} バレット${idx+1}: ${bulletObj.name || ''}`;
+      container.appendChild(div);
+    });
+  }
+}
 
-document.getElementById("tabSearch").onclick=()=>{
- document.getElementById("searchPage").classList.remove("hidden");
- document.getElementById("addPage").classList.add("hidden");
- document.getElementById("tabSearch").classList.add("active");
- document.getElementById("tabAdd").classList.remove("active");
- search();
-};
-
-document.getElementById("tabAdd").onclick=()=>{
- document.getElementById("searchPage").classList.add("hidden");
- document.getElementById("addPage").classList.remove("hidden");
- document.getElementById("tabAdd").classList.add("active");
- document.getElementById("tabSearch").classList.remove("active");
-
- if(!editingId) {
-  initEditors();
-  initSpecialSkills();
-  initAbilities();
- }
-};
-
-document.getElementById("save").onclick=save;
-document.getElementById("q").oninput=search;
-document.getElementById("qSymbol").oninput=search;
-
-document.getElementById("andBtn").onclick=()=>{
- mode="AND";
- document.getElementById("andBtn").classList.add("selected");
- document.getElementById("orBtn").classList.remove("selected");
- search();
-};
-
-document.getElementById("orBtn").onclick=()=>{
- mode="OR";
- document.getElementById("orBtn").classList.add("selected");
- document.getElementById("andBtn").classList.remove("selected");
- search();
-};
-
-document.getElementById("statMin").onclick=()=>{
- statMode="min";
- document.getElementById("statMin").classList.add("selected");
- document.getElementById("statMax").classList.remove("selected");
- search();
-};
-
-document.getElementById("statMax").onclick=()=>{
- statMode="max";
- document.getElementById("statMax").classList.add("selected");
- document.getElementById("statMin").classList.remove("selected");
- search();
-};
-
-document.getElementById("statName").onchange=search;
-document.getElementById("statValue").oninput=search;
-
-document.getElementById("reset").onclick=()=>{
- Object.values(selected).forEach(a=>a.splice(0));
- document.getElementById("q").value="";
- document.getElementById("qSymbol").value="";
- document.getElementById("statName").value="";
- document.getElementById("statValue").value="";
- statMode="";
- buildFilters();
- search();
-};
-
-/* 初期起動 */
-load();
+// done
 
 </script>
 
