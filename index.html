@@ -2641,6 +2641,21 @@ document.getElementById("execSearchBtn").onclick = () => {
   // 2. 検索処理を実行
   search();
 };
+document.getElementById("tabAccount").onclick = () => {
+  // すべてのページを隠す
+  document.getElementById("searchPage").classList.add("hidden");
+  document.getElementById("favoritesPage").classList.add("hidden");
+  document.getElementById("historyPage").classList.add("hidden");
+  document.getElementById("addPage").classList.add("hidden");
+  document.getElementById("accountPage").classList.remove("hidden");
+
+  // タブの見た目
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.getElementById("tabAccount").classList.add("active");
+
+  // アカウント画面の状態更新
+  updateAccountUI();
+};
 
 // タブボタンの切り替え処理部分に追加・修正
 document.getElementById("tabSearch").onclick = () => {
@@ -2696,6 +2711,12 @@ document.getElementById("tabAdd").onclick = () => {
  }
  updateEditGuard();
 };
+async function init(){
+  // ...既存の処理...
+  
+  // ▼ これを追加
+  updateAccountUI();
+}
 
 init();
 
