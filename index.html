@@ -282,6 +282,97 @@ footer a{color:#444;text-decoration:underline}
 <!-- ================= 検索 ================= -->
 
 <section id="searchPage">
+ 
+ <div class="box">
+
+<div class="section">
+<div class="title">キャラクター・スペカ検索</div>
+<input id="q" class="input" placeholder="キャラ名・スペカ名・バレット名">
+</div>
+
+<div class="section">
+<div class="title">汎異記号</div>
+<input id="qSymbol" class="input" placeholder="汎異記号を入力">
+</div>
+
+<div class="section">
+<div class="title">式</div>
+<div id="fType" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">攻撃種</div>
+<div id="fAttack" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">全体・単体</div>
+<div id="fRange" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">属性</div>
+<div id="fAttr" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">弾種</div>
+<div id="fBullet" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">特殊弾・効果</div>
+<div id="fSpecial" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">特殊スキル</div>
+<div id="fChar" class="buttons"></div>
+</div>
+
+<div class="section">
+<div class="title">ステータス検索</div>
+
+<div class="row">
+<select id="statName" class="select">
+<option value="">ステータスを選択</option>
+<option value="power">総合つよさ</option>
+<option value="hp">体力</option>
+<option value="speed">速力</option>
+<option value="yangAtk">陽攻</option>
+<option value="yinAtk">陰攻</option>
+<option value="yangDef">陽防</option>
+<option value="yinDef">陰防</option>
+</select>
+
+<input id="statValue" type="number" class="input" placeholder="数値">
+</div>
+
+<div class="range" style="margin-top:8px">
+<button id="statMin">以上</button>
+<button id="statMax">以下</button>
+</div>
+
+</div>
+
+<div class="section">
+<div class="title">複数条件</div>
+
+<div class="range">
+<button id="andBtn" class="selected">AND</button>
+<button id="orBtn">OR</button>
+</div>
+</div>
+
+<button id="reset" class="sub">条件をリセット</button>
+
+</div>
+
+<div id="results">
+<div class="loading">データを読み込んでいます……</div>
+</div>
+
+</section>
  <!-- 検索ページ(#searchPage)の最後に追加 -->
 <div style="margin: 20px 0;">
   <button id="execSearchBtn" style="width: 100%; padding: 15px; background: #333; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">
