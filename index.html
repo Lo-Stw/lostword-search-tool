@@ -468,7 +468,7 @@ footer a{color:#444;text-decoration:underline}
   <p>©上海アリス幻樂団 ©GOOD SMILE COMPANY, INC. / NextNinja Co., Ltd.</p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
 /* =========================================================
@@ -479,7 +479,17 @@ const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
 
-const sb = supabase.createClient(URL, KEY);
+let sb = null;
+let authAvailable = true;
+try{
+ if(typeof supabase === "undefined" || !supabase.createClient){
+  throw new Error("supabase-jsの読み込みに失敗しました");
+ }
+ sb = supabase.createClient(URL, KEY);
+}catch(e){
+ authAvailable = false;
+ console.error("Supabase Auth初期化エラー：", e);
+}
 
 /* =========================================================
    基本データ定義
@@ -534,6 +544,11 @@ function isLoggedIn(){
 function renderAuthBar(msg, msgType){
  const bar=document.getElementById("authBar");
 
+ if(!authAvailable){
+  bar.innerHTML=`<span class="auth-status">ログイン機能を読み込めませんでした（検索は通常どおり利用できます）</span>`;
+  return;
+ }
+
  if(isLoggedIn()){
   bar.innerHTML=`
    <span class="auth-status">ログイン中：${esc(currentSession.user.email)}</span>
@@ -557,6 +572,7 @@ function renderAuthBar(msg, msgType){
 }
 
 async function doSignIn(){
+ if(!authAvailable) return;
  const email=document.getElementById("authEmail").value.trim();
  const password=document.getElementById("authPassword").value;
  if(!email||!password){ renderAuthBar("メールアドレスとパスワードを入力してください。","err"); return; }
@@ -570,6 +586,7 @@ async function doSignIn(){
 }
 
 async function doSignUp(){
+ if(!authAvailable) return;
  const email=document.getElementById("authEmail").value.trim();
  const password=document.getElementById("authPassword").value;
  if(!email||!password){ renderAuthBar("メールアドレスとパスワードを入力してください。","err"); return; }
@@ -589,6 +606,7 @@ async function doSignUp(){
 }
 
 async function doLogout(){
+ if(!authAvailable) return;
  await sb.auth.signOut();
  currentSession=null;
  renderAuthBar("ログアウトしました。","ok");
@@ -2337,17 +2355,19 @@ document.getElementById("reset").onclick=()=>{
 ========================================================= */
 
 async function init(){
- const { data:sessionData } = await sb.auth.getSession();
- currentSession = sessionData.session;
+ if(authAvailable){
+  const { data:sessionData } = await sb.auth.getSession();
+  currentSession = sessionData.session;
+
+  sb.auth.onAuthStateChange((event, session)=>{
+   currentSession = session;
+   renderAuthBar();
+   renderResults(lastResults);
+   updateEditGuard();
+  });
+ }
+
  renderAuthBar();
-
- sb.auth.onAuthStateChange((event, session)=>{
-  currentSession = session;
-  renderAuthBar();
-  renderResults(lastResults);
-  updateEditGuard();
- });
-
  await load();
 }
 
