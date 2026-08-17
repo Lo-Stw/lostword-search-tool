@@ -1654,9 +1654,15 @@ function editCharacter(id) {
      bullets:[1,2,3,4,5,6].map(i => createBulletStructure(i))
     };
    }
-   if(!attackData[key].bullets || attackData[key].bullets.length < 6) {
-    attackData[key].bullets = [1,2,3,4,5,6].map(i => createBulletStructure(i));
-   }
+   if(!attackData[key].bullets) {
+ attackData[key].bullets=[];
+}
+
+for(let i=0;i<6;i++){
+ if(!attackData[key].bullets[i]){
+  attackData[key].bullets[i]=createBulletStructure(i+1);
+ }
+}
   });
  } else {
   resetAttackData();
@@ -1893,6 +1899,7 @@ function num(id){
 
 async function save(){
  const msg=document.getElementById("message");
+
  const character=document.getElementById("aCharacter").value.trim();
  const symbol=document.getElementById("aSymbol").value.trim();
  const type=document.getElementById("aType").value;
@@ -1903,54 +1910,258 @@ async function save(){
   return;
  }
 
+ /*
+  ========================================================
+  バレットデータを完全に正規化してから保存
+  ========================================================
+ */
+ function normalizeBullet(b,index){
+  const src=b || {};
+
+  const result={
+   index:index,
+
+   name:src.name ?? "",
+   count:src.count ?? "",
+   pStage:src.pStage ?? "P0",
+   attr:src.attr ?? "",
+   bulletType:src.bulletType ?? "",
+   kind:src.kind ?? "陽気",
+
+   specials:{},
+   
+   hardRatio:src.hardRatio ?? "",
+   sharpRatio:src.sharpRatio ?? "",
+   stickyRate:src.stickyRate ?? "",
+   impactRate:src.impactRate ?? "",
+   absorbRatio:src.absorbRatio ?? "",
+   recoilRatio:src.recoilRatio ?? "",
+   specialTarget:src.specialTarget ?? "",
+
+   buffs:Array.isArray(src.buffs)
+    ? JSON.parse(JSON.stringify(src.buffs))
+    : [],
+
+   debuffs:Array.isArray(src.debuffs)
+    ? JSON.parse(JSON.stringify(src.debuffs))
+    : []
+  };
+
+  /*
+   特殊弾は必ず全部保存する
+  */
+  SPECIALS.forEach(sp=>{
+   result.specials[sp]=!!(
+    src.specials &&
+    src.specials[sp]
+   );
+  });
+
+  return result;
+ }
+
+ /*
+  ========================================================
+  攻撃データを完全コピー
+  ========================================================
+ */
+ const savedAttacks={};
+
+ ATTACKS.forEach(([key])=>{
+  const src=attackData[key] || {};
+
+  savedAttacks[key]={
+   name:src.name ?? "",
+   range:src.range ?? "全体",
+
+   attributes:Array.isArray(src.attributes)
+    ? [...src.attributes]
+    : [],
+
+   bulletTypes:Array.isArray(src.bulletTypes)
+    ? [...src.bulletTypes]
+    : [],
+
+   specials:{},
+
+   hardRatio:src.hardRatio ?? "",
+   sharpRatio:src.sharpRatio ?? "",
+   stickyRate:src.stickyRate ?? "",
+   impactRate:src.impactRate ?? "",
+   absorbRatio:src.absorbRatio ?? "",
+   recoilRatio:src.recoilRatio ?? "",
+   specialTarget:src.specialTarget ?? "",
+
+   buffs:Array.isArray(src.buffs)
+    ? JSON.parse(JSON.stringify(src.buffs))
+    : [],
+
+   debuffs:Array.isArray(src.debuffs)
+    ? JSON.parse(JSON.stringify(src.debuffs))
+    : [],
+
+   bullets:[]
+  };
+
+  /*
+   攻撃全体の特殊弾
+  */
+  SPECIALS.forEach(sp=>{
+   savedAttacks[key].specials[sp]=!!(
+    src.specials &&
+    src.specials[sp]
+   );
+  });
+
+  /*
+   ★ バレット6発を必ず保存
+  */
+  for(let i=0;i<6;i++){
+   savedAttacks[key].bullets.push(
+    normalizeBullet(
+     Array.isArray(src.bullets)
+      ? src.bullets[i]
+      : null,
+     i+1
+    )
+   );
+  }
+ });
+
+ /*
+  ========================================================
+  ステータス
+  ========================================================
+ */
  const stats={
-  power:num("sPower"), hp:num("sHp"), speed:num("sSpeed"),
-  yangAtk:num("sYangAtk"), yinAtk:num("sYinAtk"), yangDef:num("sYangDef"), yinDef:num("sYinDef")
+  power:num("sPower"),
+  hp:num("sHp"),
+  speed:num("sSpeed"),
+  yangAtk:num("sYangAtk"),
+  yinAtk:num("sYinAtk"),
+  yangDef:num("sYangDef"),
+  yinDef:num("sYinDef")
  };
 
- const details={ specialSkills:specialData, abilities:abilityData, stats };
- const record={ 
-  character, 
-  symbol, 
-  type, 
-  attacks: JSON.parse(JSON.stringify(attackData)), 
-  details: JSON.parse(JSON.stringify(details)) 
+ /*
+  ========================================================
+  詳細データ
+  ========================================================
+ */
+ const details={
+  specialSkills:JSON.parse(
+   JSON.stringify(specialData || {})
+  ),
+
+  abilities:JSON.parse(
+   JSON.stringify(abilityData || {})
+  ),
+
+  stats:stats
+ };
+
+ /*
+  ========================================================
+  Supabaseへ送るデータ
+  ========================================================
+ */
+ const record={
+  character:character,
+  symbol:symbol,
+  type:type,
+
+  /*
+   ★ ここに完全なバレットデータを入れる
+  */
+  attacks:savedAttacks,
+
+  details:details
  };
 
  msg.className="msg";
  msg.textContent="保存中……";
 
- const isUpdate = !!editingId;
- const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
- const method = isUpdate ? "PATCH" : "POST";
+ const isUpdate=!!editingId;
+
+ const fetchUrl=isUpdate
+  ? `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(editingId)}`
+  : `${URL}/rest/v1/${TABLE}`;
+
+ const method=isUpdate?"PATCH":"POST";
 
  try{
+
   const r=await fetch(fetchUrl,{
-   method: method,
+   method:method,
+
    headers:{
     "Content-Type":"application/json",
-    apikey:KEY,
-    Authorization:"Bearer "+KEY,
-    Prefer:"return=minimal"
+    "apikey":KEY,
+    "Authorization":"Bearer "+KEY,
+
+    /*
+     更新・新規登録どちらでも
+     保存結果を返してもらう
+    */
+    "Prefer":"return=representation"
    },
+
    body:JSON.stringify(record)
   });
-  const t=await r.text();
-  if(!r.ok) throw Error(t);
 
-  msg.className="msg ok";
-  msg.textContent=isUpdate ? "データを更新しました！" : "新規登録しました！";
-  
-  if (isUpdate) {
-   resetFormToNew();
+  const text=await r.text();
+
+  if(!r.ok){
+   throw new Error(text);
   }
+
+  /*
+   ======================================================
+   保存成功
+   ======================================================
+  */
+  msg.className="msg ok";
+
+  msg.textContent=isUpdate
+   ? "データを更新しました！\nバレット情報も保存されています。"
+   : "新規登録しました！\nバレット情報も保存されています。";
+
+  /*
+   更新の場合はフォームをリセット
+  */
+  if(isUpdate){
+   editingId=null;
+
+   document.getElementById("formTitle").textContent=
+    "新規キャラクター登録";
+
+   document.getElementById("resetEditBtn")
+    .classList.add("hidden");
+
+   document.getElementById("save").textContent=
+    "☁️ Supabaseに保存";
+  }
+
+  /*
+   ★ Supabaseから保存後の最新データを再取得
+   これで「画面上だけ保存されていた」という状態を防ぐ
+  */
   await load();
+
  }catch(e){
+
   msg.className="msg err";
-  msg.textContent="保存失敗：\n"+e.message;
+
+  msg.textContent=
+   "保存失敗：\n"+e.message;
+
+  console.error(
+   "Supabase保存エラー:",
+   e,
+   record
+  );
  }
 }
-
 /* =========================================================
    タブ切り替え・イベントハンドラ
 ========================================================= */
