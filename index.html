@@ -1927,28 +1927,28 @@ async function save(){
   return;
  }
 
- const stats={
-  power:num("sPower"), hp:num("sHp"), speed:num("sSpeed"),
-  yangAtk:num("sYangAtk"), yinAtk:num("sYinAtk"), yangDef:num("sYangDef"), yinDef:num("sYinDef")
- };
-
- const details={ specialSkills:specialData, abilities:abilityData, stats };
- const record={ 
-  character, 
-  symbol, 
-  type, 
-  attacks: JSON.parse(JSON.stringify(attackData)), 
-  details: JSON.parse(JSON.stringify(details)) 
- };
-
  msg.className="msg";
  msg.textContent="保存中……";
 
- const isUpdate = !!editingId;
- const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
- const method = isUpdate ? "PATCH" : "POST";
-
  try{
+  const stats={
+   power:num("sPower"), hp:num("sHp"), speed:num("sSpeed"),
+   yangAtk:num("sYangAtk"), yinAtk:num("sYinAtk"), yangDef:num("sYangDef"), yinDef:num("sYinDef")
+  };
+
+  const details={ specialSkills:specialData, abilities:abilityData, stats };
+  const record={
+   character,
+   symbol,
+   type,
+   attacks: JSON.parse(JSON.stringify(attackData)),
+   details: JSON.parse(JSON.stringify(details))
+  };
+
+  const isUpdate = !!editingId;
+  const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
+  const method = isUpdate ? "PATCH" : "POST";
+
   const r=await fetch(fetchUrl,{
    method: method,
    headers:{
@@ -1964,7 +1964,7 @@ async function save(){
 
   msg.className="msg ok";
   msg.textContent=isUpdate ? "データを更新しました！" : "新規登録しました！";
-  
+
   if (isUpdate) {
    resetFormToNew();
   }
@@ -1975,6 +1975,13 @@ async function save(){
  }
 }
 
+document.getElementById("save").onclick=()=>{
+ save().catch(e=>{
+  const msg=document.getElementById("message");
+  msg.className="msg err";
+  msg.textContent="保存失敗（予期しないエラー）：\n"+(e && e.message ? e.message : e);
+ });
+};
 /* =========================================================
    タブ切り替え・イベントハンドラ
 ========================================================= */
