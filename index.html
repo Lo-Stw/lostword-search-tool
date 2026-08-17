@@ -21,6 +21,19 @@ header{
 }
 header h1{margin:0;font-size:22px}
 header p{margin:7px 0 0;font-size:13px;opacity:.8}
+.auth-panel{
+  max-width:420px;margin:14px auto 0;padding:10px;
+  background:#ffffff12;border:1px solid #ffffff26;border-radius:10px;
+  text-align:left
+}
+.auth-row{display:flex;gap:6px}
+.auth-row .input{background:#fff;color:#222}
+.auth-actions{display:flex;gap:6px;margin-top:6px}
+.auth-actions button{flex:1;padding:9px;border:0;border-radius:8px;cursor:pointer;font-weight:700}
+.auth-login{background:#fff;color:#242424}
+.auth-logout{background:#e7e7e7;color:#242424}
+.auth-status{font-size:12px;margin-top:7px;opacity:.9}
+.auth-message{font-size:12px;margin-top:6px;white-space:pre-wrap}
 
 .container{max-width:900px;margin:auto;padding:10px}
 .tabs{display:flex;gap:8px;margin-bottom:10px}
@@ -240,6 +253,24 @@ footer a{color:#444;text-decoration:underline}
 <header>
 <h1>東方ロストワード</h1>
 <p>弾幕・スペルカード検索ツール</p>
+<div class="auth-panel">
+ <div id="authLoggedOut">
+  <div class="auth-row">
+   <input id="authEmail" class="input" type="email" placeholder="管理者メールアドレス">
+   <input id="authPassword" class="input" type="password" placeholder="パスワード">
+  </div>
+  <div class="auth-actions">
+   <button id="authLogin" class="auth-login" type="button">管理者ログイン</button>
+  </div>
+ </div>
+ <div id="authLoggedIn" class="hidden">
+  <div id="authUserLabel" class="auth-status"></div>
+  <div class="auth-actions">
+   <button id="authLogout" class="auth-logout" type="button">ログアウト</button>
+  </div>
+ </div>
+ <div id="authMessage" class="auth-message"></div>
+</div>
 </header>
 
 <div class="container">
@@ -441,6 +472,7 @@ footer a{color:#444;text-decoration:underline}
   <p>©上海アリス幻樂団 ©GOOD SMILE COMPANY, INC. / NextNinja Co., Ltd.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
 /* =========================================================
@@ -450,6 +482,10 @@ footer a{color:#444;text-decoration:underline}
 const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
+const ADMIN_TABLE="admin_users";
+const supabaseClient=window.supabase.createClient(URL,KEY);
+let currentUser=null;
+let isAdmin=false;
 
 /* =========================================================
    基本データ定義
@@ -490,6 +526,104 @@ const selected={
 };
 
 let statMode="";
+
+function setAuthMessage(text, isError=false){
+  const e=document.getElementById("authMessage");
+  if(!e) return;
+  e.textContent=text||"";
+  e.style.color=isError ? "#ffb3b3" : "#d4edda";
+}
+
+async function getAuthHeaders(json=false){
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  return {
+    ...(json ? {"Content-Type":"application/json"} : {}),
+    apikey:KEY,
+    Authorization:"Bearer "+(session?.access_token || KEY)
+  };
+}
+
+async function refreshAuthState(user){
+  currentUser=user||null;
+  isAdmin=false;
+
+  if(currentUser){
+    const {data:adminRow,error}=await supabaseClient
+      .from(ADMIN_TABLE)
+      .select("user_id")
+      .eq("user_id",currentUser.id)
+      .maybeSingle();
+
+    if(error){
+      setAuthMessage("管理者設定を確認できませんでした。\nSupabaseのadmin_usersテーブルとRLSを確認してください。",true);
+    }else{
+      isAdmin=!!adminRow;
+      setAuthMessage(isAdmin ? "管理者としてログイン中です。" : "ログイン中ですが、管理者権限はありません。",!isAdmin);
+    }
+  }else{
+    setAuthMessage("");
+  }
+
+  const loggedOut=document.getElementById("authLoggedOut");
+  const loggedIn=document.getElementById("authLoggedIn");
+  const userLabel=document.getElementById("authUserLabel");
+  const tabAdd=document.getElementById("tabAdd");
+
+  loggedOut.classList.toggle("hidden",!!currentUser);
+  loggedIn.classList.toggle("hidden",!currentUser);
+  if(userLabel){
+    userLabel.textContent=currentUser
+      ? `${currentUser.email||"ログインユーザー"}${isAdmin?"（管理者）":"（一般ユーザー）"}`
+      : "";
+  }
+  tabAdd.classList.toggle("hidden",!isAdmin);
+
+  if(!isAdmin && !document.getElementById("addPage").classList.contains("hidden")){
+    document.getElementById("searchPage").classList.remove("hidden");
+    document.getElementById("addPage").classList.add("hidden");
+    document.getElementById("tabSearch").classList.add("active");
+    document.getElementById("tabAdd").classList.remove("active");
+  }
+
+  search();
+}
+
+async function initAuth(){
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  await refreshAuthState(session?.user||null);
+
+  supabaseClient.auth.onAuthStateChange((_event,nextSession)=>{
+    setTimeout(()=>{
+      refreshAuthState(nextSession?.user||null).catch(e=>{
+        setAuthMessage("ログイン状態の確認に失敗しました。\n"+(e?.message||e),true);
+      });
+    },0);
+  });
+}
+
+document.getElementById("authLogin").onclick=async()=>{
+  const email=document.getElementById("authEmail").value.trim();
+  const password=document.getElementById("authPassword").value;
+  if(!email||!password){
+    setAuthMessage("メールアドレスとパスワードを入力してください。",true);
+    return;
+  }
+
+  setAuthMessage("ログイン中です……");
+  const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+  if(error){
+    setAuthMessage("ログインに失敗しました。\n"+error.message,true);
+    return;
+  }
+  document.getElementById("authPassword").value="";
+};
+
+document.getElementById("authLogout").onclick=async()=>{
+  const {error}=await supabaseClient.auth.signOut();
+  if(error){
+    setAuthMessage("ログアウトに失敗しました。\n"+error.message,true);
+  }
+};
 
 /* =========================================================
    初期構造生成関数
@@ -1796,8 +1930,8 @@ function renderResults(arr){
    <div class="char-row">
     <div class="char" onclick="openModal('${esc(c.id)}')">${esc(c.character)}</div>
      <div>
-      <button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">編集</button>
-      <button class="btn-delete" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+       ${isAdmin ? `<button class="btn-edit" onclick="editCharacter('${esc(c.id)}')">編集</button>
+       <button class="btn-delete" onclick="deleteCharacter('${esc(c.id)}')">削除</button>` : ""}
      </div>
    </div>
    <div class="muted">汎異記号：${esc(c.symbol||"未登録")} / ${esc(c.type||"")}</div>
@@ -1885,8 +2019,8 @@ function openAttackModal(id, attackKey){
      <div class="muted" style="margin-bottom:12px;">${esc(c.symbol||"未登録")} / ${esc(c.type||"未設定")}</div>
     </div>
     <div>
-     <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
-     <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+     ${isAdmin ? `<button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
+     <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>` : ""}
     </div>
    </div>
    <div class="box" style="background:#f9f9f9">
@@ -1913,8 +2047,8 @@ function openModal(id){
     <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
    </div>
     <div>
-     <button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
-     <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>
+      ${isAdmin ? `<button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
+      <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>` : ""}
     </div>
   </div>
   
@@ -1966,7 +2100,7 @@ document.getElementById("detailModal").onclick = (e) => {
 async function load(){
  try{
   const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{
-   headers:{ apikey:KEY, Authorization:"Bearer "+KEY }
+    headers:await getAuthHeaders()
   });
   const t=await r.text();
   if(!r.ok) throw Error(t);
@@ -1979,6 +2113,11 @@ async function load(){
 }
 
 async function deleteCharacter(id){
+  if(!currentUser || !isAdmin){
+    alert("削除するには管理者としてログインしてください。");
+    return;
+  }
+
   const character = data.find(x => String(x.id) === String(id));
   if(!character) return;
 
@@ -1993,9 +2132,8 @@ async function deleteCharacter(id){
       {
         method:"DELETE",
         headers:{
+          ...(await getAuthHeaders()),
           "Accept":"application/json",
-          apikey:KEY,
-          Authorization:"Bearer "+KEY,
           Prefer:"return=representation"
         }
       }
@@ -2040,6 +2178,12 @@ function num(id){
 
 async function save(){
  const msg=document.getElementById("message");
+  if(!currentUser || !isAdmin){
+   msg.className="msg err";
+   msg.textContent="保存・更新するには管理者としてログインしてください。";
+   return;
+  }
+
  const character=document.getElementById("aCharacter").value.trim();
  const symbol=document.getElementById("aSymbol").value.trim();
  const type=document.getElementById("aType").value;
@@ -2075,9 +2219,7 @@ async function save(){
   const r=await fetch(fetchUrl,{
    method: method,
    headers:{
-    "Content-Type":"application/json",
-    apikey:KEY,
-    Authorization:"Bearer "+KEY,
+     ...(await getAuthHeaders(true)),
     Prefer:"return=minimal"
    },
    body:JSON.stringify(record)
@@ -2177,6 +2319,9 @@ document.getElementById("reset").onclick=()=>{
 };
 
 /* 初期起動 */
+initAuth().catch(e=>{
+  setAuthMessage("認証の初期化に失敗しました。\n"+(e?.message||e),true);
+});
 load();
 
 </script>
