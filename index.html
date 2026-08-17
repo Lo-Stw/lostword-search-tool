@@ -1989,18 +1989,39 @@ async function deleteCharacter(id){
 
   try{
     const r = await fetch(
-      `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`,
+      `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(String(id))}&select=id`,
       {
         method:"DELETE",
         headers:{
+          "Accept":"application/json",
           apikey:KEY,
           Authorization:"Bearer "+KEY,
-          Prefer:"return=minimal"
+          Prefer:"return=representation"
         }
       }
     );
     const t = await r.text();
-    if(!r.ok) throw Error(t);
+    if(!r.ok) {
+      let errorMessage = t;
+      try {
+        const errorJson = JSON.parse(t);
+        errorMessage = errorJson.message || errorJson.hint || t;
+      } catch {}
+      throw Error(errorMessage);
+    }
+
+    let deletedRows = [];
+    try {
+      deletedRows = t ? JSON.parse(t) : [];
+    } catch {
+      throw Error("Supabaseから削除結果を確認できませんでした。");
+    }
+
+    if(!Array.isArray(deletedRows) || deletedRows.length === 0){
+      throw Error(
+        "削除されませんでした。SupabaseのRLSでDELETEが許可されているか確認してください。"
+      );
+    }
 
     if(String(editingId) === String(id)){
       resetFormToNew();
