@@ -2058,7 +2058,10 @@ load();
 
 </script>
  
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init();</script>
-
+<script>
+window.onerror = function(msg, url, line, col, error){
+  alert("JSエラー:\n" + msg + "\n(行:" + line + ")");
+};
+</script>
 </body>
 </html>
