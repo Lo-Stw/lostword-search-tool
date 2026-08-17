@@ -288,6 +288,28 @@ footer a{color:#444;text-decoration:underline}
     検索を実行
   </button>
 </div>
+<!-- ================= アカウントページ ================= -->
+<section id="accountPage" class="hidden">
+  <div class="box">
+    <div class="title">アカウント</div>
+    <div id="authContent">
+      <!-- ログイン前はここを表示 -->
+      <div id="loginForm">
+        <input type="email" id="email" placeholder="メールアドレス" style="width:100%; margin-bottom:10px;">
+        <input type="password" id="password" placeholder="パスワード" style="width:100%; margin-bottom:10px;">
+        <div style="display:flex; gap:10px;">
+          <button onclick="signIn()" style="flex:1;">ログイン</button>
+          <button onclick="signUp()" style="flex:1; background:#666;">新規登録</button>
+        </div>
+      </div>
+      <!-- ログイン後はここを表示 -->
+      <div id="logoutForm" class="hidden">
+        <p>ログイン中: <span id="userEmail"></span></p>
+        <button onclick="signOut()" class="btn-delete">ログアウト</button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ================= お気に入り検索ページ ================= -->
 <section id="favoritesPage" class="hidden">
