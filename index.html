@@ -1994,3 +1994,342 @@ function renderAttackDetailHtml(k, a){
     <div style="margin-top:12px;">
      <div style="font-weight:700; font-size:13px; color:#444; margin-bottom:6px;">バレット構成 (全6弾)</div>
   `;
+
+  (a.bullets || []).forEach((b, bIdx) => {
+   h += renderBulletCardHtml(b, bIdx);
+  });
+
+  h += `
+    </div>
+   </div>
+  `;
+  return h;
+}
+
+function openAttackModal(id, attackKey){
+  const c = data.find(x => String(x.id) === String(id));
+  const attack = c?.attacks?.[attackKey];
+  if(!c || !attack) return;
+
+  const body = document.getElementById("modalBody");
+  body.innerHTML = `
+   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+     <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
+     <div class="muted" style="margin-bottom:12px;">${esc(c.symbol||"未登録")} / ${esc(c.type||"未設定")}</div>
+    </div>
+    <div>
+     ${isAdmin ? `<button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
+     <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>` : ""}
+    </div>
+   </div>
+   <div class="box" style="background:#f9f9f9">
+    <div class="title">ショット・スペルカード詳細</div>
+    ${renderAttackDetailHtml(attackKey, attack)}
+   </div>
+  `;
+  document.getElementById("detailModal").classList.remove("hidden");
+}
+
+function openModal(id){
+ const c = data.find(x => String(x.id) === String(id));
+ if(!c) return;
+
+ const body = document.getElementById("modalBody");
+ const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
+ const details = c.details || {};
+ const ss = details.specialSkills || details.skills || {};
+
+ let h = `
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+   <div>
+    <h2 style="margin:0 0 4px">${esc(c.character)}</h2>
+    <div class="muted" style="margin-bottom:12px">汎異記号：${esc(c.symbol||"未登録")} / 式：${esc(c.type||"未設定")}</div>
+   </div>
+    <div>
+      ${isAdmin ? `<button class="btn-edit" style="padding:6px 14px; font-size:13px;" onclick="editCharacter('${esc(c.id)}')">編集する</button>
+      <button class="btn-delete" style="padding:6px 14px; font-size:13px;" onclick="deleteCharacter('${esc(c.id)}')">削除</button>` : ""}
+    </div>
+  </div>
+  
+  <div class="box" style="background:#f9f9f9">
+   <div class="title">ステータス</div>
+   <div>
+    ${
+     Object.entries({総合つよさ:s.power, 体力:s.hp, 速力:s.speed, 陽攻:s.yangAtk, 陰攻:s.yinAtk, 陽防:s.yangDef, 陰防:s.yinDef})
+     .filter(x => x[1] !== undefined && x[1] !== null && x[1] !== "")
+     .map(x => `<span class="tag">${x[0]}：${esc(x[1])}</span>`).join("")
+    }
+   </div>
+  </div>
+
+  <div class="box" style="background:#f9f9f9">
+   <div class="title">特殊スキル</div>
+   <div>
+    ${SPECIAL_SKILLS.filter(x => ss[x]?.enabled).map(x => `<span class="tag">${x}</span>`).join("") || '<span class="muted">なし</span>'}
+   </div>
+  </div>
+
+  <div class="box" style="background:#f9f9f9">
+   <div class="title">ショット・スペルカード詳細</div>
+ `;
+
+  Object.entries(c.attacks || {}).forEach(([k, a]) => {
+   h += renderAttackDetailHtml(k, a);
+  });
+
+ h += `</div>`;
+ body.innerHTML = h;
+ document.getElementById("detailModal").classList.remove("hidden");
+}
+
+document.getElementById("modalClose").onclick = () => {
+ document.getElementById("detailModal").classList.add("hidden");
+};
+
+document.getElementById("detailModal").onclick = (e) => {
+ if (e.target === document.getElementById("detailModal")) {
+  document.getElementById("detailModal").classList.add("hidden");
+ }
+};
+
+/* =========================================================
+   Supabase 読み込み・保存 (POST/PATCH対応)
+========================================================= */
+
+async function load(){
+ try{
+  const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{
+    headers:await getAuthHeaders()
+  });
+  const t=await r.text();
+  if(!r.ok) throw Error(t);
+  data=JSON.parse(t);
+  buildFilters();
+  search();
+ }catch(e){
+  document.getElementById("results").innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`;
+ }
+}
+
+async function deleteCharacter(id){
+  if(!currentUser || !isAdmin){
+    alert("削除するには管理者としてログインしてください。");
+    return;
+  }
+
+  const character = data.find(x => String(x.id) === String(id));
+  if(!character) return;
+
+  const confirmed = confirm(
+    `「${character.character}」を削除しますか？\nこの操作は元に戻せません。`
+  );
+  if(!confirmed) return;
+
+  try{
+    const r = await fetch(
+      `${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(String(id))}&select=id`,
+      {
+        method:"DELETE",
+        headers:{
+          ...(await getAuthHeaders()),
+          "Accept":"application/json",
+          Prefer:"return=representation"
+        }
+      }
+    );
+    const t = await r.text();
+    if(!r.ok) {
+      let errorMessage = t;
+      try {
+        const errorJson = JSON.parse(t);
+        errorMessage = errorJson.message || errorJson.hint || t;
+      } catch {}
+      throw Error(errorMessage);
+    }
+
+    let deletedRows = [];
+    try {
+      deletedRows = t ? JSON.parse(t) : [];
+    } catch {
+      throw Error("Supabaseから削除結果を確認できませんでした。");
+    }
+
+    if(!Array.isArray(deletedRows) || deletedRows.length === 0){
+      throw Error(
+        "削除されませんでした。SupabaseのRLSでDELETEが許可されているか確認してください。"
+      );
+    }
+
+    if(String(editingId) === String(id)){
+      resetFormToNew();
+    }
+    document.getElementById("detailModal").classList.add("hidden");
+    await load();
+  }catch(e){
+    alert("削除に失敗しました。\n"+(e?.message || e));
+  }
+}
+
+function num(id){
+ const v=document.getElementById(id).value;
+ return v===""?null:Number(v);
+}
+
+async function save(){
+ const msg=document.getElementById("message");
+  if(!currentUser || !isAdmin){
+   msg.className="msg err";
+   msg.textContent="保存・更新するには管理者としてログインしてください。";
+   return;
+  }
+
+ const character=document.getElementById("aCharacter").value.trim();
+ const symbol=document.getElementById("aSymbol").value.trim();
+ const type=document.getElementById("aType").value;
+
+ if(!character||!type){
+  msg.className="msg err";
+  msg.textContent="キャラクター名と式を入力してください。";
+  return;
+ }
+
+ msg.className="msg";
+ msg.textContent="保存中……";
+
+ try{
+  const stats={
+   power:num("sPower"), hp:num("sHp"), speed:num("sSpeed"),
+   yangAtk:num("sYangAtk"), yinAtk:num("sYinAtk"), yangDef:num("sYangDef"), yinDef:num("sYinDef")
+  };
+
+  const details={ specialSkills:specialData, abilities:abilityData, stats };
+  const record={
+   character,
+   symbol,
+   type,
+   attacks: JSON.parse(JSON.stringify(attackData)),
+   details: JSON.parse(JSON.stringify(details))
+  };
+
+  const isUpdate = !!editingId;
+  const fetchUrl = isUpdate ? `${URL}/rest/v1/${TABLE}?id=eq.${editingId}` : `${URL}/rest/v1/${TABLE}`;
+  const method = isUpdate ? "PATCH" : "POST";
+
+  const r=await fetch(fetchUrl,{
+   method: method,
+   headers:{
+     ...(await getAuthHeaders(true)),
+    Prefer:"return=minimal"
+   },
+   body:JSON.stringify(record)
+  });
+  const t=await r.text();
+  if(!r.ok) throw Error(t);
+
+  msg.className="msg ok";
+  msg.textContent=isUpdate ? "データを更新しました！" : "新規登録しました！";
+
+  if (isUpdate) {
+   resetFormToNew();
+  }
+  await load();
+ }catch(e){
+  msg.className="msg err";
+  msg.textContent="保存失敗：\n"+e.message;
+ }
+}
+
+document.getElementById("save").onclick=()=>{
+ save().catch(e=>{
+  const msg=document.getElementById("message");
+  msg.className="msg err";
+  msg.textContent="保存失敗（予期しないエラー）：\n"+(e && e.message ? e.message : e);
+ });
+};
+ 
+/* =========================================================
+   タブ切り替え・イベントハンドラ
+========================================================= */
+
+document.getElementById("tabSearch").onclick=()=>{
+ document.getElementById("searchPage").classList.remove("hidden");
+ document.getElementById("addPage").classList.add("hidden");
+ document.getElementById("tabSearch").classList.add("active");
+ document.getElementById("tabAdd").classList.remove("active");
+ search();
+};
+
+document.getElementById("tabAdd").onclick=()=>{
+ document.getElementById("searchPage").classList.add("hidden");
+ document.getElementById("addPage").classList.remove("hidden");
+ document.getElementById("tabAdd").classList.add("active");
+ document.getElementById("tabSearch").classList.remove("active");
+
+ if(!editingId) {
+  initEditors();
+  initSpecialSkills();
+  initAbilities();
+ }
+};
+
+document.getElementById("q").oninput=search;
+document.getElementById("qSymbol").oninput=search;
+
+document.getElementById("andBtn").onclick=()=>{
+ mode="AND";
+ document.getElementById("andBtn").classList.add("selected");
+ document.getElementById("orBtn").classList.remove("selected");
+ search();
+};
+
+document.getElementById("orBtn").onclick=()=>{
+ mode="OR";
+ document.getElementById("orBtn").classList.add("selected");
+ document.getElementById("andBtn").classList.remove("selected");
+ search();
+};
+
+document.getElementById("statMin").onclick=()=>{
+ statMode="min";
+ document.getElementById("statMin").classList.add("selected");
+ document.getElementById("statMax").classList.remove("selected");
+ search();
+};
+
+document.getElementById("statMax").onclick=()=>{
+ statMode="max";
+ document.getElementById("statMax").classList.add("selected");
+ document.getElementById("statMin").classList.remove("selected");
+ search();
+};
+
+document.getElementById("statName").onchange=search;
+document.getElementById("statValue").oninput=search;
+
+document.getElementById("reset").onclick=()=>{
+ Object.values(selected).forEach(a=>a.splice(0));
+ document.getElementById("q").value="";
+ document.getElementById("qSymbol").value="";
+ document.getElementById("statName").value="";
+ document.getElementById("statValue").value="";
+ statMode="";
+ buildFilters();
+ search();
+};
+
+/* 初期起動 */
+initAuth().catch(e=>{
+  setAuthMessage("認証の初期化に失敗しました。\n"+(e?.message||e),true);
+});
+load();
+
+</script>
+ 
+<script>
+window.onerror = function(msg, url, line, col, error){
+  alert("JSエラー:\n" + msg + "\n(行:" + line + ")");
+};
+</script>
+</body>
+</html>
