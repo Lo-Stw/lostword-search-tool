@@ -273,12 +273,36 @@ footer a{color:#444;text-decoration:underline}
 
 <div class="tabs">
 <button id="tabSearch" class="tab active">🔍 検索</button>
+<button id="tabFavorites" class="tab">⭐ お気に入り検索</button>
+<button id="tabHistory" class="tab">⏱️ 検索履歴</button>
+<button id="tabAdd" class="tab">➕ キャラ追加・編集</button>
+</div>
+
+<button id="tabSearch" class="tab active">🔍 検索</button>
 <button id="tabAdd" class="tab">➕ キャラ追加・編集</button>
 </div>
 
 <!-- ================= 検索 ================= -->
 
 <section id="searchPage">
+<!-- ================= お気に入り検索ページ ================= -->
+<section id="favoritesPage" class="hidden">
+<div class="box">
+  <div class="title">お気に入り検索一覧</div>
+  <div id="favoritesList" class="loading">ログインしていません</div>
+</div>
+</section>
+
+<!-- ================= 検索履歴ページ ================= -->
+<section id="historyPage" class="hidden">
+<div class="box">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div class="title" style="margin:0;">検索履歴（直近）</div>
+    <button type="button" class="btn-delete" onclick="clearHistory()">履歴をすべて削除</button>
+  </div>
+  <div id="historyList" class="loading">ログインしていません</div>
+</div>
+</section>
 
 <div class="box">
 
@@ -363,6 +387,10 @@ footer a{color:#444;text-decoration:underline}
 
 <button id="reset" class="sub">条件をリセット</button>
 
+</div>
+
+<div class="section" style="margin-top: 10px;">
+  <button id="saveFavoriteBtn" class="sub" style="background:#e6f0fa; color:#0056b3; font-weight:750;">⭐ 現在の検索条件をお気に入り保存</button>
 </div>
 
 <div id="results">
@@ -489,6 +517,206 @@ try{
 }catch(e){
  authAvailable = false;
  console.error("Supabase Auth初期化エラー：", e);
+}
+/* =========================================================
+   検索履歴 & お気に入り検索 機能
+========================================================= */
+
+// 履歴の保存（検索実行時に呼び出す）
+async function addSearchHistory(queryText) {
+ if (!isLoggedIn() || !queryText) return;
+ try {
+  await fetch(`${URL}/rest/v1/search_history`, {
+   method: "POST",
+   headers: {
+    "Content-Type": "application/json",
+    ...authHeaders(),
+    Prefer: "return=minimal"
+   },
+   body: JSON.stringify({
+    user_id: currentSession.user.id,
+    query_text: queryText
+   })
+  });
+ } catch (e) {
+  console.error("履歴保存エラー:", e);
+ }
+}
+
+// 検索履歴の読み込み
+async function loadHistory() {
+ const listEl = document.getElementById("historyList");
+ if (!isLoggedIn()) {
+  listEl.innerHTML = '<div class="login-required"><b>ログインが必要です</b></div>';
+  return;
+ }
+ listEl.innerHTML = '<div class="loading">読み込み中……</div>';
+ try {
+  const r = await fetch(`${URL}/rest/v1/search_history?select=*&order=created_at.desc&limit=50`, {
+   headers: authHeaders()
+  });
+  const data = await r.json();
+  if (!data.length) {
+   listEl.innerHTML = '<div class="muted">検索履歴はありません。</div>';
+   return;
+  }
+  listEl.innerHTML = data.map(h => `
+   <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee;">
+    <div>
+     <span style="font-weight:700; cursor:pointer; color:#0056b3;" onclick="applySearchQuery('${esc(h.query_text)}')">${esc(h.query_text)}</span>
+     <div class="muted" style="font-size:11px;">${new Date(h.created_at).toLocaleString()}</div>
+    </div>
+   </div>
+  `).join("");
+ } catch (e) {
+  listEl.innerHTML = '<div class="muted">履歴の読み込みに失敗しました。</div>';
+ }
+}
+
+// 履歴から再検索
+function applySearchQuery(qText) {
+ document.getElementById("q").value = qText;
+ document.getElementById("tabSearch").click();
+ search();
+}
+
+// 履歴全削除
+async function clearHistory() {
+ if (!isLoggedIn() || !confirm("検索履歴をすべて削除しますか？")) return;
+ try {
+  await fetch(`${URL}/rest/v1/search_history?user_id=eq.${currentSession.user.id}`, {
+   method: "DELETE",
+   headers: authHeaders()
+  });
+  loadHistory();
+ } catch (e) {
+  alert("削除に失敗しました。");
+ }
+}
+
+// お気に入り検索の保存
+document.getElementById("saveFavoriteBtn").onclick = async () => {
+ if (!isLoggedIn()) {
+  alert("お気に入り検索を保存するにはログインが必要です。");
+  return;
+ }
+ const titleName = prompt("この検索条件につける名前を入力してください（例：陽攻特化キャラ）:");
+ if (!titleName) return;
+
+ const filterState = {
+  q: document.getElementById("q").value,
+  qSymbol: document.getElementById("qSymbol").value,
+  selected: JSON.parse(JSON.stringify(selected)),
+  mode: mode,
+  statName: document.getElementById("statName").value,
+  statValue: document.getElementById("statValue").value,
+  statMode: statMode
+ };
+
+ try {
+  const r = await fetch(`${URL}/rest/v1/favorite_searches`, {
+   method: "POST",
+   headers: {
+    "Content-Type": "application/json",
+    ...authHeaders(),
+    Prefer: "return=minimal"
+   },
+   body: JSON.stringify({
+    user_id: currentSession.user.id,
+    title: titleName,
+    filter_json: filterState
+   })
+  });
+  if (!r.ok) throw new Error();
+  alert("お気に入り検索に保存しました！");
+ } catch (e) {
+  alert("保存に失敗しました。");
+ }
+};
+
+// お気に入り検索の読み込み
+async function loadFavorites() {
+ const listEl = document.getElementById("favoritesList");
+ if (!isLoggedIn()) {
+  listEl.innerHTML = '<div class="login-required"><b>ログインが必要です</b></div>';
+  return;
+ }
+ listEl.innerHTML = '<div class="loading">読み込み中……</div>';
+ try {
+  const r = await fetch(`${URL}/rest/v1/favorite_searches?select=*&order=created_at.desc`, {
+   headers: authHeaders()
+  });
+  const data = await r.json();
+  if (!data.length) {
+   listEl.innerHTML = '<div class="muted">お気に入り検索は登録されていません。</div>';
+   return;
+  }
+  listEl.innerHTML = data.map(fav => `
+   <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
+    <div>
+     <div style="font-weight:700; font-size:15px; color:#333;">${esc(fav.title)}</div>
+     <div class="muted" style="font-size:11px;">登録日時: ${new Date(fav.created_at).toLocaleString()}</div>
+    </div>
+    <div>
+     <button class="filter selected" onclick='applyFavoriteFilter(${JSON.stringify(JSON.stringify(fav.filter_json))})'>呼び出して検索</button>
+     <button class="btn-delete" onclick="deleteFavorite('${fav.id}')">削除</button>
+    </div>
+   </div>
+  `).join("");
+ } catch (e) {
+  listEl.innerHTML = '<div class="muted">お気に入りの読み込みに失敗しました。</div>';
+ }
+}
+
+// お気に入り条件の適用
+function applyFavoriteFilter(jsonStr) {
+ const st = JSON.parse(jsonStr);
+ document.getElementById("q").value = st.q || "";
+ document.getElementById("qSymbol").value = st.qSymbol || "";
+ document.getElementById("statName").value = st.statName || "";
+ document.getElementById("statValue").value = st.statValue || "";
+ 
+ mode = st.mode || "AND";
+ if(mode === "AND") {
+  document.getElementById("andBtn").classList.add("selected");
+  document.getElementById("orBtn").classList.remove("selected");
+ } else {
+  document.getElementById("orBtn").classList.add("selected");
+  document.getElementById("andBtn").classList.remove("selected");
+ }
+
+ statMode = st.statMode || "";
+ if(statMode === "min") {
+  document.getElementById("statMin").classList.add("selected");
+  document.getElementById("statMax").classList.remove("selected");
+ } else if(statMode === "max") {
+  document.getElementById("statMax").classList.add("selected");
+  document.getElementById("statMin").classList.remove("selected");
+ }
+
+ if(st.selected) {
+  Object.keys(st.selected).forEach(k => {
+   selected[k] = st.selected[k];
+  });
+ }
+
+ buildFilters();
+ document.getElementById("tabSearch").click();
+ search();
+}
+
+// お気に入りの削除
+async function deleteFavorite(favId) {
+ if (!confirm("このお気に入り条件を削除しますか？")) return;
+ try {
+  await fetch(`${URL}/rest/v1/favorite_searches?id=eq.${favId}`, {
+   method: "DELETE",
+   headers: authHeaders()
+  });
+  loadFavorites();
+ } catch (e) {
+  alert("削除に失敗しました。");
+ }
 }
 
 /* =========================================================
@@ -1669,6 +1897,12 @@ function hasSpecial(c, x) {
 let lastResults=[];
 
 function search() {
+ // search() 関数の最初の方に追加
+const qVal = document.getElementById("q").value.trim();
+if (qVal) {
+ addSearchHistory(qVal); // テキスト検索が行われたら履歴に保存
+}
+
  const q = document.getElementById("q").value.trim().toLowerCase();
  const qs = document.getElementById("qSymbol").value.trim().toLowerCase();
  const stat = document.getElementById("statName").value;
@@ -2370,6 +2604,60 @@ async function init(){
  renderAuthBar();
  await load();
 }
+// タブボタンの切り替え処理部分に追加・修正
+document.getElementById("tabSearch").onclick = () => {
+ document.getElementById("searchPage").classList.remove("hidden");
+ document.getElementById("favoritesPage").classList.add("hidden");
+ document.getElementById("historyPage").classList.add("hidden");
+ document.getElementById("addPage").classList.add("hidden");
+ document.getElementById("tabSearch").classList.add("active");
+ document.getElementById("tabFavorites").classList.remove("active");
+ document.getElementById("tabHistory").classList.remove("active");
+ document.getElementById("tabAdd").classList.remove("active");
+ search();
+};
+
+document.getElementById("tabFavorites").onclick = () => {
+ document.getElementById("searchPage").classList.add("hidden");
+ document.getElementById("favoritesPage").classList.remove("hidden");
+ document.getElementById("historyPage").classList.add("hidden");
+ document.getElementById("addPage").classList.add("hidden");
+ document.getElementById("tabSearch").classList.remove("active");
+ document.getElementById("tabFavorites").classList.add("active");
+ document.getElementById("tabHistory").classList.remove("active");
+ document.getElementById("tabAdd").classList.remove("active");
+ loadFavorites();
+};
+
+document.getElementById("tabHistory").onclick = () => {
+ document.getElementById("searchPage").classList.add("hidden");
+ document.getElementById("favoritesPage").classList.add("hidden");
+ document.getElementById("historyPage").classList.remove("hidden");
+ document.getElementById("addPage").classList.add("hidden");
+ document.getElementById("tabSearch").classList.remove("active");
+ document.getElementById("tabFavorites").classList.remove("active");
+ document.getElementById("tabHistory").classList.add("active");
+ document.getElementById("tabAdd").classList.remove("active");
+ loadHistory();
+};
+
+document.getElementById("tabAdd").onclick = () => {
+ document.getElementById("searchPage").classList.add("hidden");
+ document.getElementById("favoritesPage").classList.add("hidden");
+ document.getElementById("historyPage").classList.add("hidden");
+ document.getElementById("addPage").classList.remove("hidden");
+ document.getElementById("tabSearch").classList.remove("active");
+ document.getElementById("tabFavorites").classList.remove("active");
+ document.getElementById("tabHistory").classList.remove("active");
+ document.getElementById("tabAdd").classList.add("active");
+
+ if(!editingId) {
+  initEditors();
+  initSpecialSkills();
+  initAbilities();
+ }
+ updateEditGuard();
+};
 
 init();
 
