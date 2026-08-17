@@ -483,11 +483,7 @@ const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
 const ADMIN_TABLE="admin_users";
-const supabaseClient = window.supabase.createClient(
-  "https://tuzeswyyprzudnznalue.supabase.co",
-  "sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W"
-);
-
+const supabaseClient=window.supabase.createClient(URL,KEY);
 let currentUser=null;
 let isAdmin=false;
 
