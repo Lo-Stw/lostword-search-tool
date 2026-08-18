@@ -1282,7 +1282,7 @@ async function doRequestPasswordReset(){
  setAuthButtonsDisabled(true);
  renderAuthBar("再設定メール送信中……");
  try{
-  const redirectTo = location.origin + location.pathname;
+  const redirectTo = "https://lo-stw.github.io/lostword-search-tool/";
   // Supabase Auth: パスワード再設定メール
   const r = await fetch(`${URL}/auth/v1/recover`, {
    method: "POST",
