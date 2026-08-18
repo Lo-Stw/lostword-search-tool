@@ -524,27 +524,151 @@ footer a{color:#444;text-decoration:underline}
   <p>©上海アリス幻樂団 ©GOOD SMILE COMPANY, INC. / NextNinja Co., Ltd.</p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
 /* =========================================================
-   Supabase
+   Supabase（REST API）
+   supabase-jsを外部CDNから読み込まず、ブラウザ標準のfetchで
+   認証APIへ直接接続する。CDNがブロックされる環境でも登録できる。
 ========================================================= */
 
 const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
+const AUTH_STORAGE_KEY="lostword_auth_session";
+const authStateListeners=[];
 
-let sb = null;
-let authAvailable = true;
-try{
- if(typeof supabase === "undefined" || !supabase.createClient){
-  throw new Error("supabase-jsの読み込みに失敗しました");
+function authErrorMessage(body){
+ if(!body) return "認証サーバーから応答がありませんでした。";
+ return body.msg || body.message || body.error_description || body.error || "認証に失敗しました。";
+}
+
+async function authRequest(path, options={}){
+ const response=await fetch(`${URL}/auth/v1/${path}`,{
+  ...options,
+  headers:{
+   apikey:KEY,
+   "Content-Type":"application/json",
+   ...(options.headers||{})
+  }
+ });
+ const text=await response.text();
+ let body=null;
+ try{
+  body=text ? JSON.parse(text) : null;
+ }catch{
+  body={message:text};
  }
- sb = supabase.createClient(URL, KEY);
-}catch(e){
- authAvailable = false;
- console.error("Supabase Auth初期化エラー：", e);
+ if(!response.ok){
+  throw new Error(authErrorMessage(body));
+ }
+ return body;
+}
+
+function toSession(body){
+ if(!body || !body.access_token || !body.user) return null;
+ return {
+  access_token:body.access_token,
+  refresh_token:body.refresh_token || "",
+  expires_in:body.expires_in,
+  expires_at:body.expires_at,
+  token_type:body.token_type || "bearer",
+  user:body.user
+ };
+}
+
+function readStoredSession(){
+ try{
+  const raw=localStorage.getItem(AUTH_STORAGE_KEY);
+  return raw ? JSON.parse(raw) : null;
+ }catch{
+  return null;
+ }
+}
+
+function writeStoredSession(session){
+ try{
+  if(session) localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(session));
+  else localStorage.removeItem(AUTH_STORAGE_KEY);
+ }catch(e){
+  console.warn("セッション保存に失敗しました。",e);
+ }
+}
+
+function notifyAuthState(event,session){
+ authStateListeners.slice().forEach(listener=>{
+  try{ listener(event,session); }catch(e){ console.warn("認証状態通知エラー",e); }
+ });
+}
+
+// supabase-jsと同じ呼び出し方にそろえた最小限の認証クライアント。
+const sb={
+ auth:{
+  async signUp({email,password}){
+   try{
+    const body=await authRequest("signup",{
+     method:"POST",
+     body:JSON.stringify({email,password})
+    });
+    const session=toSession(body);
+    writeStoredSession(session);
+    if(session) notifyAuthState("SIGNED_IN",session);
+    return {data:{user:body?.user || null,session},error:null};
+   }catch(error){
+    return {data:{user:null,session:null},error};
+   }
+  },
+  async signInWithPassword({email,password}){
+   try{
+    const body=await authRequest("token?grant_type=password",{
+     method:"POST",
+     body:JSON.stringify({email,password})
+    });
+    const session=toSession(body);
+    writeStoredSession(session);
+    if(session) notifyAuthState("SIGNED_IN",session);
+    return {data:{user:body?.user || null,session},error:null};
+   }catch(error){
+    return {data:{user:null,session:null},error};
+   }
+  },
+  async signOut(){
+   const session=readStoredSession();
+   try{
+    if(session?.access_token){
+     await authRequest("logout",{
+      method:"POST",
+      headers:{Authorization:"Bearer "+session.access_token}
+     });
+    }
+   }finally{
+    writeStoredSession(null);
+    notifyAuthState("SIGNED_OUT",null);
+   }
+   return {error:null};
+  },
+  async getSession(){
+   return {data:{session:readStoredSession()}};
+  },
+  onAuthStateChange(listener){
+   authStateListeners.push(listener);
+   return {
+    data:{
+     subscription:{
+      unsubscribe(){
+       const index=authStateListeners.indexOf(listener);
+       if(index>=0) authStateListeners.splice(index,1);
+      }
+     }
+    }
+   };
+  }
+  }
+};
+
+const authAvailable = typeof fetch === "function";
+if(!authAvailable){
+ console.error("このブラウザではfetchが利用できません。");
 }
 /* =========================================================
    検索履歴 & お気に入り検索 機能
