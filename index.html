@@ -796,6 +796,20 @@ function isLoggedIn(){
  return !!currentSession;
 }
 
+/* =========================================================
+   管理者判定
+   ここに書いたメールアドレスでログインしたアカウントだけが
+   キャラクターの新規登録・編集・削除を行えます。
+   ※ これは画面上のボタン表示/非表示の制御にすぎません。
+   　 本当のセキュリティは Supabase 側の RLS ポリシーで
+   　 admin メールに限定する必要があります（後述）。
+========================================================= */
+const ADMIN_EMAIL = "taka03133390@gmail.com";
+
+function isAdmin(){
+ return isLoggedIn() && currentSession.user.email === ADMIN_EMAIL;
+}
+
 function renderAuthBar(msg, msgType){
  const bar=document.getElementById("authBar");
 
@@ -938,11 +952,13 @@ function updateEditGuard(){
  if(existingGuard) existingGuard.remove();
 
  const formBox=addPage.querySelector(".box");
- if(!isLoggedIn()){
+ if(!isAdmin()){
   const notice=document.createElement("div");
   notice.id="loginRequiredNotice";
   notice.className="login-required";
-  notice.innerHTML=`<b>キャラクターの追加・編集にはログインが必要です</b>上部のバーからサインイン、またはサインアップしてください。`;
+  notice.innerHTML = isLoggedIn()
+   ? `<b>このアカウントには編集権限がありません</b>キャラクターの追加・編集は管理者アカウントのみ行えます。`
+   : `<b>キャラクターの追加・編集にはログインが必要です</b>上部のバーからサインイン、またはサインアップしてください。`;
   addPage.insertBefore(notice, addPage.firstChild);
  }
 }
@@ -2107,8 +2123,8 @@ function renderBulletCardHtml(b, bIdx) {
 ========================================================= */
 
 function editCharacter(id) {
- if(!isLoggedIn()){
-  renderAuthBar("編集にはログインが必要です。","err");
+ if(!isAdmin()){
+  renderAuthBar(isLoggedIn() ? "編集は管理者のみ可能です。" : "編集にはログインが必要です。","err");
   document.getElementById("authBar").scrollIntoView({behavior:"smooth"});
   return;
  }
@@ -2258,7 +2274,7 @@ function renderResults(arr){
  }
 
  const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
- const loggedIn = isLoggedIn();
+ const loggedIn = isAdmin();
 
  e.innerHTML=`<div class="result-count">${arr.length}件</div>`;
  arr.forEach(c=>{
@@ -2350,7 +2366,7 @@ function openAttackModal(id, attackKey){
   const attack = c?.attacks?.[attackKey];
   if(!c || !attack) return;
 
-  const loggedIn = isLoggedIn();
+  const loggedIn = isAdmin();
   const body = document.getElementById("modalBody");
   body.innerHTML = `
    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -2377,7 +2393,7 @@ function openModal(id){
  const c = data.find(x => String(x.id) === String(id));
  if(!c) return;
 
- const loggedIn = isLoggedIn();
+ const loggedIn = isAdmin();
  const body = document.getElementById("modalBody");
  const s = (c.details && c.details.stats) ? c.details.stats : (c.stats || {});
  const details = c.details || {};
@@ -2463,8 +2479,8 @@ async function load(){
 }
 
 async function deleteCharacter(id){
-  if(!isLoggedIn()){
-   renderAuthBar("削除にはログインが必要です。","err");
+  if(!isAdmin()){
+   renderAuthBar(isLoggedIn() ? "削除は管理者のみ可能です。" : "削除にはログインが必要です。","err");
    return;
   }
 
@@ -2529,9 +2545,11 @@ function num(id){
 async function save(){
  const msg=document.getElementById("message");
 
- if(!isLoggedIn()){
+ if(!isAdmin()){
   msg.className="msg err";
-  msg.textContent="保存にはログインが必要です。上部のバーからサインインしてください。";
+  msg.textContent=isLoggedIn()
+   ? "このアカウントには保存権限がありません。管理者アカウントでログインしてください。"
+   : "保存にはログインが必要です。上部のバーからサインインしてください。";
   return;
  }
 
