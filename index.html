@@ -397,8 +397,15 @@ footer a{color:#444;text-decoration:underline}
            <button type="button" id="accountSignInBtn" style="flex:1;">ログイン</button>
            <button type="button" id="accountSignUpBtn" style="flex:1; background:#666;">新規登録</button>
         </div>
+         <button type="button" id="accountResetBtn" class="filter" style="margin-top:10px; width:100%;">パスワードを忘れた場合</button>
          <div id="accountMessage" class="auth-msg" role="status" aria-live="polite"></div>
       </div>
+       <div id="passwordResetForm" class="hidden">
+         <div class="title">新しいパスワードを設定</div>
+         <input type="password" id="newPassword" placeholder="新しいパスワード（6文字以上）" style="width:100%; margin-bottom:10px;">
+         <button type="button" id="saveNewPasswordBtn" class="main" style="width:100%;">パスワードを変更</button>
+         <div id="passwordResetMessage" class="auth-msg" role="status" aria-live="polite"></div>
+       </div>
       <!-- ログイン後はここを表示 -->
       <div id="logoutForm" class="hidden">
         <p>ログイン中: <span id="userEmail"></span></p>
@@ -630,6 +637,32 @@ const sb={
     return {data:{user:body?.user || null,session},error:null};
    }catch(error){
     return {data:{user:null,session:null},error};
+   }
+  },
+  async resetPasswordForEmail(email,{redirectTo}={}){
+   try{
+    await authRequest("recover",{
+     method:"POST",
+     body:JSON.stringify({
+      email,
+      ...(redirectTo ? {redirect_to:redirectTo} : {})
+     })
+    });
+    return {data:{},error:null};
+   }catch(error){
+    return {data:null,error};
+   }
+  },
+  async updateUser({password,accessToken}){
+   try{
+    const body=await authRequest("user",{
+     method:"PUT",
+     headers:{Authorization:"Bearer "+accessToken},
+     body:JSON.stringify({password})
+    });
+    return {data:{user:body},error:null};
+   }catch(error){
+    return {data:{user:null},error};
    }
   },
   async signOut(){
@@ -916,6 +949,7 @@ let statMode="";
 ========================================================= */
 
 let currentSession=null;
+let recoveryAccessToken=null;
 
 function isLoggedIn(){
  return !!currentSession;
@@ -1095,6 +1129,89 @@ async function signUp(){
  }
 }
 
+async function requestPasswordReset(){
+ const message=document.getElementById("accountMessage");
+ const setMessage=(text,type="err")=>{
+  if(message){
+   message.className=`auth-msg ${type}`;
+   message.textContent=text;
+  }
+ };
+ const email=document.getElementById("email").value.trim();
+ if(!email){
+  setMessage("パスワードを再設定するメールアドレスを入力してください。");
+  return;
+ }
+
+ const button=document.getElementById("accountResetBtn");
+ if(button) button.disabled=true;
+ setMessage("再設定メールを送信中……","");
+ try{
+  const redirectTo=location.href.split("#")[0];
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+  if(error) throw error;
+  setMessage("パスワード再設定メールを送信しました。メール内のリンクを開いて、新しいパスワードを設定してください。","ok");
+ }catch(error){
+  setMessage("再設定メールの送信に失敗しました："+(error?.message || error));
+ }finally{
+  if(button) button.disabled=false;
+ }
+}
+
+async function saveRecoveredPassword(){
+ const message=document.getElementById("passwordResetMessage");
+ const setMessage=(text,type="err")=>{
+  if(message){
+   message.className=`auth-msg ${type}`;
+   message.textContent=text;
+  }
+ };
+ const password=document.getElementById("newPassword").value;
+ if(!recoveryAccessToken){
+  setMessage("再設定リンクが無効です。もう一度、再設定メールを送信してください。");
+  return;
+ }
+ if(password.length<6){
+  setMessage("パスワードは6文字以上にしてください。");
+  return;
+ }
+
+ const button=document.getElementById("saveNewPasswordBtn");
+ if(button) button.disabled=true;
+ setMessage("パスワードを変更中……","");
+ try{
+  const {data,error}=await sb.auth.updateUser({
+   password,
+   accessToken:recoveryAccessToken
+  });
+  if(error) throw error;
+  if(!data.user) throw new Error("パスワードを変更できませんでした。");
+  recoveryAccessToken=null;
+  history.replaceState(null,"",location.pathname+location.search);
+  document.getElementById("passwordResetForm").classList.add("hidden");
+  document.getElementById("loginForm").classList.remove("hidden");
+  setMessage("パスワードを変更しました。新しいパスワードでログインしてください。","ok");
+ }catch(error){
+  setMessage("パスワード変更失敗："+(error?.message || error));
+ }finally{
+  if(button) button.disabled=false;
+ }
+}
+
+function preparePasswordRecovery(){
+ const params=new URLSearchParams(location.hash.slice(1));
+ const token=params.get("access_token");
+ const type=params.get("type");
+ if(type!=="recovery" || !token) return;
+
+ recoveryAccessToken=token;
+ showTab("accountPage","tabAccount");
+ document.getElementById("loginForm").classList.add("hidden");
+ document.getElementById("logoutForm").classList.add("hidden");
+ document.getElementById("passwordResetForm").classList.remove("hidden");
+ document.getElementById("newPassword").focus();
+}
+
 async function signOut(){
  if(!authAvailable) return;
  await sb.auth.signOut();
@@ -1124,6 +1241,8 @@ function updateAccountUI(){
 // インライン onclick に依存しないため、CSP設定があるページでも動作する。
 document.getElementById("accountSignInBtn").onclick=signIn;
 document.getElementById("accountSignUpBtn").onclick=signUp;
+document.getElementById("accountResetBtn").onclick=requestPasswordReset;
+document.getElementById("saveNewPasswordBtn").onclick=saveRecoveredPassword;
 
 function updateEditGuard(){
  const addPage=document.getElementById("addPage");
@@ -2913,6 +3032,7 @@ async function init(){
 
  renderAuthBar();
  updateAccountUI();
+ preparePasswordRecovery();
  await load();
 }
 
