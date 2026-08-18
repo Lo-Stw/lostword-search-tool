@@ -394,9 +394,10 @@ footer a{color:#444;text-decoration:underline}
         <input type="email" id="email" placeholder="メールアドレス" style="width:100%; margin-bottom:10px;">
         <input type="password" id="password" placeholder="パスワード" style="width:100%; margin-bottom:10px;">
         <div style="display:flex; gap:10px;">
-          <button onclick="signIn()" style="flex:1;">ログイン</button>
-          <button onclick="signUp()" style="flex:1; background:#666;">新規登録</button>
+           <button type="button" id="accountSignInBtn" style="flex:1;">ログイン</button>
+           <button type="button" id="accountSignUpBtn" style="flex:1; background:#666;">新規登録</button>
         </div>
+         <div id="accountMessage" class="auth-msg" role="status" aria-live="polite"></div>
       </div>
       <!-- ログイン後はここを表示 -->
       <div id="logoutForm" class="hidden">
@@ -890,34 +891,83 @@ async function doLogout(){
    ※ 上部の認証バー（authEmail/authPassword）とは別のフォーム（email/password）を
    　 参照するため、doSignIn/doSignUp/doLogoutとは別に定義する */
 async function signIn(){
- if(!authAvailable) return;
+ const message=document.getElementById("accountMessage");
+ const setMessage=(text,type="err")=>{
+  if(message){
+   message.className=`auth-msg ${type}`;
+   message.textContent=text;
+  }
+ };
+
+ if(!authAvailable){
+  setMessage("認証機能の読み込みに失敗しました。ページを再読み込みしてもう一度お試しください。");
+  return;
+ }
+
  const email=document.getElementById("email").value.trim();
  const password=document.getElementById("password").value;
- if(!email||!password){ alert("メールアドレスとパスワードを入力してください。"); return; }
+ if(!email||!password){
+  setMessage("メールアドレスとパスワードを入力してください。");
+  return;
+ }
 
- const {data:res, error}=await sb.auth.signInWithPassword({email,password});
- if(error){ alert("サインイン失敗："+error.message); return; }
- currentSession=res.session;
- renderAuthBar("サインインしました。","ok");
- search();
+ setMessage("ログイン中……","");
+ try{
+  const {data:res, error}=await sb.auth.signInWithPassword({email,password});
+  if(error) throw error;
+  currentSession=res.session;
+  renderAuthBar("サインインしました。","ok");
+  setMessage("ログインしました。","ok");
+  search();
+ }catch(error){
+  setMessage("ログイン失敗："+(error?.message || error));
+ }
 }
 
 async function signUp(){
- if(!authAvailable) return;
+ const message=document.getElementById("accountMessage");
+ const setMessage=(text,type="err")=>{
+  if(message){
+   message.className=`auth-msg ${type}`;
+   message.textContent=text;
+  }
+ };
+
+ if(!authAvailable){
+  setMessage("認証機能の読み込みに失敗しました。ページを再読み込みしてもう一度お試しください。");
+  return;
+ }
+
  const email=document.getElementById("email").value.trim();
  const password=document.getElementById("password").value;
- if(!email||!password){ alert("メールアドレスとパスワードを入力してください。"); return; }
- if(password.length<6){ alert("パスワードは6文字以上にしてください。"); return; }
+ if(!email||!password){
+  setMessage("メールアドレスとパスワードを入力してください。");
+  return;
+ }
+ if(password.length<6){
+  setMessage("パスワードは6文字以上にしてください。");
+  return;
+ }
 
- const {data:res, error}=await sb.auth.signUp({email,password});
- if(error){ alert("サインアップ失敗："+error.message); return; }
+ const button=document.getElementById("accountSignUpBtn");
+ if(button) button.disabled=true;
+ setMessage("新規登録中……","");
+ try{
+  const {data:res, error}=await sb.auth.signUp({email,password});
+  if(error) throw error;
 
- if(res.session){
-  currentSession=res.session;
-  renderAuthBar("サインアップしました。","ok");
-  search();
- }else{
-  alert("確認メールを送信しました。メール内のリンクを開いて認証を完了してください。");
+  if(res.session){
+   currentSession=res.session;
+   renderAuthBar("サインアップしました。","ok");
+   setMessage("新規登録しました。","ok");
+   search();
+  }else{
+   setMessage("確認メールを送信しました。メール内のリンクを開いて認証を完了してください。","ok");
+  }
+ }catch(error){
+  setMessage("新規登録失敗："+(error?.message || error));
+ }finally{
+  if(button) button.disabled=false;
  }
 }
 
@@ -945,6 +995,11 @@ function updateAccountUI(){
   logoutForm.classList.add("hidden");
  }
 }
+
+// アカウント画面のボタンは、動的な認証バーとは別に明示的に接続する。
+// インライン onclick に依存しないため、CSP設定があるページでも動作する。
+document.getElementById("accountSignInBtn").onclick=signIn;
+document.getElementById("accountSignUpBtn").onclick=signUp;
 
 function updateEditGuard(){
  const addPage=document.getElementById("addPage");
