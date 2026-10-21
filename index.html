@@ -742,6 +742,17 @@ body.theme-dark .abnormal-chip{
  margin:0 !important;
  line-height:1.35
 }
+.attack-buff-summary{
+ display:block;font-size:11px;font-weight:600;line-height:1.35;
+ margin-top:2px;opacity:.9;color:var(--lw-ink,#3a3026);
+ word-break:break-word;overflow-wrap:anywhere
+}
+.attack-buff-summary .sum-up{color:#1b5e20}
+.attack-buff-summary .sum-down{color:#b71c1c}
+body.theme-dark .attack-buff-summary{color:#d4dce8;opacity:.95}
+body.theme-dark .attack-buff-summary .sum-up{color:#81c784}
+body.theme-dark .attack-buff-summary .sum-down{color:#ef9a9a}
+
 body.theme-dark .attack-acc-head{
  background:linear-gradient(90deg, #252d3c, #1c2330) !important;
  color:#e6edf3 !important;
@@ -808,22 +819,30 @@ body.theme-dark .attack-acc-body{background:#12171f !important}
  background:linear-gradient(135deg,#3a4550 0%,#2b3a42 100%)
 }
 .bullet-card-main{
- flex:1;padding:10px 12px;display:flex;flex-direction:column;gap:5px;
- background:rgba(0,0,0,.22)
+ flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column;gap:5px;
+ background:rgba(0,0,0,.22);overflow:hidden
 }
 .bullet-card-top{
  display:flex;justify-content:space-between;align-items:center;gap:8px
 }
 .bullet-card-title{
  font-weight:800;font-size:14px;color:#fff;letter-spacing:0.4px;
- text-shadow:0 1px 2px rgba(0,0,0,.75),0 0 1px rgba(0,0,0,.9)
+ text-shadow:0 1px 2px rgba(0,0,0,.75),0 0 1px rgba(0,0,0,.9);
+ min-width:0;flex:1;
+ overflow-wrap:anywhere;word-break:break-word;line-height:1.25
 }
+
 .bullet-card-count{
  font-weight:900;font-size:15px;color:#ffe566;font-style:italic;
  text-shadow:0 1px 2px rgba(0,0,0,.7);flex-shrink:0
 }
 .bullet-card-tags{
- display:flex;flex-wrap:wrap;gap:3px;align-items:center
+ display:flex;flex-wrap:wrap;gap:3px;align-items:center;
+ min-width:0;max-width:100%
+}
+.bullet-card-tags .tag{
+ max-width:100%;overflow-wrap:anywhere;word-break:break-word;
+ white-space:normal;line-height:1.25
 }
 .bullet-card-tags .tag{
  background:rgba(255,255,255,.92)!important;color:#222!important;
@@ -858,8 +877,10 @@ body.theme-dark .attack-acc-body{background:#12171f !important}
 .bullet-card{ /* ensure flex children align */
 }
 .bullet-p-badge{
- width:38px;display:flex;align-items:center;justify-content:center;
- font-weight:900;font-size:13px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)
+ width:28px;min-width:28px;max-width:28px;flex-shrink:0;
+ display:flex;align-items:center;justify-content:center;
+ font-weight:900;font-size:11px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5);
+ writing-mode:horizontal-tb;overflow:hidden
 }
 .p-bg-P0{background:#6c757d}
 .p-bg-P1{background:#007bff}
@@ -2264,6 +2285,7 @@ body.theme-dark .tab.active{
 .bullet-size-sm .bullet-card{margin-bottom:4px;border-radius:8px}
 .bullet-size-sm .bullet-card-main{padding:5px 8px;gap:2px}
 .bullet-size-sm .bullet-card-title{font-size:11px}
+.bullet-size-sm .bullet-p-badge{width:22px;min-width:22px;max-width:22px;font-size:10px}
 .bullet-size-sm .bullet-card-count{font-size:12px}
 .bullet-size-sm .bullet-card-tags .tag{font-size:10px;padding:1px 5px}
 .bullet-size-sm .bullet-type-icon{width:48px;min-width:48px;padding:4px}
@@ -6610,10 +6632,18 @@ function formatSpecialSkillDetailText(name, d){
   return bits.join(" ");
  }
  if(name === "属性強化" || name === "弾強化"){
-  if(d.attr) bits.push(d.attr);
-  if(d.bullet) bits.push(d.bullet);
-  if(d.ratio !== "" && d.ratio != null) bits.push(`${d.ratio}%`);
-  return bits.join(" ");
+  const list = Array.isArray(d.list) && d.list.length
+   ? d.list
+   : [{ attr:d.attr, bullet:d.bullet, ratio:d.ratio }];
+  const parts = list.map(it=>{
+   if(!it) return "";
+   const bits = [];
+   if(name === "属性強化" && it.attr) bits.push(it.attr);
+   if(name === "弾強化" && it.bullet) bits.push(it.bullet);
+   if(it.ratio !== "" && it.ratio != null) bits.push(String(it.ratio) + "%");
+   return bits.join(" ");
+  }).filter(Boolean);
+  return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
  if(name === "弱点付与" && d.attr) return d.attr;
  if(name === "団結" || name === "ゾーン"){
@@ -7382,22 +7412,97 @@ function buildSpecialDetail(skill, e){
    }
    break;
   case "属性強化":
-   e.innerHTML=`
-    <select class="select" data-special-attr>
-     <option value="">属性を選択</option>
-     ${ATTR.map(x=>`<option ${d.attr===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
-   break;
   case "弾強化":
-   e.innerHTML=`
-    <select class="select" data-special-bullet>
-     <option value="">弾種を選択</option>
-     ${BULLETS.map(x=>`<option ${d.bullet===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
+   {
+    const isAttr = skill === "属性強化";
+    if(!Array.isArray(d.list) || !d.list.length){
+     d.list = [{
+      attr: d.attr || "",
+      bullet: d.bullet || "",
+      ratio: (d.ratio != null && d.ratio !== "") ? d.ratio : ""
+     }];
+    }
+    const listId = isAttr ? "attrBoostList" : "bulletBoostList";
+    const addAttr = isAttr ? "data-attrboost-add" : "data-bulletboost-add";
+    e.innerHTML =
+      '<div class="mini" style="margin-bottom:6px;">複数追加できます</div>' +
+      '<div id="'+listId+'"></div>' +
+      '<button type="button" class="btn-sm" '+addAttr+' style="margin-top:6px;">＋ 追加</button>';
+    const box = e.querySelector("#"+listId);
+    const render = ()=>{
+     if(!Array.isArray(d.list)) d.list = [];
+     if(!d.list.length) d.list.push({ attr:"", bullet:"", ratio:"" });
+     box.innerHTML = d.list.map((it, idx)=>{
+      const ratio = it.ratio != null ? it.ratio : "";
+      if(isAttr){
+       const attrOpts = ATTR.map(x=>`<option value="${x}" ${it.attr===x?"selected":""}>${x}</option>`).join("");
+       return `<div class="res-row" data-boost-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
+        <div class="mini" style="font-weight:700;margin-bottom:6px;">属性強化 #${idx+1}</div>
+        <div class="mini">属性</div>
+        <select class="select" data-boost-attr>
+         <option value="">選択</option>${attrOpts}
+        </select>
+        <div class="mini" style="margin-top:6px;">倍率 %</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+         <input class="input" type="number" placeholder="倍率 %" data-boost-ratio value="${esc(ratio)}" style="flex:1;min-width:100px;">
+         <button type="button" class="btn-sm" data-boost-del>削除</button>
+        </div>
+       </div>`;
+      }
+      const bulletOpts = BULLETS.map(x=>`<option value="${x}" ${it.bullet===x?"selected":""}>${x}</option>`).join("");
+      return `<div class="res-row" data-boost-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
+       <div class="mini" style="font-weight:700;margin-bottom:6px;">弾強化 #${idx+1}</div>
+       <div class="mini">弾種</div>
+       <select class="select" data-boost-bullet>
+        <option value="">選択</option>${bulletOpts}
+       </select>
+       <div class="mini" style="margin-top:6px;">倍率 %</div>
+       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input class="input" type="number" placeholder="倍率 %" data-boost-ratio value="${esc(ratio)}" style="flex:1;min-width:100px;">
+        <button type="button" class="btn-sm" data-boost-del>削除</button>
+       </div>
+      </div>`;
+     }).join("");
+     const first = d.list[0] || {};
+     d.attr = first.attr || "";
+     d.bullet = first.bullet || "";
+     d.ratio = first.ratio != null ? first.ratio : "";
+     box.querySelectorAll(".res-row").forEach(row=>{
+      const idx = Number(row.getAttribute("data-boost-idx"));
+      const sync = ()=>{
+       if(!d.list[idx]) return;
+       const a = row.querySelector("[data-boost-attr]");
+       const b = row.querySelector("[data-boost-bullet]");
+       const r = row.querySelector("[data-boost-ratio]");
+       if(a) d.list[idx].attr = a.value || "";
+       if(b) d.list[idx].bullet = b.value || "";
+       if(r) d.list[idx].ratio = r.value || "";
+       const f = d.list[0] || {};
+       d.attr = f.attr || "";
+       d.bullet = f.bullet || "";
+       d.ratio = f.ratio != null ? f.ratio : "";
+       d.enabled = true;
+      };
+      row.querySelector("[data-boost-attr]")?.addEventListener("change", sync);
+      row.querySelector("[data-boost-bullet]")?.addEventListener("change", sync);
+      row.querySelector("[data-boost-ratio]")?.addEventListener("input", sync);
+      row.querySelector("[data-boost-del]")?.addEventListener("click", (ev)=>{
+       ev.preventDefault();
+       d.list.splice(idx, 1);
+       if(!d.list.length) d.list.push({ attr:"", bullet:"", ratio:"" });
+       render();
+      });
+     });
+    };
+    render();
+    e.querySelector("["+addAttr+"]")?.addEventListener("click", (ev)=>{
+     ev.preventDefault();
+     if(!Array.isArray(d.list)) d.list = [];
+     d.list.push({ attr:"", bullet:"", ratio:"" });
+     d.enabled = true;
+     render();
+    });
+   }
    break;
   case "弱点付与":
    e.innerHTML=`
@@ -12146,6 +12251,48 @@ function renderResults(arr){
    モーダル詳細表示
 ========================================================= */
 
+
+function summarizeAttackBuffDebuff(a){
+ if(!a) return { upLines:[], downLines:[] };
+ const buffMap = {};
+ const debuffMap = {};
+ const add = (map, item, isDebuff)=>{
+  if(!item || !item.stat) return;
+  const tgt = item.target || (isDebuff ? "対象" : "自身");
+  const rankN = (item.rank !== "" && item.rank != null && !isNaN(Number(item.rank))) ? Number(item.rank) : 0;
+  const key = String(tgt) + "|" + String(item.stat);
+  if(!map[key]) map[key] = { target: tgt, stat: item.stat, rank: 0, count: 0 };
+  map[key].rank += rankN;
+  map[key].count += 1;
+ };
+ (a.buffs || []).forEach(b => add(buffMap, b, false));
+ (a.debuffs || []).forEach(d => add(debuffMap, d, true));
+ if(a.buff && a.buff.stat) add(buffMap, a.buff, false);
+ if(a.debuff && a.debuff.stat) add(debuffMap, a.debuff, true);
+ (a.bullets || []).forEach(b=>{
+  if(!b) return;
+  (b.buffs || []).forEach(x => add(buffMap, x, false));
+  (b.debuffs || []).forEach(x => add(debuffMap, x, true));
+  if(b.buff && b.buff.stat) add(buffMap, b.buff, false);
+  if(b.debuff && b.debuff.stat) add(debuffMap, b.debuff, true);
+ });
+ const fmt = (map, isDown)=>{
+  return Object.values(map).map(v=>{
+   const stage = v.rank > 0 ? (v.rank + "段階") : (v.count > 1 ? (v.count + "回") : "");
+   return v.target + "「" + v.stat + "」" + (stage ? stage : "");
+  }).filter(Boolean);
+ };
+ return { upLines: fmt(buffMap, false), downLines: fmt(debuffMap, true) };
+}
+function formatAttackBuffSummaryHtml(a){
+ const s = summarizeAttackBuffDebuff(a);
+ const parts = [];
+ if(s.upLines.length) parts.push(`<span class="sum-up">上昇: ${esc(s.upLines.join("・"))}</span>`);
+ if(s.downLines.length) parts.push(`<span class="sum-down">低下: ${esc(s.downLines.join("・"))}</span>`);
+ if(!parts.length) return "";
+ return `<span class="attack-buff-summary">${parts.join("<br>")}</span>`;
+}
+
 function renderAttackDetailHtml(k, a){
   const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
   const isSupport = a.range === "補助";
@@ -12159,6 +12306,7 @@ function renderAttackDetailHtml(k, a){
      <span class="attack-acc-head-text">
       <span class="attack-acc-kind">${hitAtk?`<mark class="hl">${esc(label)}</mark>`:esc(label)} ${tagWithHl(a.range||"", hitRange, "")}</span>
       <span class="spell-name attack-acc-spell">${highlightText(a.name || "名称未設定")}</span>
+      ${formatAttackBuffSummaryHtml(a)}
      </span>
      <span class="attack-acc-icon">▼</span>
     </button>
