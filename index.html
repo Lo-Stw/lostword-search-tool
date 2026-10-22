@@ -4922,6 +4922,7 @@ function bindSortBtnsToggle(){
 }
 function updateAdminUI(){
  bindSortBtnsToggle();
+ try{ updateAdminDebugSearchVisibility(); }catch(e){}
  // 管理者：検索＋所持＋編集 / ログイン一般：検索＋所持 / 未ログイン：タブ非表示
  const tabAdd = document.getElementById("tabAdd");
  const tabSearch = document.getElementById("tabSearch");
@@ -6827,11 +6828,12 @@ function formatSpecialSkillDetailText(name, d){
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
  if(name === "弱点付与" && d.attr) return d.attr;
- if(name === "団結" || name === "ゾーン"){
-  if(d.stat) bits.push(d.stat);
-  if(d.fixed !== "" && d.fixed != null) bits.push(`固定${d.fixed}`);
-  if(d.per !== "" && d.per != null) bits.push(`1人${d.per}`);
-  return bits.join(" ");
+ if(name === "ゾーン"){
+  const tg = d.target === "自身" ? "自身" : "味方全体";
+  const stat = d.stat || "各項目";
+  const fixed = (d.fixed !== "" && d.fixed != null) ? String(d.fixed) : "n";
+  const per = (d.per !== "" && d.per != null) ? String(d.per) : "n";
+  return tg + "の" + stat + "を" + fixed + "%+" + per + "%×チーム内のLIVE(LW)の人数に応じてアップ";
  }
  if(name === "スキル再使用ターン数短縮"){
   const tg = d.target === "自身" ? "自身" : "味方全体";
@@ -7773,13 +7775,22 @@ function buildSpecialDetail(skill, e){
    });
    break;
   case "ゾーン":
+   if(d.target !== "自身" && d.target !== "味方全体") d.target = "味方全体";
    e.innerHTML=`
+    <div class="mini">対象</div>
+    <select class="select" data-zone-target>
+     <option value="味方全体" ${d.target==="味方全体"?"selected":""}>味方全体</option>
+     <option value="自身" ${d.target==="自身"?"selected":""}>自身</option>
+    </select>
+    <div class="mini" style="margin-top:6px">強化するもの</div>
     <select class="select" data-zone-stat>
-     <option value="">強化するもの</option>
+     <option value="">選択</option>
      ${["CRIダメージ","攻撃時CRI率","ダメージ","速力"].map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
     </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="固定倍率 %" data-zone-fixed value="${esc(d.fixed||"")}">
-    <input class="input" style="margin-top:6px" type="number" placeholder="1人あたりの倍率 %" data-zone-per value="${esc(d.per||"")}">
+    <div class="mini" style="margin-top:6px">固定倍率 %</div>
+    <input class="input" type="number" placeholder="固定倍率 %" data-zone-fixed value="${esc(d.fixed||"")}">
+    <div class="mini" style="margin-top:6px">1人あたりの倍率 %</div>
+    <input class="input" type="number" placeholder="1人あたりの倍率 %" data-zone-per value="${esc(d.per||"")}">
    `;
    break;
   case "スキル再使用ターン数短縮":
@@ -8302,6 +8313,7 @@ function saveSpecialField(skill,el,e){
  if(el.dataset.powerKind!==undefined) d.kind=el.value;
  if(el.dataset.statTarget!==undefined) d.stat=el.value;
  if(el.dataset.resonanceStat!==undefined) { d.stat=el.value; buildSpecialDetail(skill,e); }
+ if(el.dataset.zoneTarget!==undefined) d.target=el.value;
  if(el.dataset.zoneStat!==undefined) d.stat=el.value;
  if(el.dataset.zoneFixed!==undefined) d.fixed=el.value;
  if(el.dataset.zonePer!==undefined) d.per=el.value;
@@ -10123,8 +10135,16 @@ function wikiApplySpecialToBullet(b, sp, tokMap){
   if(sp.name === "衝撃弾" && sp.ratio) b.impactRate = sp.ratio;
   if(sp.name === "吸収弾" && sp.ratio) b.absorbRatio = sp.ratio;
   if(sp.name === "反動弾" && sp.ratio) b.recoilRatio = sp.ratio;
-  if(sp.name === "特攻弾" && sp.tokRef && tokMap && tokMap[sp.tokRef]){
-   b.specialTarget = String(tokMap[sp.tokRef]).replace(/、/g, "・");
+  if(sp.name === "特攻弾" && tokMap){
+   let detail = "";
+   if(sp.tokRef && tokMap[sp.tokRef]) detail = tokMap[sp.tokRef];
+   else if(tokMap["特攻"]) detail = tokMap["特攻"];
+   else if(tokMap["特攻1"]) detail = tokMap["特攻1"];
+   else {
+    const vals = Object.keys(tokMap).filter(k => k.indexOf("特攻")===0).map(k => tokMap[k]).filter(Boolean);
+    if(vals.length === 1) detail = vals[0];
+   }
+   if(detail) b.specialTarget = String(detail).replace(/、/g, "・");
   }
  }
 }
@@ -10211,15 +10231,40 @@ function wikiLooksLikeSpell2Title(s){
 
 function wikiParseTokkouDetails(text){
  const map = {};
+ const cleanDetail = (s)=>{
+  let detail = String(s||"").replace(/に効く。?\(確定CRI\)\s*$/,"").replace(/に効く。?\s*$/,"").trim();
+  detail = detail.replace(/、/g, "・");
+  return detail;
+ };
  String(text).split(/\r?\n/).forEach(line=>{
-  const m = line.match(/特攻(?:\.jpg)?(\d+)\s+(.+)/);
+  const raw = String(line||"").trim();
+  if(!raw) return;
+  // 特攻.jpg1 / 特攻1 詳細
+  let m = raw.match(/特攻(?:\.jpg)?(\d+)\s+(.+)/i);
   if(m){
-   let detail = m[2].replace(/に効く。?\(確定CRI\)\s*$/,"").replace(/に効く。?\s*$/,"").trim();
-   // 読点区切り → 中点に統一
-   detail = detail.replace(/、/g, "・");
-   map["特攻"+m[1]] = detail;
+   map["特攻"+m[1]] = cleanDetail(m[2]);
+   return;
+  }
+  // 特攻.jpg / 特攻 詳細（番号なし＝1種類）
+  m = raw.match(/^特攻(?:\.jpg)?\s+(.+)/i);
+  if(m){
+   const d = cleanDetail(m[1]);
+   map["特攻"] = d;
+   if(!map["特攻1"]) map["特攻1"] = d;
+   return;
+  }
+  // 表形式: | 1 | 神様・神霊に効く。| や 1\t詳細
+  m = raw.match(/^\|?\s*(\d+)\s*\|?\s+(.+に効く.*)$/);
+  if(m){
+   map["特攻"+m[1]] = cleanDetail(m[2]);
+   return;
   }
  });
+ // 番号付きが1件だけのとき、番号なしキーにもコピー
+ const numbered = Object.keys(map).filter(k => /^特攻\d+$/.test(k));
+ if(numbered.length === 1){
+  map["特攻"] = map[numbered[0]];
+ }
  return map;
 }
 
@@ -13454,7 +13499,14 @@ if(tabOwnedEl){
 }
 
 // 条件変更だけでは検索しない（「検索する」ボタンで実行）
-document.getElementById("searchBtn").onclick=()=>{
+document.(function(){
+  const tokBtn = document.getElementById("adminSearchTokkou1");
+  if(tokBtn) tokBtn.onclick = ()=> adminRunDebugSearch(adminMatchTokkou1Kind, "特攻1種類（対象が空または1種）");
+  const sameBtn = document.getElementById("adminSearchSameStats");
+  if(sameBtn) sameBtn.onclick = ()=> adminRunDebugSearch(adminMatchSameRebirthStats, "転生前後ステータス同一");
+  try{ updateAdminDebugSearchVisibility(); }catch(e){}
+ })();
+getElementById("searchBtn").onclick=()=>{
  const btn = document.getElementById("searchBtn");
  if(btn){
   btn.classList.add("is-pressed");
