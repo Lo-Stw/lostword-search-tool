@@ -6921,7 +6921,37 @@ function formatSpecialSkillDetailText(name, d){
   }).filter(Boolean);
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
- if(name === "蓄積"){
+ 
+ if(name === "逆相"){
+  const list = Array.isArray(d.list) && d.list.length
+   ? d.list
+   : [{
+      downTarget: d.downTarget || "相手全体",
+      downStat: d.downStat || "",
+      downRatio: d.downRatio,
+      fromStat: d.fromStat || d.upStat || "",
+      toTarget: d.toTarget || "自身",
+      toStat: d.toStat || d.upStat || "",
+      upRatio: d.upRatio
+     }];
+  const parts = list.map(it=>{
+   if(!it) return "";
+   const lines = [];
+   const downTg = it.downTarget === "相手" ? "相手" : "相手全体";
+   const downSt = it.downStat || "各ステ";
+   const x = (it.downRatio !== "" && it.downRatio != null) ? String(it.downRatio) : "x";
+   lines.push(downTg + "の" + downSt + "を" + x + "%ダウン");
+   const fromSt = it.fromStat || "各ステ";
+   const toTg = it.toTarget === "味方全体" ? "味方全体" : "自身";
+   const toSt = it.toStat || "各ステ";
+   const y = (it.upRatio !== "" && it.upRatio != null) ? String(it.upRatio) : "y";
+   lines.push("自身の" + fromSt + "の" + y + "%を" + toTg + "の" + toSt + "に上乗せする");
+   return lines.join(String.fromCharCode(10));
+  }).filter(Boolean);
+  return parts.length ? parts.join(String.fromCharCode(10)) : "";
+ }
+
+if(name === "蓄積"){
   const list = Array.isArray(d.list) && d.list.length ? d.list : [{ fromStat:d.fromStat, ratio:d.ratio, toStat:d.toStat }];
   const parts = list.map(it=>{
    const b = [];
@@ -8162,21 +8192,109 @@ function buildSpecialDetail(skill, e){
    }
    break;
   case "逆相":
-   e.innerHTML=`
-    <div class="mini">アップ項目</div>
-    <select class="select" data-reverse-up-stat>
-     <option value="">アップするもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.upStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="アップ倍率 %" data-reverse-up-ratio value="${esc(d.upRatio||"")}">
-    <div class="mini" style="margin-top:10px">ダウン項目</div>
-    <select class="select" data-reverse-down-stat>
-     <option value="">ダウンするもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.downStat===x?"selected":""}>${x}</option>`).join("")}
-    </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" data-reverse-down-ratio value="${esc(d.downRatio||"")}">
-   `;
+   {
+    const REV_STATS = (typeof STATS !== "undefined" && STATS.length) ? STATS : [...STAT_TYPES_SHORT];
+    if(!Array.isArray(d.list) || !d.list.length){
+     d.list = [{
+      downTarget: d.downTarget || "相手全体",
+      downStat: d.downStat || "",
+      downRatio: (d.downRatio != null ? d.downRatio : ""),
+      fromStat: d.fromStat || d.upStat || "",
+      toTarget: d.toTarget || "自身",
+      toStat: d.toStat || "",
+      upRatio: (d.upRatio != null ? d.upRatio : "")
+     }];
+    }
+    e.innerHTML =
+      '<div class="mini" style="margin-bottom:6px;">複数追加できます</div>' +
+      '<div id="reverseList"></div>' +
+      '<button type="button" class="btn-sm" data-reverse-add style="margin-top:6px;">＋ 追加</button>';
+    const box = e.querySelector("#reverseList");
+    const render = ()=>{
+     if(!Array.isArray(d.list)) d.list = [];
+     if(!d.list.length) d.list.push({ downTarget:"相手全体", downStat:"", downRatio:"", fromStat:"", toTarget:"自身", toStat:"", upRatio:"" });
+     box.innerHTML = d.list.map((it, idx)=>{
+      const downTg = it.downTarget === "相手" ? "相手" : "相手全体";
+      const toTg = it.toTarget === "味方全体" ? "味方全体" : "自身";
+      const stOpts = (sel)=> REV_STATS.map(x=>`<option value="${x}" ${sel===x?"selected":""}>${x}</option>`).join("");
+      return `<div class="res-row" data-rev-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
+        <div class="mini" style="font-weight:700;margin-bottom:6px;">逆相 #${idx+1}</div>
+        <div class="mini">相手ダウン対象</div>
+        <select class="select" data-rev-down-target>
+         <option value="相手全体" ${downTg==="相手全体"?"selected":""}>相手全体</option>
+         <option value="相手" ${downTg==="相手"?"selected":""}>相手</option>
+        </select>
+        <div class="mini" style="margin-top:6px;">ダウンするステータス</div>
+        <select class="select" data-rev-down-stat>
+         <option value="">選択</option>${stOpts(it.downStat||"")}
+        </select>
+        <div class="mini" style="margin-top:6px;">ダウン倍率 %</div>
+        <input class="input" type="number" data-rev-down-ratio value="${esc(it.downRatio||"")}" placeholder="x">
+        <div class="mini" style="margin-top:10px;font-weight:700;">上乗せ（自身のステ → 味方/自身）</div>
+        <div class="mini">自身の（元ステ）</div>
+        <select class="select" data-rev-from-stat>
+         <option value="">選択</option>${stOpts(it.fromStat||"")}
+        </select>
+        <div class="mini" style="margin-top:6px;">上乗せ倍率 %</div>
+        <input class="input" type="number" data-rev-up-ratio value="${esc(it.upRatio||"")}" placeholder="y">
+        <div class="mini" style="margin-top:6px;">上乗せ先の対象</div>
+        <select class="select" data-rev-to-target>
+         <option value="自身" ${toTg==="自身"?"selected":""}>自身</option>
+         <option value="味方全体" ${toTg==="味方全体"?"selected":""}>味方全体</option>
+        </select>
+        <div class="mini" style="margin-top:6px;">上乗せ先のステータス</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+         <select class="select" data-rev-to-stat style="flex:1;min-width:120px;">
+          <option value="">選択</option>${stOpts(it.toStat||"")}
+         </select>
+         <button type="button" class="btn-sm" data-rev-del>削除</button>
+        </div>
+       </div>`;
+     }).join("");
+     // sync first item to legacy fields
+     const first = d.list[0] || {};
+     d.downTarget = first.downTarget; d.downStat = first.downStat; d.downRatio = first.downRatio;
+     d.fromStat = first.fromStat; d.toTarget = first.toTarget; d.toStat = first.toStat; d.upRatio = first.upRatio;
+     box.querySelectorAll(".res-row").forEach(row=>{
+      const idx = Number(row.getAttribute("data-rev-idx"));
+      const sync = ()=>{
+       if(!d.list[idx]) return;
+       const g = (sel)=> row.querySelector(sel);
+       d.list[idx].downTarget = g("[data-rev-down-target]")?.value || "相手全体";
+       d.list[idx].downStat = g("[data-rev-down-stat]")?.value || "";
+       d.list[idx].downRatio = g("[data-rev-down-ratio]")?.value || "";
+       d.list[idx].fromStat = g("[data-rev-from-stat]")?.value || "";
+       d.list[idx].upRatio = g("[data-rev-up-ratio]")?.value || "";
+       d.list[idx].toTarget = g("[data-rev-to-target]")?.value || "自身";
+       d.list[idx].toStat = g("[data-rev-to-stat]")?.value || "";
+       const f = d.list[0] || {};
+       d.downTarget = f.downTarget; d.downStat = f.downStat; d.downRatio = f.downRatio;
+       d.fromStat = f.fromStat; d.toTarget = f.toTarget; d.toStat = f.toStat; d.upRatio = f.upRatio;
+       d.enabled = true;
+      };
+      row.querySelectorAll("select,input").forEach(el=>{
+       el.addEventListener("change", sync);
+       el.addEventListener("input", sync);
+      });
+      row.querySelector("[data-rev-del]")?.addEventListener("click", (ev)=>{
+       ev.preventDefault();
+       d.list.splice(idx, 1);
+       if(!d.list.length) d.list.push({ downTarget:"相手全体", downStat:"", downRatio:"", fromStat:"", toTarget:"自身", toStat:"", upRatio:"" });
+       render();
+      });
+     });
+    };
+    render();
+    e.querySelector("[data-reverse-add]")?.addEventListener("click", (ev)=>{
+     ev.preventDefault();
+     if(!Array.isArray(d.list)) d.list = [];
+     d.list.push({ downTarget:"相手全体", downStat:"", downRatio:"", fromStat:"", toTarget:"自身", toStat:"", upRatio:"" });
+     d.enabled = true;
+     render();
+    });
+   }
    break;
+  
   case "全体耐性ダウン":
    e.innerHTML=`<input class="input" type="number" placeholder="何段階ダウン" data-rank-stage value="${esc(d.stage||"")}">`;
    break;
