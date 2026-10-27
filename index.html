@@ -6805,28 +6805,33 @@ function formatSpecialSkillDetailText(name, d){
  const bits = [];
  if(name === "ファスト" || name === "チャージ"){
   normalizeFastChargeData(d);
+  const rateSuf = (d.rateOn && d.rate !== "" && d.rate != null)
+   ? ("発生率" + String(d.rate) + "%で付与")
+   : "";
+  const withRate = (s)=>{
+   if(!s) return s;
+   return rateSuf ? (s + " " + rateSuf) : s;
+  };
   const parts = [];
   if(d.self){
    const n = (d.selfCount !== "" && d.selfCount != null) ? `${d.selfCount}個` : "";
-   parts.push(n ? `自身 ${n}` : "自身");
+   parts.push(withRate(n ? `自身 ${n}` : "自身"));
   }
   if(d.team){
    const n = (d.teamCount !== "" && d.teamCount != null) ? `${d.teamCount}個` : "";
-   parts.push(n ? `味方全体 ${n}` : "味方全体");
+   parts.push(withRate(n ? `味方全体 ${n}` : "味方全体"));
   }
-  // X-Change時のみの追加分（通常と両立）
   if(d.xcSelf){
    const n = (d.xcSelfCount !== "" && d.xcSelfCount != null) ? `${d.xcSelfCount}個` : "";
-   parts.push((n ? `自身 ${n}` : "自身") + "(X-Change時のみ)");
+   parts.push(withRate((n ? `自身 ${n}` : "自身") + "(X-Change時のみ)"));
   }
   if(d.xcTeam){
    const n = (d.xcTeamCount !== "" && d.xcTeamCount != null) ? `${d.xcTeamCount}個` : "";
-   parts.push((n ? `味方全体 ${n}` : "味方全体") + "(X-Change時のみ)");
+   parts.push(withRate((n ? `味方全体 ${n}` : "味方全体") + "(X-Change時のみ)"));
   }
-  // 旧形式のみ残っている場合
   if(!parts.length && d.target){
-   if(d.count !== "" && d.count != null) parts.push(`${d.target} ${d.count}個`);
-   else parts.push(d.target);
+   if(d.count !== "" && d.count != null) parts.push(withRate(`${d.target} ${d.count}個`));
+   else parts.push(withRate(d.target));
   }
   return parts.join(" / ");
  }
@@ -6840,10 +6845,15 @@ function formatSpecialSkillDetailText(name, d){
   const verb = isBuff ? "アップ" : "ダウン";
   return list.map(item=>{
    if(!item) return "";
-   let tgt = String(item.target || "相手").trim();
-   if(tgt === "対象" || tgt === "自身") tgt = "相手";
-   if(tgt === "敵全体" || tgt === "味方全体") tgt = "相手全体";
-   if(tgt !== "相手全体") tgt = "相手";
+   let tgt = String(item.target || (isBuff ? "自身" : "相手")).trim();
+   if(isBuff){
+    if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体") tgt = "味方全体";
+    else tgt = "自身";
+   }else{
+    if(tgt === "対象" || tgt === "自身") tgt = "相手";
+    if(tgt === "敵全体" || tgt === "味方全体") tgt = "相手全体";
+    if(tgt !== "相手全体") tgt = "相手";
+   }
    const st = pickRank2Stat(item) || "各ステータス";
    const stageVal = pickRank2Stage(item);
    const n = (stageVal !== "" && stageVal != null) ? String(stageVal) : "n";
@@ -7010,10 +7020,12 @@ if(name === "蓄積"){
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
  if(name === "バディコネクト"){
-  if(d.stat) bits.push(d.stat);
-  if(d.ratio !== "" && d.ratio != null) bits.push(`${d.ratio}%`);
-  if(d.value !== "" && d.value != null) bits.push(String(d.value));
-  return bits.join(" ");
+  const tg = d.target === "自身" ? "自身" : "味方全体";
+  const st = d.stat || "各ステ";
+  const x = (d.fixed !== "" && d.fixed != null) ? String(d.fixed) : ((d.ratio !== "" && d.ratio != null) ? String(d.ratio) : "x");
+  const y = (d.per !== "" && d.per != null) ? String(d.per) : ((d.value !== "" && d.value != null) ? String(d.value) : "y");
+  const kind = d.countKind === "ゆっくり・バディガ" ? "ゆっくり・バディガ" : "ゆっくり";
+  return tg + "の" + st + "を" + x + "%+" + y + "%×チーム内の" + kind + "の数に応じてアップ";
  }
  if(name === "X-Change" && d.effect) return String(d.effect);
  if(name === "有利属性ダメージアップ" || name === "不利属性ダメージアップ"){
@@ -7751,13 +7763,34 @@ function buildSpecialDetail(skill, e){
    });
    break;
   case "バディコネクト":
-   e.innerHTML=`
-    <select class="select" data-stat-target>
-     <option value="">強化するもの</option>
-     ${STAT_TYPES_SHORT.map(x=>`<option ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+   if(d.target !== "自身" && d.target !== "味方全体") d.target = "味方全体";
+   if(d.countKind !== "ゆっくり・バディガ" && d.countKind !== "ゆっくり") d.countKind = "ゆっくり";
+   {
+    const STATS_BC = (typeof STATS !== "undefined" && STATS.length) ? STATS : [...STAT_TYPES_SHORT];
+    const fixed = (d.fixed != null && d.fixed !== "") ? d.fixed : (d.ratio || "");
+    const per = (d.per != null && d.per !== "") ? d.per : (d.value || "");
+    e.innerHTML=`
+    <div class="mini">対象</div>
+    <select class="select" data-bc-target>
+     <option value="味方全体" ${d.target==="味方全体"?"selected":""}>味方全体</option>
+     <option value="自身" ${d.target==="自身"?"selected":""}>自身</option>
     </select>
-    <input class="input" style="margin-top:6px" type="number" placeholder="倍率 %" data-special-ratio value="${esc(d.ratio||"")}">
-   `;
+    <div class="mini" style="margin-top:6px">強化するステータス</div>
+    <select class="select" data-bc-stat>
+     <option value="">選択</option>
+     ${STATS_BC.map(x=>`<option value="${x}" ${d.stat===x?"selected":""}>${x}</option>`).join("")}
+    </select>
+    <div class="mini" style="margin-top:6px">固定 % (x)</div>
+    <input class="input" type="number" placeholder="x %" data-bc-fixed value="${esc(fixed)}">
+    <div class="mini" style="margin-top:6px">1体あたり % (y)</div>
+    <input class="input" type="number" placeholder="y %" data-bc-per value="${esc(per)}">
+    <div class="mini" style="margin-top:6px">人数カウント</div>
+    <select class="select" data-bc-count-kind>
+     <option value="ゆっくり" ${d.countKind==="ゆっくり"?"selected":""}>ゆっくり</option>
+     <option value="ゆっくり・バディガ" ${d.countKind==="ゆっくり・バディガ"?"selected":""}>ゆっくり・バディガ</option>
+    </select>
+    `;
+   }
    break;
   case "共鳴":
    if(!Array.isArray(d.list) || !d.list.length){
@@ -7854,6 +7887,11 @@ function buildSpecialDetail(skill, e){
      <input type="checkbox" data-fc-team ${d.team?"checked":""} style="width:16px;height:16px;">
      <span>味方全体</span>
      <input class="input" type="number" min="1" placeholder="個数" data-fc-team-count value="${esc(d.teamCount||"")}" style="width:90px;" ${d.team?"":"disabled"}>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+     <input type="checkbox" data-fc-rate-on ${d.rateOn?"checked":""} style="width:16px;height:16px;">
+     <span>発生率あり</span>
+     <input class="input" type="number" min="0" max="100" placeholder="発生率 %" data-fc-rate value="${esc(d.rate||"")}" style="width:100px;" ${d.rateOn?"":"disabled"}>
     </label>
     <div class="mini" style="margin:12px 0 6px;font-weight:700;color:#6b4f96;">X-Change時のみ（追加・通常と両立可）</div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -8354,7 +8392,7 @@ function buildSpecialDetail(skill, e){
   case "永続バフ":
   case "永続デバフ":
    if(!d.list) d.list = [];
-   if(d.list.length === 0) d.list.push({ target: "相手", stat:"", rank:"" });
+   if(d.list.length === 0) d.list.push({ target: skill==="永続バフ"?"自身":"相手", stat:"", rank:"" });
    renderPersistList(skill, e);
    break;
   case DD_SKILL:
@@ -8576,14 +8614,19 @@ function renderPersistList(skill, container){
  let html = "";
  const isBuff = skill === "永続バフ";
  d.list.forEach((item, idx)=>{
-  const tgt = item.target || "相手";
+  const tgt = item.target || (isBuff ? "自身" : "相手");
   html += `
    <div class="rank-item" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
     <button type="button" class="btn-del" onclick="removePersistItem('${skill}', ${idx})">削除</button>
     <div class="mini">対象</div>
     <select class="select" onchange="updatePersistItem('${skill}', ${idx}, 'target', this.value)">
      ${(()=>{
-       let t = tgt;
+       let t = String(tgt||"");
+       if(isBuff){
+         if(t === "味方全体" || t === "敵全体" || t === "相手全体") t = "味方全体";
+         else t = "自身";
+         return `<option value="自身" ${t==="自身"?"selected":""}>自身</option><option value="味方全体" ${t==="味方全体"?"selected":""}>味方全体</option>`;
+       }
        if(t === "対象" || t === "自身") t = "相手";
        if(t === "敵全体" || t === "味方全体") t = "相手全体";
        if(t !== "相手全体") t = "相手";
@@ -8606,7 +8649,7 @@ function renderPersistList(skill, container){
 function addPersistItem(skill){
  if(!specialData[skill]) specialData[skill] = { enabled:true, list:[] };
  if(!specialData[skill].list) specialData[skill].list = [];
- specialData[skill].list.push({ target: "相手", stat:"", rank:"" });
+ specialData[skill].list.push({ target: skill==="永続バフ"?"自身":"相手", stat:"", rank:"" });
  const detail = document.getElementById(`sd-${skill}`);
  if(detail) renderPersistList(skill, detail);
 }
@@ -8809,11 +8852,22 @@ function saveSpecialField(skill,el,e){
  }
  if(el.dataset.fcXcSelfCount!==undefined) d.xcSelfCount=el.value;
  if(el.dataset.fcXcTeamCount!==undefined) d.xcTeamCount=el.value;
+ if(el.dataset.fcRateOn!==undefined){
+  d.rateOn = !!el.checked;
+  const rateInp = e.querySelector("[data-fc-rate]");
+  if(rateInp){ rateInp.disabled = !d.rateOn; if(!d.rateOn){ rateInp.value=""; d.rate=""; } }
+ }
+ if(el.dataset.fcRate!==undefined) d.rate=el.value;
  // 旧フィールド互換（残っていれば）
  if(el.dataset.fcTarget!==undefined) d.target=el.value;
  if(el.dataset.fcCount!==undefined) d.count=el.value;
  if(el.dataset.powerKind!==undefined) d.kind=el.value;
  if(el.dataset.statTarget!==undefined) d.stat=el.value;
+ if(el.dataset.bcTarget!==undefined) d.target=el.value;
+ if(el.dataset.bcStat!==undefined) d.stat=el.value;
+ if(el.dataset.bcFixed!==undefined){ d.fixed=el.value; d.ratio=el.value; }
+ if(el.dataset.bcPer!==undefined){ d.per=el.value; d.value=el.value; }
+ if(el.dataset.bcCountKind!==undefined) d.countKind=el.value;
  if(el.dataset.resonanceStat!==undefined) { d.stat=el.value; buildSpecialDetail(skill,e); }
  if(el.dataset.zoneTarget!==undefined) d.target=el.value;
  if(el.dataset.zoneStat!==undefined) d.stat=el.value;
