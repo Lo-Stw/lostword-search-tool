@@ -10296,21 +10296,28 @@ function refreshBulletSelectsForAttack(attackKey){
   else if(bulletObj.bulletType && types.length && !types.includes(bulletObj.bulletType)) bulletObj.bulletType = "";
 
   if(attrSel){
+   if(bulletObj.attr && typeof ATTR !== "undefined" && ATTR.includes(bulletObj.attr) && Array.isArray(a.attributes) && !a.attributes.includes(bulletObj.attr)){
+    a.attributes.push(bulletObj.attr);
+    if(!attrs.includes(bulletObj.attr)) attrs.push(bulletObj.attr);
+   }
    if(!attrs.length){
     attrSel.innerHTML = `<option value="">先に全体概要で属性を選択</option>`;
-    bulletObj.attr = "";
    }else{
     attrSel.innerHTML = `<option value="">属性を選択</option>` +
      attrs.map(x=>`<option value="${esc(x)}" ${bulletObj.attr===x?"selected":""}>${esc(x)}</option>`).join("");
    }
   }
   if(typeSel){
-   if(!types.length){
+   let typeOpts = (types||[]).slice();
+   if(bulletObj.bulletType && typeof BULLETS !== "undefined" && BULLETS.includes(bulletObj.bulletType) && !typeOpts.includes(bulletObj.bulletType)){
+    typeOpts.push(bulletObj.bulletType);
+    if(Array.isArray(a.bulletTypes) && !a.bulletTypes.includes(bulletObj.bulletType)) a.bulletTypes.push(bulletObj.bulletType);
+   }
+   if(!typeOpts.length){
     typeSel.innerHTML = `<option value="">先に全体概要で弾種を選択</option>`;
-    bulletObj.bulletType = "";
    }else{
     typeSel.innerHTML = `<option value="">弾種を選択</option>` +
-     types.map(x=>`<option value="${esc(x)}" ${bulletObj.bulletType===x?"selected":""}>${esc(x)}</option>`).join("");
+     typeOpts.map(x=>`<option value="${esc(x)}" ${bulletObj.bulletType===x?"selected":""}>${esc(x)}</option>`).join("");
    }
   }
  });
@@ -11504,15 +11511,24 @@ function gamerchIsNoiseLine(line){
 
 /** Gamerchの弾詳細テキストを解析 */
 function gamerchParseBulletDetail(detail){
- const s = String(detail||"").replace(/\s+/g,"");
+ const rawDetail = String(detail||"");
+ const s = rawDetail.replace(/\s+/g,"");
  const out = { attr:"", kind:"", bulletType:"", specials:[] };
  let m = s.match(/([日月火水木金土星無])属性/);
  if(m) out.attr = m[1];
  if(/陽気/.test(s)) out.kind = "陽気";
  else if(/陰気/.test(s)) out.kind = "陰気";
  const types = (typeof BULLETS !== "undefined" ? BULLETS : []).slice().sort((a,b)=>b.length-a.length);
- for(const t of types){
-  if(s.includes(t)){ out.bulletType = t; break; }
+ const detailLines = rawDetail.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ for(const ln of detailLines){
+  const compact = ln.replace(/\s+/g,"");
+  const hit = types.find(t => ln === t || compact === t);
+  if(hit){ out.bulletType = hit; break; }
+ }
+ if(!out.bulletType){
+  for(const t of types){
+   if(s.includes(t)){ out.bulletType = t; break; }
+  }
  }
  const spNames = (typeof SPECIALS !== "undefined" ? SPECIALS : []).slice().sort((a,b)=>b.length-a.length);
  for(const sp of spNames){
@@ -11584,18 +11600,33 @@ function gamerchExtractRows(raw){
  let attackName = "";
  let lastP = "P0";
 
- // タイトル「拡散ショット\tアイススピリット」
+ // タイトル（拡散/集中ショット・スペルカード・LASTWORD + 名称）
  for(const line of lines){
   const t = line.trim();
   if(!t || gamerchIsNoiseLine(t)) continue;
-  const cells = t.split(/\t+/).map(c=>c.trim()).filter(Boolean);
-  if(cells.length >= 2 && /^(拡散|集中)ショット$/.test(cells[0])){
-   attackName = cells[1];
+  const cells = t.split(/[	　]+/).map(c=>c.trim()).filter(Boolean);
+  if(cells.length >= 2){
+   const head = cells[0].replace(/\s+/g,"");
+   if(/^(拡散|集中)ショット$/.test(head) || /^スペルカード[１２12]?$/.test(head) || /^(LASTWORD|ラストワード|ラスワ)$/i.test(head)){
+    if(cells[1] && !/詳細|内訳|攻撃|弾名称/.test(cells[1]) && cells[1].length < 60){
+     attackName = cells[1];
+     break;
+    }
+   }
+  }
+  const m = t.match(/^(拡散ショット|集中ショット|スペルカード[１２12]?|LASTWORD|ラストワード)\s+(.+)$/i);
+  if(m && m[2] && !/詳細|内訳/.test(m[2]) && m[2].trim().length < 60){
+   attackName = m[2].trim();
    break;
   }
   if(t.includes("|")){
    const pc = t.split("|").map(c=>c.trim()).filter(Boolean);
-   if(pc.length>=2 && /^(拡散|集中)ショット$/.test(pc[0])){ attackName = pc[1]; break; }
+   if(pc.length>=2){
+    const head = pc[0].replace(/\s+/g,"");
+    if(/^(拡散|集中)ショット$/.test(head) || /^スペルカード/.test(head) || /LASTWORD|ラスト/.test(head)){
+     if(pc[1] && pc[1].length < 60 && !/詳細|内訳/.test(pc[1])){ attackName = pc[1]; break; }
+    }
+   }
   }
  }
 
@@ -11757,7 +11788,7 @@ function gamerchImportIntoAttack(a, attackKey, raw){
  if(!parsed.rows.length){
   return { ok:false, msg:"Gamerch形式の弾行が見つかりませんでした" };
  }
- if(parsed.attackName) a.name = parsed.attackName;
+ if(parsed.attackName) a.name = String(parsed.attackName).trim();
  if(/単体攻撃/.test(raw)) a.range = "単体";
  else if(/全体攻撃/.test(raw)) a.range = "全体";
 
@@ -11801,9 +11832,17 @@ function gamerchImportIntoAttack(a, attackKey, raw){
  }
  const attrs = [...new Set(list.map(x=>x.attr).filter(Boolean))];
  const types = [...new Set(list.map(x=>x.bulletType).filter(Boolean))];
- if(attrs.length) a.attributes = attrs;
- if(types.length) a.bulletTypes = types;
+ if(!Array.isArray(a.attributes)) a.attributes = [];
+ if(!Array.isArray(a.bulletTypes)) a.bulletTypes = [];
+ attrs.forEach(x=>{ if(!a.attributes.includes(x)) a.attributes.push(x); });
+ types.forEach(x=>{ if(!a.bulletTypes.includes(x)) a.bulletTypes.push(x); });
+ // 各バレットから再収集
+ list.forEach(row=>{
+  if(row.attr && ATTR.includes(row.attr) && !a.attributes.includes(row.attr)) a.attributes.push(row.attr);
+  if(row.bulletType && BULLETS.includes(row.bulletType) && !a.bulletTypes.includes(row.bulletType)) a.bulletTypes.push(row.bulletType);
+ });
  return { ok:true, count:list.length, name: a.name||"" };
+
 }
 
 function importWikiIntoAttack(attackKey, text){
@@ -11821,11 +11860,16 @@ function importWikiIntoAttack(attackKey, text){
  if(typeof isGamerchPaste === "function" && isGamerchPaste(raw)){
   const r = gamerchImportIntoAttack(a, attackKey, raw);
   if(r && r.ok){
+   if(r.name) a.name = r.name;
    try{ buildAttackEditor(attackKey); }catch(e){}
    try{ buildBulletsEditorUI(attackKey); }catch(e){}
+   try{
+    const ne = document.getElementById("an-"+attackKey) || document.querySelector(`[data-attack-name="${attackKey}"]`);
+    if(ne && a.name) ne.value = a.name;
+   }catch(e){}
    const st = document.getElementById("wiki-attack-status-"+attackKey);
-   if(st) st.textContent = "Gamerch取込: バレット"+r.count+"発" + (r.name?(" / "+r.name):"");
-   alert("Gamerch形式から取り込みました（バレット"+r.count+"発）");
+   if(st) st.textContent = "Gamerch取込: バレット"+r.count+"発" + (a.name?(" / "+a.name):"");
+   alert("Gamerch形式から取り込みました（バレット"+r.count+"発"+(a.name?(" / "+a.name):"")+"）");
    return;
   }
   // 失敗時は従来パーサへフォールスルー
