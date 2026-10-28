@@ -11194,8 +11194,7 @@ function importWikiPaste(text){
    if(!attackData[key]) return;
    const r = gamerchImportIntoAttack(attackData[key], key, raw);
    if(r && r.ok){
-    try{ buildAttackEditor(key); }catch(e){}
-    try{ buildBulletsEditorUI(key); }catch(e){}
+    try{ refreshAttackEditorAfterImport(key); }catch(e){}
     notes.push((ATTACKS.find(x=>x[0]===key)||[key,key])[1] + " " + r.count + "発" + (r.name?(":"+r.name):""));
    }
   });
@@ -11807,6 +11806,46 @@ function gamerchExtractRows(raw){
  return { attackName, rows };
 }
 
+
+function refreshAttackEditorAfterImport(attackKey){
+ const a = attackData[attackKey];
+ if(!a) return;
+ try{
+  const ne = document.querySelector(`[data-attack-name="${attackKey}"]`);
+  if(ne && a.name != null) ne.value = a.name;
+  const head = document.querySelector(`[data-attack-head="${attackKey}"]`) || document.querySelector(`#attack-acc-${attackKey}`);
+  if(head){
+   const t = head.querySelector(".attack-acc-title");
+   if(t){
+    const label = (typeof ATTACKS !== "undefined" && (ATTACKS.find(x=>x[0]===attackKey)||[])[1]) || attackKey;
+    t.textContent = label + (a.name ? ("：" + a.name) : "");
+   }
+  }
+ }catch(e){}
+ try{
+  if(typeof chips === "function"){
+   chips("aa-"+attackKey, ATTR, a.attributes || [], (x,b)=>{
+    if(!a.attributes) a.attributes = [];
+    const i=a.attributes.indexOf(x);
+    if(i>=0){ a.attributes.splice(i,1); b.classList.remove("selected"); }
+    else{ a.attributes.push(x); b.classList.add("selected"); }
+    if(typeof refreshBulletSelectsForAttack === "function") refreshBulletSelectsForAttack(attackKey);
+   }, { attrColor:true });
+  }
+ }catch(e){}
+ try{ if(typeof buildBulletControls === "function") buildBulletControls(attackKey); }catch(e){}
+ try{
+  const as = document.getElementById("as-"+attackKey);
+  if(as && typeof buildSpecialControlsForObject === "function") buildSpecialControlsForObject("att-"+attackKey, a, as);
+ }catch(e){}
+ try{ if(typeof refreshBuffDebuffContainer === "function") refreshBuffDebuffContainer("att-"+attackKey); }catch(e){}
+ try{ if(typeof buildBulletsEditorUI === "function") buildBulletsEditorUI(attackKey); }catch(e){}
+ try{ if(typeof refreshBulletSpecialsForAttack === "function") refreshBulletSpecialsForAttack(attackKey); }catch(e){}
+ try{ if(typeof refreshBulletSelectsForAttack === "function") refreshBulletSelectsForAttack(attackKey); }catch(e){}
+ try{ if(typeof bindBulletBulkTools === "function") bindBulletBulkTools(attackKey); }catch(e){}
+ try{ if(typeof applyRangeModeUI === "function") applyRangeModeUI(attackKey); }catch(e){}
+}
+
 function gamerchImportIntoAttack(a, attackKey, raw){
  const sliced = (typeof gamerchSliceForKey === "function") ? gamerchSliceForKey(raw, attackKey) : raw;
  const parsed = gamerchExtractRows(sliced);
@@ -11851,17 +11890,42 @@ function gamerchImportIntoAttack(a, attackKey, raw){
  usedSpecials.forEach(sp=>{ a.specials[sp] = true; });
  usedBuffStats.forEach(st=>{ if(!a.buffAllowedStats.includes(st)) a.buffAllowedStats.push(st); });
  usedDebuffStats.forEach(st=>{ if(!a.debuffAllowedStats.includes(st)) a.debuffAllowedStats.push(st); });
+ if(usedBuffStats.size) a.buffsEnabled = true;
+ if(usedDebuffStats.size) a.debuffsEnabled = true;
+ // バレット内容から全体概要を再構築
+ list.forEach(row=>{
+  if(row.attr && ATTR.includes(row.attr) && !(a.attributes||[]).includes(row.attr)){
+   if(!Array.isArray(a.attributes)) a.attributes = [];
+   a.attributes.push(row.attr);
+  }
+  if(row.bulletType && BULLETS.includes(row.bulletType) && !(a.bulletTypes||[]).includes(row.bulletType)){
+   if(!Array.isArray(a.bulletTypes)) a.bulletTypes = [];
+   a.bulletTypes.push(row.bulletType);
+  }
+ });
+ // 全体概要のつよさ上昇/低下をON（これがないとバレット詳細に出ない）
+ if(usedBuffStats.size) a.buffsEnabled = true;
+ if(usedDebuffStats.size) a.debuffsEnabled = true;
  for(const b of a.bullets){
   if(!b) continue;
   if(b.hardRatio && !a.hardRatio) a.hardRatio = b.hardRatio;
   if(b.sharpRatio && !a.sharpRatio) a.sharpRatio = b.sharpRatio;
   if(b.absorbRatio && !a.absorbRatio) a.absorbRatio = b.absorbRatio;
   if(b.specialTarget && !a.specialTarget) a.specialTarget = b.specialTarget;
+  // バレット特殊弾を全体概要へも確実に反映
+  if(b.specials){
+   SPECIALS.forEach(sp=>{ if(b.specials[sp]) a.specials[sp] = true; });
+  }
  }
  list.forEach(row=>{
   if(row.attr && ATTR.includes(row.attr) && !a.attributes.includes(row.attr)) a.attributes.push(row.attr);
   if(row.bulletType && BULLETS.includes(row.bulletType) && !a.bulletTypes.includes(row.bulletType)) a.bulletTypes.push(row.bulletType);
  });
+ // 特殊弾の数値も全体概要へ
+ if(a.sharpRatio) a.specials["斬裂弾"] = true;
+ if(a.hardRatio) a.specials["硬質弾"] = true;
+ if(a.absorbRatio) a.specials["吸収弾"] = true;
+ if(a.specialTarget) a.specials["特攻弾"] = true;
  return { ok:true, count:list.length, name: a.name||"" };
 }
 
@@ -11881,12 +11945,8 @@ function importWikiIntoAttack(attackKey, text){
   const r = gamerchImportIntoAttack(a, attackKey, raw);
   if(r && r.ok){
    if(r.name) a.name = r.name;
-   try{ buildAttackEditor(attackKey); }catch(e){}
-   try{ buildBulletsEditorUI(attackKey); }catch(e){}
-   try{
-    const ne = document.getElementById("an-"+attackKey) || document.querySelector(`[data-attack-name="${attackKey}"]`);
-    if(ne && a.name) ne.value = a.name;
-   }catch(e){}
+   try{ refreshAttackEditorAfterImport(attackKey); }catch(e){}
+   try{ refreshAttackEditorAfterImport(attackKey); }catch(e){}
    const st = document.getElementById("wiki-attack-status-"+attackKey);
    if(st) st.textContent = "Gamerch取込: バレット"+r.count+"発" + (a.name?(" / "+a.name):"");
    alert("Gamerch形式から取り込みました（バレット"+r.count+"発"+(a.name?(" / "+a.name):"")+"）");
