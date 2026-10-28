@@ -11557,13 +11557,14 @@ function gamerchParseBulletDetail(detail){
  let m = s.match(/([日月火水木金土星無])属性/);
  if(m) out.attr = m[1];
  else if(/金属性/.test(s)) out.attr = "金";
+ else if(/無属性/.test(s)) out.attr = "無";
  if(/陽気/.test(s)) out.kind = "陽気";
  else if(/陰気/.test(s)) out.kind = "陰気";
  const types = (typeof BULLETS !== "undefined" ? BULLETS : []).slice().sort((a,b)=>b.length-a.length);
  const detailLines = rawDetail.split(/\n+/).map(x=>x.trim()).filter(Boolean);
  for(const ln of detailLines){
   const compact = ln.replace(/\s+/g,"");
-  const hit = types.find(t => ln === t || compact === t);
+  const hit = types.find(t => ln === t || compact === t || compact.indexOf(t) === 0);
   if(hit){ out.bulletType = hit; break; }
  }
  if(!out.bulletType){
@@ -11573,7 +11574,8 @@ function gamerchParseBulletDetail(detail){
  }
  const spNames = (typeof SPECIALS !== "undefined" ? SPECIALS : []).slice().sort((a,b)=>b.length-a.length);
  for(const sp of spNames){
-  if(sp === "特攻弾" || sp === "吸収弾") continue;
+  if(sp === "特攻弾" || sp === "吸収弾" || sp === "衝撃弾" || sp === "粘着弾") continue;
+  if(sp === "焼夷弾" || sp === "冷却弾" || sp === "荷電弾" || sp === "噴毒弾" || sp === "煙幕弾") continue;
   const re = new RegExp("(?:(\\d+)%)?" + sp.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
   const mm = s.match(re);
   if(mm){
@@ -11586,6 +11588,51 @@ function gamerchParseBulletDetail(detail){
   const abs = s.match(/最大(\d+)%吸収弾/) || s.match(/(\d+)%吸収弾/);
   if(abs) out.specials.push({ name:"吸収弾", ratio: abs[1] });
  }
+ // スタン付与 → 衝撃弾
+ {
+  const st = s.match(/(\d+)%[^。]*スタン/) || s.match(/スタン[^。]*(\d+)%/) || s.match(/(\d+)%でスタン/) || ( /スタン付与|スタン/.test(s) ? ["",""] : null);
+  if(st && /スタン/.test(s)){
+   const rate = st[1] || "100";
+   out.specials.push({ name:"衝撃弾", ratio: rate });
+  }
+ }
+ // ディレイ → 粘着弾
+ {
+  if(/ディレイ/.test(s)){
+   const dm = s.match(/(\d+)%[^。]*ディレイ/) || s.match(/ディレイ[^。]*(\d+)%/);
+   out.specials.push({ name:"粘着弾", ratio: (dm && dm[1]) ? dm[1] : "100" });
+  }
+ }
+ // 結界異常付与 → 焼夷弾系（説明文形式）
+ const abMap = [
+  ["燃焼","焼夷弾"],["凍結","冷却弾"],["帯電","荷電弾"],["毒霧","噴毒弾"],["暗闇","煙幕弾"]
+ ];
+ abMap.forEach(([ab, spName])=>{
+  // 結界異常「燃焼」を付与 / n%で燃焼を付与 / 燃焼をn枚付与
+  const re1 = new RegExp("(?:(\\d+)%)?[^。]{0,20}結界異常[「｢]" + ab + "[」｣][^。]{0,15}付与");
+  const re2 = new RegExp("(?:(\\d+)%)?[^。]{0,10}" + ab + "[^。]{0,10}付与");
+  const re3 = new RegExp(ab + "[^。]{0,8}(\\d+)枚");
+  let mm = s.match(re1) || s.match(re2);
+  if(mm || (new RegExp(ab).test(s) && /付与/.test(s) && s.includes(ab))){
+   if(!mm) mm = s.match(new RegExp("(\\d+)%[^。]{0,30}" + ab)) || ["","100"];
+   const rate = mm[1] || "100";
+   let stacks = "1";
+   const sm = s.match(re3);
+   if(sm) stacks = sm[1];
+   // 自身/対象
+   let target = "対象";
+   if(/自身[^。]{0,12}/.test(s) && new RegExp("自身[^。]{0,20}"+ab+"|"+ab+"[^。]{0,20}自身").test(s)) target = "自身";
+   out.specials.push({ kind:"abnormal", name: spName, rate, stacks, target });
+  }
+ });
+ // 明示的な焼夷弾など表記
+ ["焼夷弾","冷却弾","荷電弾","噴毒弾","煙幕弾"].forEach(sp=>{
+  const re = new RegExp("(?:(\\d+)%)?" + sp);
+  const mm = s.match(re);
+  if(mm && !out.specials.some(x=>x.name===sp)){
+   out.specials.push({ kind:"abnormal", name: sp, rate: mm[1]||"100", stacks:"1", target:"対象" });
+  }
+ });
  const buffRe = /自身の([^を]+?)を(\d+)段階上げる\((\d+)T(?:,(\d+)%)?\)/g;
  let bm;
  while((bm = buffRe.exec(s))){
@@ -11601,6 +11648,53 @@ function gamerchParseBulletDetail(detail){
   if(targets.length) out.specials.push({ name:"特攻弾", targets });
  }
  return out;
+}
+
+function gamerchApplySpecialToBullet(b, sp){
+ if(!sp || !b) return;
+ if(sp.kind === "buff"){
+  if(!Array.isArray(b.buffs)) b.buffs = [];
+  b.buffs.push({ target: sp.target||"自身", stat: sp.stat||"", rate: sp.rate||"100", rank: sp.rank||"1", turn: sp.turn||"" });
+  return;
+ }
+ if(sp.kind === "debuff"){
+  if(!Array.isArray(b.debuffs)) b.debuffs = [];
+  b.debuffs.push({ target: sp.target||"対象", stat: sp.stat||"", rate: sp.rate||"100", rank: sp.rank||"1", turn: sp.turn||"" });
+  return;
+ }
+ if(sp.kind === "abnormal"){
+  if(!b.specials) b.specials = {};
+  b.specials[sp.name] = true;
+  if(!Array.isArray(b.abnormalEntries)) b.abnormalEntries = [];
+  b.abnormalEntries.push({ type: sp.name, target: sp.target||"対象", rate: sp.rate||"100", stacks: sp.stacks||"1" });
+  const map = {
+   "焼夷弾":["burnRate","burnStacks","burnTarget"],
+   "冷却弾":["coolRate","coolStacks","coolTarget"],
+   "荷電弾":["chargeRate","chargeStacks","chargeTarget"],
+   "噴毒弾":["poisonRate","poisonStacks","poisonTarget"],
+   "煙幕弾":["darkRate","darkStacks","darkTarget"]
+  };
+  const keys = map[sp.name];
+  if(keys){
+   b[keys[0]] = String(sp.rate||"100");
+   b[keys[1]] = String(sp.stacks||"1");
+   b[keys[2]] = sp.target||"対象";
+  }
+  return;
+ }
+ const name = sp.name;
+ if(!name) return;
+ if(!b.specials) b.specials = {};
+ b.specials[name] = true;
+ if(name === "斬裂弾" && sp.ratio) b.sharpRatio = String(sp.ratio);
+ if(name === "硬質弾" && sp.ratio) b.hardRatio = String(sp.ratio);
+ if(name === "粘着弾" && sp.ratio) b.stickyRate = String(sp.ratio);
+ if(name === "衝撃弾" && sp.ratio) b.impactRate = String(sp.ratio);
+ if(name === "吸収弾" && sp.ratio) b.absorbRatio = String(sp.ratio);
+ if(name === "反動弾" && sp.ratio) b.recoilRatio = String(sp.ratio);
+ if(name === "特攻弾" && Array.isArray(sp.targets) && sp.targets.length){
+  b.specialTarget = sp.targets.join("・").replace(/[&＆]/g,"・").replace(/・+/g,"・");
+ }
 }
 
 function gamerchApplySpecialToBullet(b, sp){
@@ -11649,7 +11743,7 @@ function gamerchIsDetailLine(line){
   }
  }
  if(/\d+%.*弾/.test(t) || /最大\d+%/.test(t)) return true;
- if(/上げる|下げる|付与|ブレイク/.test(t)) return true;
+ if(/上げる|下げる|付与|ブレイク|スタン|ディレイ|燃焼|凍結|帯電|毒霧|暗闇/.test(t)) return true;
  return false;
 }
 
