@@ -11483,8 +11483,10 @@ function clearWikiPasteFields(){
 function isGamerchPaste(raw){
  const s = String(raw||"");
  if(/弾名称/.test(s) && /弾詳細/.test(s)) return true;
- if(/攻Lv/.test(s) && /×\d+/.test(s) && /属性\//.test(s)) return true;
- if(/×\d+/.test(s) && /\/(陽気|陰気)\//.test(s) && /威力[：:]/.test(s)) return true;
+ if(/攻Lv/.test(s) && /×\s*\d+/.test(s)) return true;
+ if(/×\s*\d+/.test(s) && /属性/.test(s) && /威力[：:]/.test(s)) return true;
+ if(/ショット内訳|拡散ショット詳細|集中ショット詳細/.test(s) && /×\s*\d+/.test(s)) return true;
+ if(/【攻撃】|【弾幕構成】|【ブースト追加】/.test(s) && /×\s*\d+/.test(s)) return true;
  return false;
 }
 
@@ -11495,43 +11497,29 @@ function gamerchParseBulletDetail(detail){
   attr:"", kind:"", bulletType:"", specials:[],
   hit:"", cri:""
  };
- // 属性
  let m = s.match(/([日月火水木金土星無])属性/);
  if(m) out.attr = m[1];
- // 陰陽
  if(/陽気/.test(s)) out.kind = "陽気";
  else if(/陰気/.test(s)) out.kind = "陰気";
- // 弾種（長い名前から）
  const types = (typeof BULLETS !== "undefined" ? BULLETS : []).slice().sort((a,b)=>b.length-a.length);
  for(const t of types){
   if(s.includes(t)){ out.bulletType = t; break; }
  }
- // 命中・CRI
  m = s.match(/命中(\d+)%/);
  if(m) out.hit = m[1];
  m = s.match(/CRI率(\d+)%/);
  if(m) out.cri = m[1];
- // 特殊弾（％付き可）
  const spNames = (typeof SPECIALS !== "undefined" ? SPECIALS : []).slice().sort((a,b)=>b.length-a.length);
  for(const sp of spNames){
+  if(sp === "特攻弾") continue; // 後で「〜特攻」から拾う
   const re = new RegExp("(?:(\\d+)%)?" + sp.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
   const mm = s.match(re);
   if(mm){
    const obj = { name: sp };
    if(mm[1]) obj.ratio = mm[1];
-   // 特攻弾の対象
-   if(sp === "特攻弾"){
-    const tm = s.match(/((?:[一-龥ぁ-んァ-ヶA-Za-z0-9]+[&＆・])+[一-龥ぁ-んァ-ヶA-Za-z0-9]+)特攻/);
-    // simpler: text before 特攻 that has &
-    const tm2 = s.match(/([一-龥ぁ-んァ-ヶA-Za-z0-9＆&・]+)特攻/);
-    if(tm2){
-     obj.targets = tm2[1].split(/[&＆・]/).map(x=>x.trim()).filter(Boolean);
-    }
-   }
    out.specials.push(obj);
   }
  }
- // つよさ上昇
  const buffRe = /自身の([^を]+?)を(\d+)段階上げる\((\d+)T(?:,(\d+)%)?\)/g;
  let bm;
  while((bm = buffRe.exec(s))){
@@ -11540,7 +11528,6 @@ function gamerchParseBulletDetail(detail){
    turn: bm[3], rate: bm[4] || "100"
   });
  }
- // つよさ低下
  const debRe = /相手(?:単体|全体)?の([^を]+?)を(\d+)段階下げる\((\d+)T(?:,(\d+)%)?\)/g;
  while((bm = debRe.exec(s))){
   out.specials.push({
@@ -11548,70 +11535,191 @@ function gamerchParseBulletDetail(detail){
    turn: bm[3], rate: bm[4] || "100"
   });
  }
- // 特攻（特殊弾リストに無い場合用）
- if(!out.specials.some(x=>x.name==="特攻弾")){
-  const tm = s.match(/([一-龥ぁ-んァ-ヶA-Za-z0-9＆&・]+)特攻/);
-  if(tm && /[&＆]/.test(tm[1])){
-   out.specials.push({
-    name:"特攻弾",
-    targets: tm[1].split(/[&＆・]/).map(x=>x.trim()).filter(Boolean)
-   });
+ // 特攻対象
+ const tm = s.match(/([一-龥ぁ-んァ-ヶA-Za-z0-9＆&・]+)特攻/);
+ if(tm){
+  const targets = tm[1].split(/[&＆・]/).map(x=>x.trim()).filter(Boolean);
+  if(targets.length){
+   out.specials.push({ name:"特攻弾", targets });
   }
  }
  return out;
 }
 
-/** Gamerch表から弾行を抽出 */
+function gamerchPushRow(rows, nameCell, detailCell, pCell){
+ if(!nameCell && !detailCell) return;
+ let name = String(nameCell||"").trim();
+ let count = "";
+ let nm = name.match(/^(.+?)[×xX](\d+)\s*$/);
+ if(nm){ name = nm[1].trim(); count = nm[2]; }
+ // detail内の先頭×も
+ if(!count){
+  const cm = String(detailCell||"").match(/^[×xX](\d+)/);
+  if(cm) count = cm[1];
+ }
+ if(!name && !/属性|弾|命中|威力/.test(String(detailCell||""))) return;
+ if(!/属性|陽気|陰気|弾|命中|威力|特攻/.test(String(detailCell||""))) return;
+ let p = "P0";
+ const pc = String(pCell||"").trim();
+ if(/^[0-3]$/.test(pc)) p = "P" + pc;
+ else {
+  const pm = String(detailCell||"").match(/威力[：:]\s*[\d.]+[^\d]*([0-3])\s*$/);
+  if(pm) p = "P" + pm[1];
+ }
+ const det = gamerchParseBulletDetail(detailCell);
+ const specials = [];
+ (det.specials||[]).forEach(sp=>{
+  if(sp.kind === "buff" || sp.kind === "debuff"){
+   specials.push(sp);
+  }else{
+   specials.push({ name: sp.name, ratio: sp.ratio, targets: sp.targets });
+  }
+ });
+ rows.push({
+  name: name || ("弾"+(rows.length+1)),
+  count, p,
+  attr: det.attr, kind: det.kind, bulletType: det.bulletType,
+  specials, detail: detailCell
+ });
+}
+
+/** Gamerch表／改行形式から弾行を抽出 */
 function gamerchExtractRows(raw){
- const lines = String(raw||"").split(/\r?\n/);
+ const text = String(raw||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+ const lines = text.split("\n");
  const rows = [];
  let attackName = "";
- // タイトル行: | 拡散ショット | アイススピリット |
+
+ // タイトル: 拡散ショット[TAB|]アイススピリット
  for(const line of lines){
-  if(!line.includes("|")) continue;
-  const cells = line.split("|").map(c=>c.trim()).filter((c,i,a)=>!(i===0&&c==="")&&!(i===a.length-1&&c===""));
-  if(cells.length >= 2 && /ショット|スペル|LAST|ラスト|拡散|集中/.test(cells[0]) && cells[1] && !/詳細|内訳|攻撃/.test(cells[1])){
-   if(!/--+/.test(cells[0]) && cells[1].length < 40){
-    attackName = cells[1];
-    break;
+  const t = line.trim();
+  if(!t) continue;
+  // pipe table
+  if(t.includes("|")){
+   const cells = t.split("|").map(c=>c.trim()).filter((c,i,a)=>!(i===0&&c==="")&&!(i===a.length-1&&c===""));
+   if(cells.length>=2 && /ショット|スペル|LAST|ラスト|拡散|集中/.test(cells[0]) && cells[1] && !/詳細|内訳|攻撃|弾/.test(cells[1])){
+    if(!/--+/.test(cells[0]) && cells[1].length < 40){ attackName = cells[1]; break; }
+   }
+  }
+  // tab
+  if(/\t/.test(t)){
+   const cells = t.split("\t").map(c=>c.trim()).filter(Boolean);
+   if(cells.length>=2 && /ショット|スペル|LAST|ラスト|拡散|集中/.test(cells[0]) && !/詳細|内訳|弾名称/.test(cells[0])){
+    if(cells[1].length < 40 && !/単体|全体|属性/.test(cells[1])){ attackName = cells[1]; break; }
    }
   }
  }
+
+ // 1) | 表形式
  for(const line of lines){
   if(!line.includes("|")) continue;
   if(/弾名称|弾詳細|攻Lv|----/.test(line)) continue;
   const cells = line.split("|").map(c=>c.trim()).filter((c,i,a)=>!(i===0&&c==="")&&!(i===a.length-1&&c===""));
   if(cells.length < 2) continue;
-  const nameCell = cells[0];
-  const detailCell = cells[1] || "";
-  const pCell = cells[2] || "";
-  if(!/×\d+/.test(nameCell) && !/属性\//.test(detailCell)) continue;
-  if(!/属性|陽気|陰気|弾/.test(detailCell)) continue;
-  let name = nameCell, count = "";
-  const nm = nameCell.match(/^(.+?)×(\d+)\s*$/);
-  if(nm){ name = nm[1].trim(); count = nm[2]; }
-  let p = "P0";
-  if(/^[0-3]$/.test(String(pCell).trim())) p = "P" + String(pCell).trim();
-  const det = gamerchParseBulletDetail(detailCell);
-  const specials = [];
-  (det.specials||[]).forEach(sp=>{
-   if(sp.kind === "buff" || sp.kind === "debuff"){
-    specials.push(sp);
-    return;
-   }
-   // map to wikiParseSpecialToken-like via name
-   specials.push({
-    name: sp.name,
-    ratio: sp.ratio,
-    targets: sp.targets
-   });
-  });
-  rows.push({
-   name, count, p,
-   attr: det.attr, kind: det.kind, bulletType: det.bulletType,
-   specials, detail: detailCell
-  });
+  gamerchPushRow(rows, cells[0], cells[1], cells[2]||"");
  }
+ if(rows.length) return { attackName, rows };
+
+ // 2) タブ1行形式: 名前×n \t 詳細 \t 攻Lv
+ for(const line of lines){
+  if(!/\t/.test(line)) continue;
+  if(/弾名称|弾詳細|攻Lv/.test(line)) continue;
+  const cells = line.split("\t").map(c=>c.trim());
+  if(cells.length < 2) continue;
+  if(/[×xX]\d+/.test(cells[0]) || (/属性|弾/.test(cells[1]||""))){
+   gamerchPushRow(rows, cells[0], cells[1]||"", cells[2]||"");
+  }
+ }
+ if(rows.length) return { attackName, rows };
+
+ // 3) 改行ブロック形式（Gamerchスマホコピー）
+ // 名前行 → ×n行（詳細開始）→ 詳細行… → 威力：n.nn [攻Lv]
+ let i = 0;
+ while(i < lines.length){
+  let line = lines[i].trim();
+  if(!line || /弾名称|弾詳細|攻Lv|ショット内訳|タップで開閉|【攻撃】|【弾幕構成】|【ブースト】|拡散ショット詳細|集中ショット詳細/.test(line)){
+   i++; continue;
+  }
+  // タイトル行スキップ
+  if(/^(拡散|集中)ショット$/.test(line) || /^(拡散|集中)ショット\t/.test(line)){ i++; continue; }
+
+  // 弾名候補（×を含まない短い行）
+  if(!/[×xX]\d+/.test(line) && !/属性|命中|威力|段階|特攻|弾$/.test(line) && line.length < 40 && !/\t/.test(line)){
+   const bName = line;
+   i++;
+   // 次行から詳細を集める
+   let detailParts = [];
+   let pCell = "";
+   let count = "";
+   // 空行スキップ
+   while(i < lines.length && !lines[i].trim()) i++;
+   // ×n で始まる行
+   if(i < lines.length){
+    const ln = lines[i].trim();
+    const cm = ln.match(/^[×xX](\d+)(?:\t(.*))?$/);
+    if(cm){
+     count = cm[1];
+     if(cm[2]) detailParts.push(cm[2]);
+     i++;
+    } else if(/[×xX](\d+)/.test(ln) && /\t/.test(ln)){
+     const cells = ln.split("\t");
+     const cm2 = cells[0].match(/[×xX](\d+)/);
+     if(cm2) count = cm2[1];
+     detailParts.push(cells.slice(1).join(" "));
+     i++;
+    }
+   }
+   while(i < lines.length){
+    const ln = lines[i].trim();
+    if(!ln){ i++; continue; }
+    // 次の弾名（短い・属性なし）で終了
+    if(!/[×xX]\d+/.test(ln) && !/属性|命中|威力|段階|特攻|CRI|必中|弾性|斬裂|硬質|貫通|弾$/.test(ln) && ln.length < 40 && !/\t/.test(ln) && !/^[0-3]$/.test(ln)){
+     break;
+    }
+    // 威力行で区切り
+    const wm = ln.match(/威力[：:]\s*([\d.]+)\s*(?:\t\s*)?([0-3])?\s*$/);
+    if(wm){
+     detailParts.push(ln.replace(/\t[0-3]\s*$/,"").trim());
+     if(wm[2] != null) pCell = wm[2];
+     i++;
+     break;
+    }
+    // 単独の攻Lv
+    if(/^[0-3]$/.test(ln) && detailParts.some(x=>/威力/.test(x))){
+     pCell = ln;
+     i++;
+     break;
+    }
+    detailParts.push(ln);
+    i++;
+   }
+   const detail = detailParts.join("");
+   if(count) {
+     gamerchPushRow(rows, bName + "×" + count, detail, pCell);
+   } else if(detail){
+     gamerchPushRow(rows, bName, detail, pCell);
+   }
+   // 攻Lv空欄は直前のPを引き継ぎ
+   if(rows.length && !pCell && rows.length>1){
+     const prev = rows[rows.length-2];
+     if(prev && prev.p) rows[rows.length-1].p = prev.p;
+   }
+   continue;
+  }
+
+  // 名前×n と詳細が同一行
+  if(/[×xX]\d+/.test(line)){
+   if(/\t/.test(line)){
+    const cells = line.split("\t").map(c=>c.trim());
+    gamerchPushRow(rows, cells[0], cells[1]||"", cells[2]||"");
+   } else {
+    const mm = line.match(/^(.+?[×xX]\d+)\s+(.+)$/);
+    if(mm) gamerchPushRow(rows, mm[1], mm[2], "");
+   }
+  }
+  i++;
+ }
+
  return { attackName, rows };
 }
 
@@ -11649,11 +11757,8 @@ function gamerchImportIntoAttack(a, attackKey, raw){
   return { ok:false, msg:"Gamerch形式の弾行が見つかりませんでした" };
  }
  if(parsed.attackName && !a.name) a.name = parsed.attackName;
- // 範囲
  if(/単体攻撃/.test(raw)) a.range = "単体";
  else if(/全体攻撃/.test(raw)) a.range = "全体";
- else if(/拡散/.test(raw) && !a.range) a.range = "拡散";
- else if(/集中/.test(raw) && !a.range) a.range = "集中";
 
  if(!Array.isArray(a.bullets)) a.bullets = [];
  while(a.bullets.length < 6) a.bullets.push(createBulletStructure(a.bullets.length+1));
@@ -11678,10 +11783,7 @@ function gamerchImportIntoAttack(a, attackKey, raw){
   SPECIALS.forEach(x=>{ if(b.specials[x]==null) b.specials[x]=false; });
   b.buffs = [];
   b.debuffs = [];
-  (row.specials||[]).forEach(sp=>{
-   if(sp.kind === "buff" || sp.kind === "debuff") gamerchApplySpecialToBullet(b, sp);
-   else gamerchApplySpecialToBullet(b, sp);
-  });
+  (row.specials||[]).forEach(sp=> gamerchApplySpecialToBullet(b, sp));
   SPECIALS.forEach(x=>{ if(b.specials[x]) usedSpecials.add(x); });
   (b.buffs||[]).forEach(bf=>{ if(bf && bf.stat) usedBuffStats.add(bf.stat); });
   (b.debuffs||[]).forEach(df=>{ if(df && df.stat) usedDebuffStats.add(df.stat); });
