@@ -11630,6 +11630,29 @@ function gamerchApplySpecialToBullet(b, sp){
  }
 }
 
+function gamerchIsDetailLine(line){
+ const t = String(line||"").trim();
+ if(!t) return false;
+ if(/[×xX]\s*\d+/.test(t)) return true;
+ if(/属性|金属性|命中|CRI|威力|段階|特攻|単体|全体/.test(t)) return true;
+ if(/^[0-3]$/.test(t)) return true;
+ if(/\t/.test(t)) return true;
+ if(typeof BULLETS !== "undefined"){
+  const compact = t.replace(/\s+/g,"");
+  for(const b of BULLETS){ if(t === b || compact === b) return true; }
+ }
+ if(typeof SPECIALS !== "undefined"){
+  const compact = t.replace(/\s+/g,"");
+  for(const sp of SPECIALS){
+   if(t === sp || compact === sp) return true;
+   if(compact.endsWith(sp) && /\d/.test(compact)) return true;
+  }
+ }
+ if(/\d+%.*弾/.test(t) || /最大\d+%/.test(t)) return true;
+ if(/上げる|下げる|付与|ブレイク/.test(t)) return true;
+ return false;
+}
+
 function gamerchExtractRows(raw){
  const text = String(raw||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
  const lines = text.split("\n").map(x=>x.replace(/\u00a0/g," "));
@@ -11673,13 +11696,7 @@ function gamerchExtractRows(raw){
   if(/^(拡散|集中)ショット([\t\u3000]|$)/.test(line)){ i++; continue; }
   if(/^スペルカード/.test(line) || /^(LASTWORD|ラストワード)/i.test(line)){ i++; continue; }
 
-  const isName = (
-   !/[×xX]\s*\d+/.test(line) &&
-   !/属性|金属性|命中|CRI|威力|段階|特攻|必中|弾性|斬裂|硬質|貫通|質量弾|光弾|エネルギー|流体|尖弾|御札|斬撃|肉弾|ミサイル|レーザー|通常弾|吸収弾/.test(line) &&
-   !/^[0-3]$/.test(line) &&
-   line.length > 0 && line.length < 50 &&
-   !/\t/.test(line)
-  );
+  const isName = (line.length > 0 && line.length < 50 && !gamerchIsDetailLine(line));
   if(!isName){ i++; continue; }
 
   const bName = line;
@@ -11711,14 +11728,7 @@ function gamerchExtractRows(raw){
   while(i < lines.length){
    const ln = lines[i].trim();
    if(!ln){ i++; continue; }
-   const maybeNextName = (
-    !/[×xX]\s*\d+/.test(ln) &&
-    !/属性|金属性|命中|CRI|威力|段階|特攻|必中|弾性|斬裂|硬質|貫通|質量弾|光弾|エネルギー|流体|尖弾|御札|斬撃|肉弾|ミサイル|レーザー|通常弾|吸収弾|単体|全体/.test(ln) &&
-    !/^[0-3]$/.test(ln) &&
-    ln.length > 0 && ln.length < 50 &&
-    !/\t/.test(ln) &&
-    detailParts.length > 0
-   );
+   const maybeNextName = (ln.length > 0 && ln.length < 50 && !gamerchIsDetailLine(ln) && detailParts.length > 0);
    if(maybeNextName) break;
 
    const wm = ln.match(/^威力[：:]\s*([\d.]+)\s*(?:\t+\s*([0-3]))?\s*$/);
