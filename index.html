@@ -14174,29 +14174,61 @@ function formatAttackBuffSummaryHtml(a){
 
 
 
+
 function adminFindAttackRef(c, attackKey, side){
  if(!c || !attackKey) return null;
  const sideUse = side || (typeof getViewSide === "function" ? getViewSide(c) : "after") || "after";
- if(c.details && c.details.rebirth && c.details.rebirth.enabled){
-  const bag = c.details.rebirth[sideUse];
-  if(bag && bag.attacks && bag.attacks[attackKey]) return bag.attacks[attackKey];
-  // after が空で root にだけある場合
- }
- if(c.attacks && c.attacks[attackKey]) return c.attacks[attackKey];
- if(c.details && c.details.attacks && c.details.attacks[attackKey]) return c.details.attacks[attackKey];
+ // 表示と同じ経路を最優先
+ try{
+  if(typeof packFromCharacterSide === "function"){
+   const pack = packFromCharacterSide(c, sideUse);
+   if(pack && pack.attacks && pack.attacks[attackKey]) return pack.attacks[attackKey];
+  }
+  if(typeof getViewModel === "function"){
+   const vm = getViewModel(c);
+   if(vm && vm.attacks && vm.attacks[attackKey]) return vm.attacks[attackKey];
+  }
+ }catch(e){}
  if(c.details && c.details.rebirth){
-  for(const s of ["after","before"]){
+  for(const s of [sideUse, "after", "before"]){
    const bag = c.details.rebirth[s];
    if(bag && bag.attacks && bag.attacks[attackKey]) return bag.attacks[attackKey];
   }
  }
- if(typeof adminGetCharAttackBags === "function"){
-  const bags = adminGetCharAttackBags(c);
-  for(let i=0;i<bags.length;i++){
-   if(bags[i].attacks && bags[i].attacks[attackKey]) return bags[i].attacks[attackKey];
-  }
- }
+ if(c.attacks && c.attacks[attackKey]) return c.attacks[attackKey];
+ if(c.details && c.details.attacks && c.details.attacks[attackKey]) return c.details.attacks[attackKey];
  return null;
+}
+
+/** 同一キーの攻撃をキャラ内の全コピーに反映 */
+function adminApplyRangeToAllCopies(c, attackKey, newRange){
+ let n = 0;
+ const touch = (attacks)=>{
+  if(attacks && attacks[attackKey]){
+   attacks[attackKey].range = newRange;
+   n++;
+  }
+ };
+ touch(c.attacks);
+ if(c.details) touch(c.details.attacks);
+ if(c.details && c.details.rebirth){
+  ["before","after"].forEach(s=>{
+   if(c.details.rebirth[s]) touch(c.details.rebirth[s].attacks);
+  });
+ }
+ try{
+  if(typeof adminGetCharAttackBags === "function"){
+   adminGetCharAttackBags(c).forEach(bag=> touch(bag.attacks));
+  }
+ }catch(e){}
+ try{
+  const side = (typeof getViewSide === "function") ? getViewSide(c) : "after";
+  const pack = packFromCharacterSide(c, side);
+  touch(pack && pack.attacks);
+  const vm = getViewModel(c);
+  touch(vm && vm.attacks);
+ }catch(e){}
+ return n;
 }
 
 async function adminSetAttackRangeFromDetail(charId, attackKey, newRange, side){
@@ -14207,15 +14239,29 @@ async function adminSetAttackRangeFromDetail(charId, attackKey, newRange, side){
  const c = (data||[]).find(x => String(x.id) === String(charId));
  if(!c){ alert("キャラが見つかりません"); return; }
  if(newRange !== "単体" && newRange !== "全体") return;
+ if(!attackKey){ alert("攻撃キーが空です"); return; }
 
- const atk = adminFindAttackRef(c, attackKey, side);
- if(!atk){
-  alert("この攻撃データに範囲を書けませんでした (key=" + attackKey + ")");
+ const applied = adminApplyRangeToAllCopies(c, attackKey, newRange);
+ if(!applied){
+  alert("攻撃データが見つかりません\\nkey=" + attackKey + "\\nid=" + charId);
   return;
  }
- atk.range = newRange;
 
- // サーバー保存（待たせすぎないようタイムアウト付き）
+ // 表示経路で確認
+ let verified = "";
+ try{
+  const sideUse = side || (typeof getViewSide === "function" ? getViewSide(c) : "after");
+  const pack = packFromCharacterSide(c, sideUse);
+  verified = pack && pack.attacks && pack.attacks[attackKey] ? pack.attacks[attackKey].range : "";
+ }catch(e){}
+ if(verified !== newRange){
+  // 強制: 表示用パックにキーが無い場合は root に作る
+  if(!c.attacks) c.attacks = {};
+  if(!c.attacks[attackKey]) c.attacks[attackKey] = {};
+  c.attacks[attackKey].range = newRange;
+  verified = newRange;
+ }
+
  let saveOk = false;
  try{
   if(typeof TABLE !== "undefined" && TABLE){
@@ -14227,33 +14273,34 @@ async function adminSetAttackRangeFromDetail(charId, attackKey, newRange, side){
      "Content-Type": "application/json",
      "Prefer": "return=minimal"
     }),
-    body: JSON.stringify({ attacks: c.attacks || null, details: c.details || null }),
+    body: JSON.stringify({
+     attacks: c.attacks || null,
+     details: c.details || null
+    }),
     signal: ctrl ? ctrl.signal : undefined
    });
    if(timer) clearTimeout(timer);
-   saveOk = r.ok;
-   if(!r.ok) console.warn(await r.text());
+   saveOk = !!(r && r.ok);
+   if(r && !r.ok) console.warn(await r.text());
   }
- }catch(err){
-  console.warn(err);
- }
+ }catch(err){ console.warn(err); }
 
- try{ if(typeof openModal === "function") openModal(charId); }catch(e){}
+ // モーダルを必ず再描画
+ try{
+  if(typeof openModal === "function") openModal(charId);
+ }catch(e){ console.warn(e); }
+
  try{
   const tip = document.createElement("div");
-  tip.textContent = saveOk
-   ? ("範囲を「" + newRange + "」に変更して保存しました")
-   : ("範囲を「" + newRange + "」に変更（サーバー保存は未確認）");
+  tip.textContent = (verified || newRange) + " に変更 (" + applied + "箇所)" + (saveOk ? " 保存OK" : " 保存未確認");
   tip.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;z-index:99999;font-size:13px;";
   document.body.appendChild(tip);
-  setTimeout(()=>{ try{ tip.remove(); }catch(e){} }, 2000);
+  setTimeout(()=>{ try{ tip.remove(); }catch(e){} }, 2500);
  }catch(e){}
 }
 
-function bindAdminRangeFixButtons(root){
- // クリックは document 委譲（_adminRangeDelegated）で処理
-}
 
+function bindAdminRangeFixButtons(root){}
 if(!window._adminRangeDelegated){
  window._adminRangeDelegated = true;
  document.addEventListener("click", function(ev){
