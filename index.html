@@ -2826,8 +2826,10 @@ body.theme-dark .bullet-size-btns button.active{
   <button id="reset" class="sub" type="button" style="width:auto;min-width:140px;">条件をリセット</button>
 </div>
 <div id="adminDebugSearch" class="hidden" style="margin:8px 0;flex-wrap:wrap;gap:8px;align-items:center;">
-  <span class="mini" style="font-weight:700;color:#c44536;">管理者用（一時）</span>
+  <span class="mini" style="font-weight:700;color:#c44536;">管理者用</span>
   <button type="button" id="adminSearchSameStats" class="sub" style="width:auto;">転生前後ステータス同一</button>
+  <button type="button" id="adminBulkRangeFix" class="sub" style="width:auto;">全体/単体 一括再判定</button>
+  <button type="button" id="adminRangeReport" class="sub" style="width:auto;">範囲の集計</button>
 </div>
 <button id="searchBtn" class="main" type="button">🔍 検索する</button>
 </div>
@@ -11540,8 +11542,9 @@ function importWikiPaste(text){
    if(row.kind) b.kind = row.kind;
    if(row.bulletType) b.bulletType = row.bulletType;
    if(row.count) b.count = row.count;
-   if(row.p) b.pStage = row.p;
-   b.specials = b.specials || {};
+     if(row.p) b.pStage = row.p;
+  if(row._range) b.range = row._range;
+ b.specials = b.specials || {};
    SPECIALS.forEach(x=>{ if(b.specials[x]==null) b.specials[x]=false; });
    b.buffs = [];
    b.debuffs = [];
@@ -12288,6 +12291,50 @@ function refreshAttackEditorAfterImport(attackKey){
  try{ if(typeof applyRangeModeUI === "function") applyRangeModeUI(attackKey); }catch(e){}
 }
 
+
+/** テキストから攻撃範囲を推定（単体/全体/補助） */
+function detectAttackRangeFromText(raw){
+ const s = String(raw||"");
+ if(/補助/.test(s) && /攻撃/.test(s) === false) {
+  // 弱い判定は後回し
+ }
+ if(/単体攻撃/.test(s)) return "単体";
+ if(/全体攻撃/.test(s)) return "全体";
+ if(/補助攻撃|\b補助\b/.test(s) && !/単体|全体/.test(s)) return "補助";
+ // 弾行の「属性/陰陽/単体」形式（空白除去後も）
+ const flat = s.replace(/\s+/g,"");
+ const votes = { "単体":0, "全体":0 };
+ const re = /(?:[日月火水木金土星無]属性|金属性)\/(?:陽気|陰気)\/(単体|全体)/g;
+ let m;
+ while((m = re.exec(flat))){ votes[m[1]]++; }
+ // 「/単体」「/全体」だけ
+ const re2 = /\/(単体|全体)(?![一-龥])/g;
+ while((m = re2.exec(flat))){ votes[m[1]]++; }
+ if(votes["単体"] > votes["全体"]) return "単体";
+ if(votes["全体"] > votes["単体"]) return "全体";
+ // 行頭の単体/全体
+ if(/^単体$/m.test(s) || /\n単体\n/.test(s)) return "単体";
+ if(/^全体$/m.test(s) || /\n全体\n/.test(s)) return "全体";
+ return "";
+}
+
+/** 攻撃データから範囲を再推定（弾に保存した range や detail 由来） */
+function detectAttackRangeFromAttack(a){
+ if(!a) return "";
+ if(a.range === "補助") return "補助";
+ const votes = { "単体":0, "全体":0 };
+ (a.bullets||[]).forEach(b=>{
+  if(!b) return;
+  if(b.range === "単体" || b.range === "全体"){ votes[b.range]++; return; }
+  const d = String(b.detail||b._wikiDetail||"");
+  if(/全体/.test(d) && !/単体/.test(d)) votes["全体"]++;
+  else if(/単体/.test(d)) votes["単体"]++;
+ });
+ if(votes["単体"] > votes["全体"]) return "単体";
+ if(votes["全体"] > votes["単体"]) return "全体";
+ return a.range || "";
+}
+
 function gamerchImportIntoAttack(a, attackKey, raw){
  const sliced = (typeof gamerchSliceForKey === "function") ? gamerchSliceForKey(raw, attackKey) : raw;
  const parsed = gamerchExtractRows(sliced);
@@ -12295,8 +12342,20 @@ function gamerchImportIntoAttack(a, attackKey, raw){
   return { ok:false, msg:"Gamerch形式の弾行が見つかりませんでした" };
  }
  if(parsed.attackName) a.name = String(parsed.attackName).trim();
- if(/単体攻撃/.test(sliced)) a.range = "単体";
- else if(/全体攻撃/.test(sliced)) a.range = "全体";
+ {
+  const det = (typeof detectAttackRangeFromText==="function") ? detectAttackRangeFromText(sliced) : "";
+  if(det) a.range = det;
+  const votes = { "単体":0, "全体":0 };
+  (parsed.rows||[]).forEach(row=>{
+   const flat = String(row.detail||"").replace(/\s+/g,"");
+   if(/\/単体/.test(flat)) { votes["単体"]++; row._range = "単体"; }
+   else if(/\/全体/.test(flat)) { votes["全体"]++; row._range = "全体"; }
+  });
+  if(!det){
+   if(votes["単体"] > votes["全体"]) a.range = "単体";
+   else if(votes["全体"] > votes["単体"]) a.range = "全体";
+  }
+ }
 
  if(!Array.isArray(a.bullets)) a.bullets = [];
  while(a.bullets.length < 6) a.bullets.push(createBulletStructure(a.bullets.length+1));
@@ -12319,6 +12378,7 @@ function gamerchImportIntoAttack(a, attackKey, raw){
   if(row.bulletType) b.bulletType = row.bulletType;
   if(row.count) b.count = row.count;
   if(row.p) b.pStage = row.p;
+  if(row._range) b.range = row._range;
   b.specials = {};
   SPECIALS.forEach(x=>{ b.specials[x]=false; });
   b.buffs = [];
@@ -12396,6 +12456,7 @@ function importWikiIntoAttack(attackKey, text){
   if(r && r.ok){
    if(r.name) a.name = r.name;
    try{ refreshAttackEditorAfterImport(attackKey); }catch(e){}
+   try{ const sel=document.querySelector(`[data-range-select="${attackKey}"]`); if(sel && attackData[attackKey] && attackData[attackKey].range) sel.value = attackData[attackKey].range; }catch(e){}
    try{ refreshAttackEditorAfterImport(attackKey); }catch(e){}
    const st = document.getElementById("wiki-attack-status-"+attackKey);
    if(st) st.textContent = "Gamerch取込: バレット"+r.count+"発" + (a.name?(" / "+a.name):"");
@@ -13142,6 +13203,67 @@ function adminMatchSameRebirthStats(c){
   return adminStatsEqual(before && before.stats, after && after.stats);
  }catch(e){ return false; }
 }
+
+function adminGetCharAttackBags(c){
+ const bags = [];
+ if(c.attacks && typeof c.attacks === "object") bags.push({ path:"root", attacks:c.attacks });
+ const d = c.details || {};
+ if(d.attacks && typeof d.attacks === "object") bags.push({ path:"details", attacks:d.attacks });
+ const rb = d.rebirth || {};
+ ["before","after"].forEach(side=>{
+  if(rb[side] && rb[side].attacks && typeof rb[side].attacks === "object"){
+   bags.push({ path:"rebirth."+side, attacks:rb[side].attacks });
+  }
+ });
+ return bags;
+}
+
+function adminReportAttackRanges(){
+ const counts = { "単体":0, "全体":0, "補助":0, "その他":0 };
+ const byKey = {};
+ (data||[]).forEach(c=>{
+  adminGetCharAttackBags(c).forEach(bag=>{
+   Object.keys(bag.attacks||{}).forEach(key=>{
+    const a = bag.attacks[key];
+    if(!a) return;
+    const r = a.range || "(未設定)";
+    if(counts[r] != null) counts[r]++; else counts["その他"]++;
+    if(!byKey[key]) byKey[key] = { "単体":0, "全体":0, "補助":0, "その他":0 };
+    if(byKey[key][r] != null) byKey[key][r]++; else byKey[key]["その他"]++;
+   });
+  });
+ });
+ let msg = "【全体集計】\n" + JSON.stringify(counts, null, 0) + "\n\n【攻撃キー別】\n";
+ Object.keys(byKey).forEach(k=>{
+  msg += k + " → 単体" + byKey[k]["単体"] + " / 全体" + byKey[k]["全体"] + " / 補助" + byKey[k]["補助"] + "\n";
+ });
+ msg += "\n※弾に単体/全体が記録された攻撃は「一括再判定」で直せます。\n※古いデータは wiki/Gamerch の再取り込みか手修正が必要です。";
+ alert(msg);
+}
+
+function adminBulkRecomputeAttackRanges(){
+ if(!confirm("全キャラの攻撃範囲を、弾に記録された単体/全体から再判定します。\n（弾に情報がない攻撃は変更しません）\n続行しますか？")) return;
+ let changed = 0, scanned = 0, charsTouched = 0;
+ (data||[]).forEach(c=>{
+  let charCh = false;
+  adminGetCharAttackBags(c).forEach(bag=>{
+   Object.keys(bag.attacks||{}).forEach(key=>{
+    const a = bag.attacks[key];
+    if(!a || a.range === "補助") return;
+    scanned++;
+    const det = (typeof detectAttackRangeFromAttack === "function") ? detectAttackRangeFromAttack(a) : "";
+    if(det && det !== a.range){
+     a.range = det;
+     changed++;
+     charCh = true;
+    }
+   });
+  });
+  if(charCh) charsTouched++;
+ });
+ alert("再判定完了\n変更: " + changed + "件 / 走査: " + scanned + "件 / キャラ: " + charsTouched + "体\n\nメモリ上は更新済みです。永続化は各キャラを保存するか、再取り込みしてください。");
+}
+
 function adminRunDebugSearch(predicate, label){
  if(!isAdmin()){ alert("管理者のみ利用できます"); return; }
  const hits = (data || []).filter(c => {
@@ -15013,7 +15135,12 @@ if(tabOwnedEl){
 // 条件変更だけでは検索しない（「検索する」ボタンで実行）
 (function(){
   const sameBtn = document.getElementById("adminSearchSameStats");
+
   if(sameBtn) sameBtn.onclick = ()=> adminRunDebugSearch(adminMatchSameRebirthStats, "転生前後ステータス同一／まだ不明");
+  const rangeFixBtn = document.getElementById("adminBulkRangeFix");
+  if(rangeFixBtn) rangeFixBtn.onclick = ()=> adminBulkRecomputeAttackRanges();
+  const rangeRepBtn = document.getElementById("adminRangeReport");
+  if(rangeRepBtn) rangeRepBtn.onclick = ()=> adminReportAttackRanges();
   try{ updateAdminDebugSearchVisibility(); }catch(e){}
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 500);
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 1500);
