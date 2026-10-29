@@ -7469,36 +7469,30 @@ function formatSpecialSkillDetailText(name, d){
  const bits = [];
  if(name === "ファスト" || name === "チャージ"){
   normalizeFastChargeData(d);
+  const skillLabel = name;
   const rateSuf = (d.rateOn && d.rate !== "" && d.rate != null)
    ? ("発生率" + String(d.rate) + "%で付与")
    : "";
-  const withRate = (s)=>{
-   if(!s) return s;
-   return rateSuf ? (s + " " + rateSuf) : s;
+  const line = (tgt, n, xc)=>{
+   const num = (n !== "" && n != null) ? String(n) : "1";
+   let s = tgt + "に" + skillLabel + "を" + num + "個付与";
+   if(xc) s += "(X-Change時のみ)";
+   if(rateSuf) s += " " + rateSuf;
+   return s;
   };
   const parts = [];
-  if(d.self){
-   const n = (d.selfCount !== "" && d.selfCount != null) ? String(d.selfCount) : "1";
-   parts.push(withRate(`自身 ${n}個`));
-  }
-  if(d.team){
-   const n = (d.teamCount !== "" && d.teamCount != null) ? String(d.teamCount) : "1";
-   parts.push(withRate(`味方全体 ${n}個`));
-  }
-  if(d.xcSelf){
-   const n = (d.xcSelfCount !== "" && d.xcSelfCount != null) ? `${d.xcSelfCount}個` : "";
-   parts.push(withRate((n ? `自身 ${n}` : "自身") + "(X-Change時のみ)"));
-  }
-  if(d.xcTeam){
-   const n = (d.xcTeamCount !== "" && d.xcTeamCount != null) ? `${d.xcTeamCount}個` : "";
-   parts.push(withRate((n ? `味方全体 ${n}` : "味方全体") + "(X-Change時のみ)"));
-  }
+  if(d.self) parts.push(line("自身", d.selfCount, false));
+  if(d.team) parts.push(line("味方全体", d.teamCount, false));
+  if(d.xcSelf) parts.push(line("自身", d.xcSelfCount, true));
+  if(d.xcTeam) parts.push(line("味方全体", d.xcTeamCount, true));
   if(!parts.length && d.target){
-   if(d.count !== "" && d.count != null) parts.push(withRate(`${d.target} ${d.count}個`));
-   else parts.push(withRate(d.target));
+   parts.push(line(d.target === "味方全体" ? "味方全体" : "自身", d.count, false));
   }
-  return parts.join(" / ");
+  if(!parts.length) parts.push(line("自身", "1", false));
+  return parts.join(String.fromCharCode(10));
  }
+
+
  if(name === "RANKⅡバフ" || name === "RANKⅡデバフ"){
   const list = Array.isArray(d.list) ? d.list : [];
   return list.map(item => formatRank2DetailLine(item, name)).filter(Boolean).join(String.fromCharCode(10));
@@ -7509,21 +7503,16 @@ function formatSpecialSkillDetailText(name, d){
   const verb = isBuff ? "アップ" : "ダウン";
   return list.map(item=>{
    if(!item) return "";
-   let tgt = String(item.target || (isBuff ? "自身" : "相手")).trim();
-   if(isBuff){
-    if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体") tgt = "味方全体";
-    else tgt = "自身";
-   }else{
-    if(tgt === "対象" || tgt === "自身") tgt = "相手";
-    if(tgt === "敵全体" || tgt === "味方全体") tgt = "相手全体";
-    if(tgt !== "相手全体") tgt = "相手";
-   }
+   let tgt = String(item.target || "自身").trim();
+   if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体" || tgt === "対象全体") tgt = "味方全体";
+   else tgt = "自身";
    const st = pickRank2Stat(item) || "各ステータス";
    const stageVal = pickRank2Stage(item);
    const n = (stageVal !== "" && stageVal != null) ? String(stageVal) : "n";
-   return tgt + "の" + st + "を" + n + "段階" + verb;
+   return tgt + "の" + st + "を" + n + "段階" + verb + "(永続)";
   }).filter(Boolean).join(String.fromCharCode(10));
  }
+
 
  if(name === "禁止解除"){
   normalizeBanReleaseData(d);
@@ -7992,19 +7981,16 @@ function formatSpecialSkillsHtml(ss, opts){
    if(list.length){
     list.forEach(item=>{
      if(!item) return;
-     const tgt = String(item.target || (x==="永続バフ"?"自身":"対象")).trim();
-     const st = pickRank2Stat(item);
+     let tgt = String(item.target || "自身").trim();
+     if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体" || tgt === "対象全体") tgt = "味方全体";
+     else tgt = "自身";
+     const st = pickRank2Stat(item) || "各ステータス";
      const stageVal = pickRank2Stage(item);
-     const detailBits = [];
-     if(tgt) detailBits.push(tgt);
-     if(st) detailBits.push("「" + st + "」");
-     if(stageVal !== "" && stageVal != null) detailBits.push(String(stageVal) + "段階");
-     if(detailBits.length){
-      const pDetail = withXChangeOnlySuffix(detailBits.join(" · "), ss[x]);
-      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(pDetail)}</span></div>`);
-     }else{
-      parts.push(`<div class="skill-detail-line" style="margin:6px 0;">${tagWithHl(x, matched, cls)}${ss[x].xChangeOnly?' <span style="font-size:12px;">(X-Change時のみ)</span>':''}</div>`);
-     }
+     const n = (stageVal !== "" && stageVal != null) ? String(stageVal) : "n";
+     const verb = x === "永続バフ" ? "アップ" : "ダウン";
+     const line = tgt + "の" + st + "を" + n + "段階" + verb + "(永続)";
+     const pDetail = withXChangeOnlySuffix(line, ss[x]);
+     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(pDetail)}</span></div>`);
     });
    }else{
     parts.push(tagWithHl(x, matched, cls));
@@ -9295,7 +9281,7 @@ function buildSpecialDetail(skill, e){
   case "永続バフ":
   case "永続デバフ":
    if(!d.list) d.list = [];
-   if(d.list.length === 0) d.list.push({ target: skill==="永続バフ"?"自身":"相手", stat:"", rank:"" });
+   if(d.list.length === 0) d.list.push({ target: "自身", stat:"", rank:"" });
    renderPersistList(skill, e);
    break;
   case DD_SKILL:
@@ -9515,26 +9501,17 @@ function renderPersistList(skill, container){
  if(!d.list) d.list = [];
  if(container) container.setAttribute("data-persist-skill", skill);
  let html = "";
- const isBuff = skill === "永続バフ";
  d.list.forEach((item, idx)=>{
-  const tgt = item.target || (isBuff ? "自身" : "相手");
+  let tgt = String(item.target || "自身").trim();
+  if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体" || tgt === "対象全体") tgt = "味方全体";
+  else tgt = "自身";
   html += `
    <div class="rank-item" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
     <button type="button" class="btn-del" onclick="removePersistItem('${skill}', ${idx})">削除</button>
     <div class="mini">対象</div>
     <select class="select" onchange="updatePersistItem('${skill}', ${idx}, 'target', this.value)">
-     ${(()=>{
-       let t = String(tgt||"");
-       if(isBuff){
-         if(t === "味方全体" || t === "敵全体" || t === "相手全体") t = "味方全体";
-         else t = "自身";
-         return `<option value="自身" ${t==="自身"?"selected":""}>自身</option><option value="味方全体" ${t==="味方全体"?"selected":""}>味方全体</option>`;
-       }
-       if(t === "対象" || t === "自身") t = "相手";
-       if(t === "敵全体" || t === "味方全体") t = "相手全体";
-       if(t !== "相手全体") t = "相手";
-       return `<option value="相手" ${t==="相手"?"selected":""}>相手</option><option value="相手全体" ${t==="相手全体"?"selected":""}>相手全体</option>`;
-     })()}
+     <option value="自身" ${tgt==="自身"?"selected":""}>自身</option>
+     <option value="味方全体" ${tgt==="味方全体"?"selected":""}>味方全体</option>
     </select>
     <div class="mini" style="margin-top:6px">ステータス</div>
     <select class="select" onchange="updatePersistItem('${skill}', ${idx}, 'stat', this.value)">
@@ -9549,6 +9526,8 @@ function renderPersistList(skill, container){
  html += `<button type="button" class="btn-add" onclick="addPersistItem('${skill}')">＋ 設定を追加する</button>`;
  container.innerHTML = html;
 }
+
+
 function addPersistItem(skill){
  if(!specialData[skill]) specialData[skill] = { enabled:true, list:[] };
  if(!specialData[skill].list) specialData[skill].list = [];
