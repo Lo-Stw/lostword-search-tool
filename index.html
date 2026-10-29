@@ -307,6 +307,14 @@ header .notice .tagline{display:block;margin-bottom:4px;font-weight:700;color:#f
 .skill-detail-line{color:inherit;opacity:1}
 .skill-detail-line span{opacity:1 !important;font-weight:700}
 .result .muted, .attack .muted, .bento-tile .muted{opacity:.9;color:inherit}
+.bento-tile .skill-detail-line,
+.bento-tile .skill-detail-line span{
+  opacity:1 !important;
+  font-weight:700 !important;
+  color:inherit !important;
+}
+.bento-tile .tag{opacity:1 !important}
+
 body.theme-dark .skill-detail-line{color:#f0ebe3}
 .result{
  background:linear-gradient(165deg,#faf4e8,#efe4d0);
@@ -2658,6 +2666,108 @@ body.theme-dark .bullet-size-btns button.active{
 </div>
 </div>
 
+
+<div class="hidden" id="skillDetailSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
+<div class="mini" style="margin-bottom:8px;color:#666;font-weight:700;">特殊スキル詳細</div>
+<div id="skillDetailSeal" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">秘密封印：アップステータス</div>
+  <div id="fSealStat" class="buttons"></div>
+</div>
+<div id="skillDetailBarrier" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">大結界：アップステータス</div>
+  <div id="fBarrierUpStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">大結界：ダウンステータス</div>
+  <div id="fBarrierDownStat" class="buttons"></div>
+</div>
+<div id="skillDetailResonance" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">共鳴：ステータス</div>
+  <div id="fResonanceStat" class="buttons"></div>
+</div>
+<div id="skillDetailAttrBoost" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">属性強化：属性</div>
+  <div id="fAttrBoostAttr" class="buttons"></div>
+</div>
+<div id="skillDetailBulletBoost" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">弾強化：弾種</div>
+  <div id="fBulletBoostType" class="buttons"></div>
+</div>
+<div id="skillDetailAccum" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">蓄積：参照ステータス</div>
+  <div id="fAccumFromStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">蓄積：上乗せ先ステータス</div>
+  <div id="fAccumToStat" class="buttons"></div>
+</div>
+<div id="skillDetailDuration" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">持続：効果</div>
+  <div id="fDurationEffect" class="buttons"></div>
+</div>
+<div id="skillDetailWeak" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">弱点付与：属性</div>
+  <div id="fWeakAttr" class="buttons"></div>
+</div>
+<div id="skillDetailBuddy" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">バディコネクト：対象</div>
+  <div id="fBuddyTarget" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">バディコネクト：カウント種類</div>
+  <div id="fBuddyCountKind" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">バディコネクト：ステータス</div>
+  <div id="fBuddyStat" class="buttons"></div>
+</div>
+<div id="skillDetailZone" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">ゾーン：対象</div>
+  <div id="fZoneTarget" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">ゾーン：強化ステータス</div>
+  <div id="fZoneStat" class="buttons"></div>
+</div>
+<div id="skillDetailReverse" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">逆相：相手ダウンステータス</div>
+  <div id="fReverseDownStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">逆相：参照ステータス</div>
+  <div id="fReverseFromStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">逆相：上乗せ先ステータス</div>
+  <div id="fReverseToStat" class="buttons"></div>
+</div>
+<div id="skillDetailGauge" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">スペルゲージ遅延：対象</div>
+  <div id="fGaugeDelayTarget" class="buttons"></div>
+</div>
+<div id="skillDetailChiku" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">畜力：種類</div>
+  <div id="fChikuKind" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">畜力：対象</div>
+  <div id="fChikuTarget" class="buttons"></div>
+</div>
+<div id="skillDetailFav" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">有利属性ダメージアップ：対象</div>
+  <div id="fFavTarget" class="buttons"></div>
+</div>
+<div id="skillDetailUnfav" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">不利属性ダメージアップ：対象</div>
+  <div id="fUnfavTarget" class="buttons"></div>
+</div>
+<div id="skillDetailSkillCd" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">スキル再使用短縮：対象</div>
+  <div id="fSkillCdTarget" class="buttons"></div>
+</div>
+<div id="skillDetailUnity" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">団結：ステータス</div>
+  <div id="fUnityStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">団結：対象</div>
+  <div id="fUnityTarget" class="buttons"></div>
+</div>
+<div id="skillDetailFast" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">ファスト：対象（未選択時は自身として判定）</div>
+  <div id="fFastTarget" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">ファスト：個数</div>
+  <div id="fFastCount" class="buttons"></div>
+</div>
+<div id="skillDetailCharge" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">チャージ：対象（未選択時は自身として判定）</div>
+  <div id="fChargeTarget" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">チャージ：個数</div>
+  <div id="fChargeCount" class="buttons"></div>
+</div>
+</div>
 <div class="acc-section hidden" id="rank2DetailSection" data-acc>
 <button type="button" class="acc-head">RANKⅡ詳細 <span class="acc-icon">▼</span></button>
 <div class="acc-body">
@@ -2785,7 +2895,7 @@ body.theme-dark .bullet-size-btns button.active{
 </div>
 
   <div class="mini" style="font-weight:700;margin-bottom:6px">並び替え</div>
-  <div class="mini" style="margin-bottom:6px;color:#666;">デフォルトは L1（2026年9月現在の図鑑順）から、それ以降の実装順です</div>
+  <div class="mini" style="margin-bottom:6px;color:#666;">デフォルトは制作時（2026年9月の図鑑順）の L1から、それ以降の実装順です</div>
   <select id="sortMode" class="select" style="margin-bottom:12px">
     <option value="default" selected>デフォルト</option>
     <option value="impl_asc">実装順 ↑（古い→新しい）</option>
@@ -3729,7 +3839,15 @@ const selected={
  r2Source:[], r2Stat:[],
  abConvKind:[], abConvAbnormal:[], abImmKind:[], abImmAbnormal:[],
  abBoostTarget:[], abBoostStat:[], abGrazeTarget:[], abGrazeStat:[],
- owned:[]
+ owned:[],
+ sealStat:[], barrierUpStat:[], barrierDownStat:[],
+ resonanceStat:[], attrBoostAttr:[], bulletBoostType:[],
+ accumFromStat:[], accumToStat:[], durationEffect:[],
+ weakAttr:[], buddyTarget:[], buddyCountKind:[], buddyStat:[],
+ zoneTarget:[], zoneStat:[], reverseDownStat:[], reverseFromStat:[], reverseToStat:[],
+ gaugeDelayTarget:[], chikuKind:[], chikuTarget:[],
+ favTarget:[], unfavTarget:[], skillCdTarget:[], unityStat:[], unityTarget:[],
+ fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[]
 };
 const AB_TARGETS=["自身","味方全体"];
 const AB_CONV_KINDS=["攻Rank上昇","防Rank上昇","速Rank上昇","霊力上昇","体力回復"];
@@ -6754,6 +6872,435 @@ function updateDdDetailVisibility(){
  }
 }
 
+
+function collectSpecialSkillObjsFromData(skillName){
+ const out = [];
+ (data||[]).forEach(c=>{
+  const bags = [];
+  if(c.details && c.details.specialSkills) bags.push(c.details.specialSkills);
+  if(c.details && c.details.rebirth){
+   ["before","after"].forEach(s=>{
+    const p = c.details.rebirth[s];
+    if(p && p.specialSkills) bags.push(p.specialSkills);
+   });
+  }
+  try{
+   ["before","after"].forEach(side=>{
+    const pack = packFromCharacterSide(c, side);
+    if(pack && pack.specialSkills) bags.push(pack.specialSkills);
+   });
+  }catch(e){}
+  bags.forEach(ss=>{
+   const d = ss && ss[skillName];
+   if(d && d.enabled) out.push(d);
+  });
+ });
+ return out;
+}
+
+
+function collectSkillDetailOptions(){
+ const seal = new Set(), bUp = new Set(), bDown = new Set(), res = new Set();
+ const attrB = new Set(), bulB = new Set(), accFrom = new Set(), accTo = new Set(), dur = new Set();
+ const weak = new Set(), buddyTg = new Set(), buddyCk = new Set(), buddySt = new Set();
+ const zoneTg = new Set(), zoneSt = new Set();
+ const revDown = new Set(), revFrom = new Set(), revTo = new Set();
+ const gaugeTg = new Set(), chikuK = new Set(), chikuTg = new Set();
+ const favTg = new Set(), unfavTg = new Set(), cdTg = new Set(), unitySt = new Set(), unityTg = new Set();
+ const fastTg = new Set(), fastCnt = new Set(), chargeTg = new Set(), chargeCnt = new Set();
+
+ collectSpecialSkillObjsFromData("秘密封印").forEach(d=>{
+  (Array.isArray(d.stats) ? d.stats : (d.upStat ? [d.upStat] : [])).forEach(x=>{ if(x) seal.add(String(x)); });
+ });
+ collectSpecialSkillObjsFromData("大結界").forEach(d=>{
+  const up = d.upStat || d.stat || d.up;
+  const down = d.downStat || d.down;
+  if(up) bUp.add(String(up));
+  if(down) bDown.add(String(down));
+ });
+ collectSpecialSkillObjsFromData("共鳴").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ stat:d.stat }];
+  list.forEach(it=>{ if(it && it.stat) res.add(String(it.stat)); });
+ });
+ collectSpecialSkillObjsFromData("属性強化").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ attr:d.attr }];
+  list.forEach(it=>{ if(it && it.attr) attrB.add(String(it.attr)); });
+ });
+ collectSpecialSkillObjsFromData("弾強化").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ bullet:d.bullet }];
+  list.forEach(it=>{ if(it && it.bullet) bulB.add(String(it.bullet)); });
+ });
+ collectSpecialSkillObjsFromData("蓄積").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ fromStat:d.fromStat, toStat:d.toStat }];
+  list.forEach(it=>{
+   if(it && it.fromStat) accFrom.add(String(it.fromStat));
+   if(it && it.toStat) accTo.add(String(it.toStat));
+  });
+ });
+ collectSpecialSkillObjsFromData("持続").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ effect:d.effect }];
+  list.forEach(it=>{
+   let eff = it && it.effect;
+   if(eff === "霊力上昇") eff = "霊力";
+   if(eff) dur.add(String(eff));
+  });
+ });
+ collectSpecialSkillObjsFromData("弱点付与").forEach(d=>{ if(d.attr) weak.add(String(d.attr)); });
+ collectSpecialSkillObjsFromData("バディコネクト").forEach(d=>{
+  if(d.target) buddyTg.add(String(d.target));
+  if(d.countKind) buddyCk.add(String(d.countKind));
+  if(d.stat) buddySt.add(String(d.stat));
+ });
+ collectSpecialSkillObjsFromData("ゾーン").forEach(d=>{
+  if(d.target) zoneTg.add(String(d.target));
+  if(d.stat) zoneSt.add(String(d.stat));
+ });
+ collectSpecialSkillObjsFromData("逆相").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [d];
+  list.forEach(it=>{
+   if(!it) return;
+   if(it.downStat) revDown.add(String(it.downStat));
+   if(it.fromStat || it.upStat) revFrom.add(String(it.fromStat || it.upStat));
+   if(it.toStat) revTo.add(String(it.toStat));
+  });
+ });
+ collectSpecialSkillObjsFromData("スペルゲージ遅延").forEach(d=>{ if(d.target) gaugeTg.add(String(d.target)); });
+ collectSpecialSkillObjsFromData("畜力").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [d];
+  list.forEach(it=>{
+   if(!it) return;
+   if(it.kind) chikuK.add(String(it.kind));
+   if(it.target) chikuTg.add(String(it.target));
+  });
+ });
+ collectSpecialSkillObjsFromData("有利属性ダメージアップ").forEach(d=>{ if(d.target) favTg.add(String(d.target)); });
+ collectSpecialSkillObjsFromData("不利属性ダメージアップ").forEach(d=>{ if(d.target) unfavTg.add(String(d.target)); });
+ collectSpecialSkillObjsFromData("スキル再使用ターン数短縮").forEach(d=>{ if(d.target) cdTg.add(String(d.target)); });
+ collectSpecialSkillObjsFromData("団結").forEach(d=>{
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [d];
+  list.forEach(it=>{
+   if(!it) return;
+   if(it.stat) unitySt.add(String(it.stat));
+   if(it.target) unityTg.add(String(it.target));
+  });
+ });
+
+
+ collectSpecialSkillObjsFromData("ファスト").forEach(d=>{
+  try{ if(typeof normalizeFastChargeData==="function") normalizeFastChargeData(d); }catch(e){}
+  if(d.self){ fastTg.add("自身"); if(d.selfCount!==""&&d.selfCount!=null) fastCnt.add(String(d.selfCount)); }
+  if(d.team){ fastTg.add("味方全体"); if(d.teamCount!==""&&d.teamCount!=null) fastCnt.add(String(d.teamCount)); }
+  if(d.target==="自身"||d.target==="味方全体"){
+   fastTg.add(d.target);
+   if(d.count!==""&&d.count!=null) fastCnt.add(String(d.count));
+  }
+ });
+ collectSpecialSkillObjsFromData("チャージ").forEach(d=>{
+  try{ if(typeof normalizeFastChargeData==="function") normalizeFastChargeData(d); }catch(e){}
+  if(d.self){ chargeTg.add("自身"); if(d.selfCount!==""&&d.selfCount!=null) chargeCnt.add(String(d.selfCount)); }
+  if(d.team){ chargeTg.add("味方全体"); if(d.teamCount!==""&&d.teamCount!=null) chargeCnt.add(String(d.teamCount)); }
+  if(d.target==="自身"||d.target==="味方全体"){
+   chargeTg.add(d.target);
+   if(d.count!==""&&d.count!=null) chargeCnt.add(String(d.count));
+  }
+ });
+ return {
+  sealStat: [...seal].sort(), barrierUpStat: [...bUp].sort(), barrierDownStat: [...bDown].sort(),
+  resonanceStat: [...res].sort(), attrBoostAttr: [...attrB].sort(), bulletBoostType: [...bulB].sort(),
+  accumFromStat: [...accFrom].sort(), accumToStat: [...accTo].sort(), durationEffect: [...dur].sort(),
+  weakAttr: [...weak].sort(), buddyTarget: [...buddyTg].sort(), buddyCountKind: [...buddyCk].sort(), buddyStat: [...buddySt].sort(),
+  zoneTarget: [...zoneTg].sort(), zoneStat: [...zoneSt].sort(),
+  reverseDownStat: [...revDown].sort(), reverseFromStat: [...revFrom].sort(), reverseToStat: [...revTo].sort(),
+  gaugeDelayTarget: [...gaugeTg].sort(), chikuKind: [...chikuK].sort(), chikuTarget: [...chikuTg].sort(),
+  favTarget: [...favTg].sort(), unfavTarget: [...unfavTg].sort(), skillCdTarget: [...cdTg].sort(),
+  unityStat: [...unitySt].sort(), unityTarget: [...unityTg].sort(),
+  fastTarget: [...fastTg].sort(), fastCount: [...fastCnt].sort((a,b)=>Number(a)-Number(b)),
+  chargeTarget: [...chargeTg].sort(), chargeCount: [...chargeCnt].sort((a,b)=>Number(a)-Number(b))
+ };
+}
+
+function updateSkillDetailVisibility(){
+ const sec = document.getElementById("skillDetailSection");
+ if(!sec) return;
+ const flags = {
+  seal: selected.char.includes("秘密封印"),
+  bar: selected.char.includes("大結界"),
+  res: selected.char.includes("共鳴"),
+  attr: selected.char.includes("属性強化"),
+  bul: selected.char.includes("弾強化"),
+  acc: selected.char.includes("蓄積"),
+  dur: selected.char.includes("持続"),
+  weak: selected.char.includes("弱点付与"),
+  buddy: selected.char.includes("バディコネクト"),
+  zone: selected.char.includes("ゾーン"),
+  rev: selected.char.includes("逆相"),
+  gauge: selected.char.includes("スペルゲージ遅延"),
+  chiku: selected.char.includes("畜力"),
+  fav: selected.char.includes("有利属性ダメージアップ"),
+  unfav: selected.char.includes("不利属性ダメージアップ"),
+  cd: selected.char.includes("スキル再使用ターン数短縮"),
+  unity: selected.char.includes("団結"),
+  fast: selected.char.includes("ファスト"),
+  charge: selected.char.includes("チャージ")
+ };
+ const any = Object.values(flags).some(Boolean);
+ sec.classList.toggle("hidden", !any);
+ const opts = any ? collectSkillDetailOptions() : null;
+ const box = (id, on)=>{ const el=document.getElementById(id); if(el) el.classList.toggle("hidden", !on); };
+ box("skillDetailSeal", flags.seal); box("skillDetailBarrier", flags.bar);
+ box("skillDetailResonance", flags.res); box("skillDetailAttrBoost", flags.attr);
+ box("skillDetailBulletBoost", flags.bul); box("skillDetailAccum", flags.acc);
+ box("skillDetailDuration", flags.dur); box("skillDetailWeak", flags.weak);
+ box("skillDetailBuddy", flags.buddy); box("skillDetailZone", flags.zone);
+ box("skillDetailReverse", flags.rev); box("skillDetailGauge", flags.gauge);
+ box("skillDetailChiku", flags.chiku); box("skillDetailFav", flags.fav);
+ box("skillDetailUnfav", flags.unfav); box("skillDetailSkillCd", flags.cd);
+ box("skillDetailUnity", flags.unity);
+ box("skillDetailFast", flags.fast);
+ box("skillDetailCharge", flags.charge);
+
+ const clear = (arr)=>{ if(arr && arr.splice) arr.splice(0); };
+ if(!flags.seal) clear(selected.sealStat);
+ if(!flags.bar){ clear(selected.barrierUpStat); clear(selected.barrierDownStat); }
+ if(!flags.res) clear(selected.resonanceStat);
+ if(!flags.attr) clear(selected.attrBoostAttr);
+ if(!flags.bul) clear(selected.bulletBoostType);
+ if(!flags.acc){ clear(selected.accumFromStat); clear(selected.accumToStat); }
+ if(!flags.dur) clear(selected.durationEffect);
+ if(!flags.weak) clear(selected.weakAttr);
+ if(!flags.buddy){ clear(selected.buddyTarget); clear(selected.buddyCountKind); clear(selected.buddyStat); }
+ if(!flags.zone){ clear(selected.zoneTarget); clear(selected.zoneStat); }
+ if(!flags.rev){ clear(selected.reverseDownStat); clear(selected.reverseFromStat); clear(selected.reverseToStat); }
+ if(!flags.gauge) clear(selected.gaugeDelayTarget);
+ if(!flags.chiku){ clear(selected.chikuKind); clear(selected.chikuTarget); }
+ if(!flags.fav) clear(selected.favTarget);
+ if(!flags.unfav) clear(selected.unfavTarget);
+ if(!flags.cd) clear(selected.skillCdTarget);
+ if(!flags.unity){ clear(selected.unityStat); clear(selected.unityTarget); }
+ if(!flags.fast){ clear(selected.fastTarget); clear(selected.fastCount); }
+ if(!flags.charge){ clear(selected.chargeTarget); clear(selected.chargeCount); }
+
+ if(!opts) return;
+ const chip = (id, arr, sel, chipOpts)=>{ if(arr && arr.length) chips(id, arr, sel, (x,b)=>toggle(sel,x,b), chipOpts||{}); else { const e=document.getElementById(id); if(e) e.innerHTML = '<span class="mini" style="opacity:.7;">実装データなし</span>'; } };
+ if(flags.seal) chip("fSealStat", opts.sealStat, selected.sealStat);
+ if(flags.bar){ chip("fBarrierUpStat", opts.barrierUpStat, selected.barrierUpStat); chip("fBarrierDownStat", opts.barrierDownStat, selected.barrierDownStat); }
+ if(flags.res) chip("fResonanceStat", opts.resonanceStat, selected.resonanceStat);
+ if(flags.attr) chip("fAttrBoostAttr", opts.attrBoostAttr, selected.attrBoostAttr, { attrColor:true });
+ if(flags.bul) chip("fBulletBoostType", opts.bulletBoostType, selected.bulletBoostType, { bulletIcon:true });
+ if(flags.acc){ chip("fAccumFromStat", opts.accumFromStat, selected.accumFromStat); chip("fAccumToStat", opts.accumToStat, selected.accumToStat); }
+ if(flags.dur) chip("fDurationEffect", opts.durationEffect, selected.durationEffect);
+ if(flags.weak) chip("fWeakAttr", opts.weakAttr, selected.weakAttr, { attrColor:true });
+ if(flags.buddy){ chip("fBuddyTarget", opts.buddyTarget, selected.buddyTarget); chip("fBuddyCountKind", opts.buddyCountKind, selected.buddyCountKind); chip("fBuddyStat", opts.buddyStat, selected.buddyStat); }
+ if(flags.zone){ chip("fZoneTarget", opts.zoneTarget, selected.zoneTarget); chip("fZoneStat", opts.zoneStat, selected.zoneStat); }
+ if(flags.rev){ chip("fReverseDownStat", opts.reverseDownStat, selected.reverseDownStat); chip("fReverseFromStat", opts.reverseFromStat, selected.reverseFromStat); chip("fReverseToStat", opts.reverseToStat, selected.reverseToStat); }
+ if(flags.gauge) chip("fGaugeDelayTarget", opts.gaugeDelayTarget, selected.gaugeDelayTarget);
+ if(flags.chiku){ chip("fChikuKind", opts.chikuKind, selected.chikuKind); chip("fChikuTarget", opts.chikuTarget, selected.chikuTarget); }
+ if(flags.fav) chip("fFavTarget", opts.favTarget, selected.favTarget);
+ if(flags.unfav) chip("fUnfavTarget", opts.unfavTarget, selected.unfavTarget);
+ if(flags.cd) chip("fSkillCdTarget", opts.skillCdTarget, selected.skillCdTarget);
+ if(flags.unity){ chip("fUnityStat", opts.unityStat, selected.unityStat); chip("fUnityTarget", opts.unityTarget, selected.unityTarget); }
+ if(flags.fast){
+  const ft = (opts.fastTarget && opts.fastTarget.length) ? opts.fastTarget.slice() : ["自身","味方全体"];
+  if(!ft.includes("自身")) ft.unshift("自身");
+  if(!ft.includes("味方全体")) ft.push("味方全体");
+  chip("fFastTarget", ft, selected.fastTarget);
+  chip("fFastCount", opts.fastCount, selected.fastCount);
+ }
+ if(flags.charge){
+  const ct = (opts.chargeTarget && opts.chargeTarget.length) ? opts.chargeTarget.slice() : ["自身","味方全体"];
+  if(!ct.includes("自身")) ct.unshift("自身");
+  if(!ct.includes("味方全体")) ct.push("味方全体");
+  chip("fChargeTarget", ct, selected.chargeTarget);
+  chip("fChargeCount", opts.chargeCount, selected.chargeCount);
+ }
+}
+
+
+function mergeSpecialSkillsForMatch(c, pack, ss){
+ const merged = {};
+ const score = (x)=>{
+  if(!x || typeof x !== "object") return 0;
+  let s = x.enabled ? 1 : 0;
+  if(x.upStat) s += 3;
+  if(x.downStat) s += 3;
+  if(x.attr) s += 2;
+  if(x.stat) s += 2;
+  if(Array.isArray(x.stats) && x.stats.length) s += x.stats.length;
+  if(Array.isArray(x.list) && x.list.length) s += x.list.length;
+  if(x.breakEffect) s += 1;
+  return s;
+ };
+ const add = (src)=>{
+  if(!src || typeof src !== "object") return;
+  Object.keys(src).forEach(k=>{
+   const d = src[k];
+   if(!d || typeof d !== "object") return;
+   if(!merged[k]){ merged[k] = d; return; }
+   // 詳細が多い方を優先。同点なら enabled をマージ
+   if(score(d) > score(merged[k])){
+    merged[k] = Object.assign({}, merged[k], d);
+   } else {
+    merged[k] = Object.assign({}, d, merged[k]);
+    if(d.enabled || merged[k].enabled) merged[k].enabled = true;
+   }
+  });
+ };
+ add(ss);
+ add(pack && pack.specialSkills);
+ if(c){
+  add(c.details && c.details.specialSkills);
+  add(c.details && c.details.skills);
+  if(c.details && c.details.rebirth){
+   add(c.details.rebirth.before && c.details.rebirth.before.specialSkills);
+   add(c.details.rebirth.after && c.details.rebirth.after.specialSkills);
+  }
+ }
+ return merged;
+}
+
+function getSelectedChipValues(id){
+ const e = document.getElementById(id);
+ if(!e) return [];
+ return Array.from(e.querySelectorAll("button.selected")).map(b => (b.textContent || "").trim()).filter(Boolean);
+}
+function skillDetailSel(arr, id){
+ if(arr && arr.length) return arr.slice();
+ return getSelectedChipValues(id);
+}
+
+function matchSkillDetailFilters(ss){
+ if(!ss) return false;
+ const has = (arr)=>arr && arr.length;
+ if(selected.char.includes("秘密封印")){
+  const sealSel = skillDetailSel(selected.sealStat, "fSealStat");
+  if(sealSel.length){
+   const d = ss["秘密封印"]; if(!d||!d.enabled) return false;
+   const stats = Array.isArray(d.stats)&&d.stats.length ? d.stats : (d.upStat?[d.upStat]:[]);
+   if(!matchArray(sealSel, stats.map(String), mode)) return false;
+  }
+ }
+ if(selected.char.includes("大結界")){
+  const upSel = skillDetailSel(selected.barrierUpStat, "fBarrierUpStat");
+  const downSel = skillDetailSel(selected.barrierDownStat, "fBarrierDownStat");
+  if(upSel.length || downSel.length){
+   const d = ss["大結界"];
+   if(!d || !d.enabled) return false;
+   const upStat = d.upStat || d.stat || d.up || "";
+   const downStat = d.downStat || d.down || "";
+   if(upSel.length){
+    if(!upStat || !upSel.includes(String(upStat))) return false;
+   }
+   if(downSel.length){
+    if(!downStat || !downSel.includes(String(downStat))) return false;
+   }
+  }
+ }
+ if(selected.char.includes("共鳴") && has(selected.resonanceStat)){
+  const d = ss["共鳴"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{stat:d.stat}];
+  if(!matchArray(selected.resonanceStat, list.map(it=>it&&it.stat).filter(Boolean).map(String), mode)) return false;
+ }
+ if(selected.char.includes("属性強化") && has(selected.attrBoostAttr)){
+  const d = ss["属性強化"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{attr:d.attr}];
+  if(!matchArray(selected.attrBoostAttr, list.map(it=>it&&it.attr).filter(Boolean).map(String), mode)) return false;
+ }
+ if(selected.char.includes("弾強化") && has(selected.bulletBoostType)){
+  const d = ss["弾強化"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{bullet:d.bullet}];
+  if(!matchArray(selected.bulletBoostType, list.map(it=>it&&it.bullet).filter(Boolean).map(String), mode)) return false;
+ }
+ if(selected.char.includes("蓄積") && (has(selected.accumFromStat)||has(selected.accumToStat))){
+  const d = ss["蓄積"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{fromStat:d.fromStat,toStat:d.toStat}];
+  if(has(selected.accumFromStat) && !matchArray(selected.accumFromStat, list.map(it=>it&&it.fromStat).filter(Boolean).map(String), mode)) return false;
+  if(has(selected.accumToStat) && !matchArray(selected.accumToStat, list.map(it=>it&&it.toStat).filter(Boolean).map(String), mode)) return false;
+ }
+ if(selected.char.includes("持続") && has(selected.durationEffect)){
+  const d = ss["持続"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{effect:d.effect}];
+  const effects = list.map(it=>{ let e=it&&it.effect; if(e==="霊力上昇") e="霊力"; return e; }).filter(Boolean).map(String);
+  if(!matchArray(selected.durationEffect, effects, mode)) return false;
+ }
+ if(selected.char.includes("弱点付与") && has(selected.weakAttr)){
+  const d = ss["弱点付与"]; if(!d||!d.enabled||!d.attr) return false;
+  if(!selected.weakAttr.includes(String(d.attr))) return false;
+ }
+ if(selected.char.includes("バディコネクト") && (has(selected.buddyTarget)||has(selected.buddyCountKind)||has(selected.buddyStat))){
+  const d = ss["バディコネクト"]; if(!d||!d.enabled) return false;
+  if(has(selected.buddyTarget) && !selected.buddyTarget.includes(String(d.target||""))) return false;
+  if(has(selected.buddyCountKind) && !selected.buddyCountKind.includes(String(d.countKind||""))) return false;
+  if(has(selected.buddyStat) && !selected.buddyStat.includes(String(d.stat||""))) return false;
+ }
+ if(selected.char.includes("ゾーン") && (has(selected.zoneTarget)||has(selected.zoneStat))){
+  const d = ss["ゾーン"]; if(!d||!d.enabled) return false;
+  if(has(selected.zoneTarget) && !selected.zoneTarget.includes(String(d.target||""))) return false;
+  if(has(selected.zoneStat) && !selected.zoneStat.includes(String(d.stat||""))) return false;
+ }
+ if(selected.char.includes("逆相") && (has(selected.reverseDownStat)||has(selected.reverseFromStat)||has(selected.reverseToStat))){
+  const d = ss["逆相"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [d];
+  if(has(selected.reverseDownStat) && !matchArray(selected.reverseDownStat, list.map(it=>it&&it.downStat).filter(Boolean).map(String), mode)) return false;
+  if(has(selected.reverseFromStat) && !matchArray(selected.reverseFromStat, list.map(it=>it&&(it.fromStat||it.upStat)).filter(Boolean).map(String), mode)) return false;
+  if(has(selected.reverseToStat) && !matchArray(selected.reverseToStat, list.map(it=>it&&it.toStat).filter(Boolean).map(String), mode)) return false;
+ }
+ if(selected.char.includes("スペルゲージ遅延") && has(selected.gaugeDelayTarget)){
+  const d = ss["スペルゲージ遅延"]; if(!d||!d.enabled) return false;
+  if(!selected.gaugeDelayTarget.includes(String(d.target||""))) return false;
+ }
+ if(selected.char.includes("畜力") && (has(selected.chikuKind)||has(selected.chikuTarget))){
+  const d = ss["畜力"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [d];
+  if(has(selected.chikuKind) && !matchArray(selected.chikuKind, list.map(it=>it&&it.kind).filter(Boolean).map(String), mode)) return false;
+  if(has(selected.chikuTarget) && !matchArray(selected.chikuTarget, list.map(it=>it&&it.target).filter(Boolean).map(String), mode)) return false;
+ }
+ if(selected.char.includes("有利属性ダメージアップ") && has(selected.favTarget)){
+  const d = ss["有利属性ダメージアップ"]; if(!d||!d.enabled) return false;
+  if(!selected.favTarget.includes(String(d.target||"味方全体"))) return false;
+ }
+ if(selected.char.includes("不利属性ダメージアップ") && has(selected.unfavTarget)){
+  const d = ss["不利属性ダメージアップ"]; if(!d||!d.enabled) return false;
+  if(!selected.unfavTarget.includes(String(d.target||"味方全体"))) return false;
+ }
+ if(selected.char.includes("スキル再使用ターン数短縮") && has(selected.skillCdTarget)){
+  const d = ss["スキル再使用ターン数短縮"]; if(!d||!d.enabled) return false;
+  if(!selected.skillCdTarget.includes(String(d.target||""))) return false;
+ }
+ if(selected.char.includes("団結") && (has(selected.unityStat)||has(selected.unityTarget))){
+  const d = ss["団結"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [d];
+  if(has(selected.unityStat) && !matchArray(selected.unityStat, list.map(it=>it&&it.stat).filter(Boolean).map(String), mode)) return false;
+  if(has(selected.unityTarget) && !matchArray(selected.unityTarget, list.map(it=>it&&it.target).filter(Boolean).map(String), mode)) return false;
+ }
+ function matchFastCharge(skillName, targets, counts){
+  const d = ss[skillName];
+  if(!d || !d.enabled) return false;
+  try{ if(typeof normalizeFastChargeData==="function") normalizeFastChargeData(d); }catch(e){}
+  const wantTargets = (targets && targets.length) ? targets : ["自身"];
+  const haveTargets = [];
+  if(d.self) haveTargets.push("自身");
+  if(d.team) haveTargets.push("味方全体");
+  if(!haveTargets.length && (d.target==="自身"||d.target==="味方全体")) haveTargets.push(d.target);
+  if(!haveTargets.length) return false;
+  if(!matchArray(wantTargets, haveTargets, mode)) return false;
+  if(counts && counts.length){
+   const haveCounts = [];
+   if(d.self) haveCounts.push(String((d.selfCount!==""&&d.selfCount!=null)?d.selfCount:"1"));
+   if(d.team) haveCounts.push(String((d.teamCount!==""&&d.teamCount!=null)?d.teamCount:"1"));
+   if(d.count!==""&&d.count!=null) haveCounts.push(String(d.count));
+   if(!haveCounts.length || !matchArray(counts, haveCounts, mode)) return false;
+  }
+  return true;
+ }
+ if(selected.char.includes("ファスト") && (has(selected.fastTarget)||has(selected.fastCount))){
+  if(!matchFastCharge("ファスト", selected.fastTarget, selected.fastCount)) return false;
+ }
+ if(selected.char.includes("チャージ") && (has(selected.chargeTarget)||has(selected.chargeCount))){
+  if(!matchFastCharge("チャージ", selected.chargeTarget, selected.chargeCount)) return false;
+ }
+ return true;
+}
+
 function updateRank2DetailVisibility(){
  const sec = document.getElementById("rank2DetailSection");
  if(!sec) return;
@@ -6823,7 +7370,7 @@ function buildFilters(){
  bindSpecialFilterLongPress();
  chips("fChar", SEARCH_SPECIAL_SKILLS, selected.char, (x,b)=>{
   toggle(selected.char,x,b);
-  updateRank2DetailVisibility();
+  updateRank2DetailVisibility(); try{updateSkillDetailVisibility();}catch(e){}
   updateDdDetailVisibility();
   updateBanReleaseVisibility();
  });
@@ -6852,7 +7399,7 @@ function buildFilters(){
  updateDdDetailVisibility();
  updateSpecialTargetVisibility();
  bindSpecialFilterLongPress();
- updateRank2DetailVisibility();
+ updateRank2DetailVisibility(); try{updateSkillDetailVisibility();}catch(e){}
  updateBanReleaseVisibility();
  updateAbilityDetailVisibility();
   initAccordions();
@@ -6931,12 +7478,12 @@ function formatSpecialSkillDetailText(name, d){
   };
   const parts = [];
   if(d.self){
-   const n = (d.selfCount !== "" && d.selfCount != null) ? `${d.selfCount}個` : "";
-   parts.push(withRate(n ? `自身 ${n}` : "自身"));
+   const n = (d.selfCount !== "" && d.selfCount != null) ? String(d.selfCount) : "1";
+   parts.push(withRate(`自身 ${n}個`));
   }
   if(d.team){
-   const n = (d.teamCount !== "" && d.teamCount != null) ? `${d.teamCount}個` : "";
-   parts.push(withRate(n ? `味方全体 ${n}` : "味方全体"));
+   const n = (d.teamCount !== "" && d.teamCount != null) ? String(d.teamCount) : "1";
+   parts.push(withRate(`味方全体 ${n}個`));
   }
   if(d.xcSelf){
    const n = (d.xcSelfCount !== "" && d.xcSelfCount != null) ? `${d.xcSelfCount}個` : "";
@@ -7371,8 +7918,22 @@ function formatSpecialSkillsHtml(ss, opts){
  const options = opts || {};
  const parts = [];
  ss = normalizeSpecialSkillsObject(ss);
+ const charFilters = selected.char || [];
+ const filterBySearch = !!options.filterBySearch;
+ const onlySelectedSkills = filterBySearch && charFilters.length > 0;
+ const r2StageQ = (document.getElementById("fR2Stage")?.value || "").trim();
+ const hasR2Detail = filterBySearch && ((selected.r2Source||[]).length || (selected.r2Stat||[]).length || !!r2StageQ);
+ const onlyRank2Detail = filterBySearch && !onlySelectedSkills && hasR2Detail;
  SPECIAL_SKILLS.forEach(x => {
   if(x === DD_SKILL || x === DD_SKILL_LEGACY) return; // 詳細表示は後段
+  // 検索結果画面だけ：選んだ特殊スキルに絞る
+  if(onlySelectedSkills){
+   const allow = charFilters.includes(x)
+    || (x === "持続" && charFilters.includes("持続(禁止解除)"))
+    || (x === "禁止解除" && charFilters.includes("持続(禁止解除)"));
+   if(!allow) return;
+  }
+  if(onlyRank2Detail && !isRank2SkillName(x)) return;
   if(!ss?.[x]?.enabled){
    // 永続は list に中身があれば表示（enabled 取りこぼし対策）
    if((x === "永続バフ" || x === "永続デバフ") && Array.isArray(ss?.[x]?.list) && ss[x].list.some(it => it && (pickRank2Stat(it) || pickRank2Stage(it)))){
@@ -7381,7 +7942,30 @@ function formatSpecialSkillsHtml(ss, opts){
   }
   const isRank2 = isRank2SkillName(x);
   if(isRank2){
-   const list = Array.isArray(ss[x].list) ? ss[x].list : [];
+   let list = Array.isArray(ss[x].list) ? ss[x].list.slice() : [];
+   // RANKⅡ詳細条件に合う行だけ
+   if(hasR2Detail){
+    list = list.filter(item=>{
+     if(!item) return false;
+     if((selected.r2Source||[]).length){
+      let src = item.source === "ラストワード" ? "LASTWORD" : item.source;
+      if(!selected.r2Source.includes(src) && !selected.r2Source.includes(item.source)) return false;
+     }
+     if((selected.r2Stat||[]).length){
+      const st = typeof pickRank2Stat === "function" ? pickRank2Stat(item) : (item.stat||"");
+      if(!selected.r2Stat.includes(st)) return false;
+     }
+     if(r2StageQ){
+      const stageVal = typeof pickRank2Stage === "function" ? pickRank2Stage(item) : item.stage;
+      if(String(stageVal) !== String(r2StageQ)) return false;
+     }
+     return true;
+    });
+    if(!list.length && (charFilters.includes(x) || onlyRank2Detail)){
+     // 詳細不一致なら出さない
+     return;
+    }
+   }
    const matched = isFilterMatch(x, selected.char);
    const cls = x.includes("デバフ") ? "tag-debuff" : "tag-rank2";
    const pushRank2List = (lst, asXc)=>{
@@ -7453,16 +8037,23 @@ function formatSpecialSkillsHtml(ss, opts){
       parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(line)}</span></div>`);
      });
     }else{
-     parts.push(`<div style="margin:4px 0;">${tagWithHl(x, matched, "")} <span class="muted">${esc(detail)}</span></div>`);
+     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(detail)}</span></div>`);
     }
    }else{
     parts.push(tagWithHl(x, matched, ""));
    }
   }
  });
- // ダメージ軽減は独立表示
- const dd = formatDamageDownHtml(ss);
- if(dd) parts.push(dd);
+ // ダメージ軽減：キャラ詳細は常に表示。検索結果は選んだときだけ
+ const showDd = !filterBySearch
+  || (selected.char||[]).includes(DD_SKILL)
+  || (selected.char||[]).includes(DD_SKILL_LEGACY)
+  || (selected.dd||[]).includes(DD_SKILL)
+  || (selected.dd||[]).includes(DD_SKILL_LEGACY);
+ if(showDd){
+  const dd = formatDamageDownHtml(ss);
+  if(dd) parts.push(dd);
+ }
  return parts.join("") || (options.emptyText || "");
 }
 
@@ -7721,6 +8312,16 @@ function normalizeFastChargeData(d){
  if(d.team == null) d.team = false;
  if(d.selfCount == null) d.selfCount = "";
  if(d.teamCount == null) d.teamCount = "";
+
+ // 個数未記入は「自身 1個」に揃える
+ const emptyCount = (v)=> v === "" || v == null;
+ if(!d.self && !d.team){
+  d.self = true;
+  if(emptyCount(d.selfCount)) d.selfCount = "1";
+ } else {
+  if(d.self && emptyCount(d.selfCount)) d.selfCount = "1";
+  if(d.team && emptyCount(d.teamCount)) d.teamCount = "1";
+ }
  return d;
 }
 
@@ -12966,6 +13567,9 @@ function isDetailSearchActive(){
  if((document.getElementById("fHardRatio")?.value || "").trim()) return true;
  if((document.getElementById("fSharpRatio")?.value || "").trim()) return true;
  if(selected.r2Source.length || selected.r2Stat.length || r2Stage) return true;
+ if((selected.char||[]).length) return true;
+ // 特殊スキル詳細の選択
+ if(["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k => (selected[k]||[]).length)) return true;
  return false;
 }
 
@@ -13070,6 +13674,7 @@ function analyzeSearchMatchSides(c){
  const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
  const r2StageQ = (document.getElementById("fR2Stage")?.value || "").trim();
  const needR2 = selected.r2Source.length || selected.r2Stat.length || r2StageQ;
+ const needSkillDetail = ["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k=>selected[k]&&selected[k].length);
  const ddAttr = selected.ddAttr || [];
  const ddBullet = selected.ddBullet || [];
  const ddRaceQ = (document.getElementById("fDdRace")?.value || "").trim().toLowerCase();
@@ -13077,7 +13682,7 @@ function analyzeSearchMatchSides(c){
 
  // 面に依存しない条件だけなら「転生後のみ」表示はしない
  const sideSensitive = !!(qSpell || qShot || qBullet || qs || selected.type.length || selected.char.length
-  || selected.ability.length || hasAttackFilter || (stat && sv !== "") || needR2 || needDdDetail
+  || selected.ability.length || hasAttackFilter || (stat && sv !== "") || needR2 || needSkillDetail || needDdDetail
   || (selected.dd && selected.dd.length));
  if(!sideSensitive) return { before:true, after:true, onlyAfter:false };
 
@@ -13125,6 +13730,12 @@ function analyzeSearchMatchSides(c){
      || (document.getElementById("fBanSkillCount")?.value||"").trim()
      || (document.getElementById("fBanSpellCount")?.value||"").trim();
     if(hasDetail && !matchBanReleaseDetail(ss)) return false;
+   }
+   if(typeof matchSkillDetailFilters === "function"){
+    const mergedSs = (typeof mergeSpecialSkillsForMatch === "function")
+     ? mergeSpecialSkillsForMatch(c, pack, ss)
+     : ss;
+    if(!matchSkillDetailFilters(mergedSs)) return false;
    }
   }
   if(selected.ability && selected.ability.length){
@@ -13439,6 +14050,21 @@ function search(skipHistory) {
      if (!banOk) return false;
     }
    }
+
+   // 特殊スキル詳細（秘密封印・大結界・ファスト等）
+   if (typeof matchSkillDetailFilters === "function") {
+    const detailOk = sides.some(p => {
+     const merged = (typeof mergeSpecialSkillsForMatch === "function")
+      ? mergeSpecialSkillsForMatch(c, p, p.specialSkills || {})
+      : (p.specialSkills || {});
+     return matchSkillDetailFilters(merged);
+    }) || matchSkillDetailFilters(
+     (typeof mergeSpecialSkillsForMatch === "function")
+      ? mergeSpecialSkillsForMatch(c, null, (c.details||{}).specialSkills || {})
+      : ((c.details||{}).specialSkills || {})
+    );
+    if (!detailOk) return false;
+   }
   }
 
   // ダメージ軽減は特殊スキル側（selected.char）で判定。旧履歴の selected.dd も互換
@@ -13726,7 +14352,7 @@ function getBulletCompSize(){
  return "sm";
 }
 function setBulletCompSize(size){
- if(size !== "sm" && size !== "md") size = "md";
+ if(size !== "sm" && size !== "md") size = "sm";
  try{ localStorage.setItem(BULLET_SIZE_KEY, size); }catch(e){}
  document.querySelectorAll("[data-bullet-comp]").forEach(el=>{
   el.classList.remove("bullet-size-sm","bullet-size-md","bullet-size-lg");
@@ -14102,7 +14728,7 @@ function renderResults(arr){
 
    if(showSkills){
     const ss = vm.specialSkills || {};
-    const skillTags = formatSpecialSkillsHtml(ss, {});
+    const skillTags = formatSpecialSkillsHtml(ss, { filterBySearch: true });
     if(skillTags) tiles += `<div class="bento-tile"><div class="tile-label">特殊スキル</div>${skillTags}</div>`;
    }
 
@@ -14119,7 +14745,10 @@ function renderResults(arr){
    if(tiles) h += `<div class="bento-tiles two">${tiles}</div>`;
 
    const attackFilterOn = hasAttackRelatedFilter();
-   const visibleAttacks = getOrderedAttacks(vm.attacks).filter(([k,a,label])=>{
+   // 特殊スキル／RANKⅡだけの検索ではショット・スペカを出さない
+   const skillSearchOnly = (typeof isSpecialSkillSearchActive === "function" && isSpecialSkillSearchActive())
+    && !attackFilterOn;
+   const visibleAttacks = skillSearchOnly ? [] : getOrderedAttacks(vm.attacks).filter(([k,a,label])=>{
     if(!a) return false;
     const isSupport = a.range === "補助";
     const hasBullets = (a.bullets||[]).some(b => b && (b.name || b.attr || b.bulletType));
@@ -14404,11 +15033,11 @@ function renderAttackDetailHtml(k, a, opts){
       <div class="bullet-comp-head">
        <div class="bullet-comp-title feature-tip-wrap" style="position:relative;">バレット構成${bulletCount?`（${bulletCount}）`:""}${featureTipHtml("special", "特殊弾のタグを<strong>長押し</strong>（約0.5秒）すると、効果の説明が出ます。")}</div>
        <div class="bullet-size-btns" role="group" aria-label="バレット表示サイズ">
-        <button type="button" data-bullet-size="sm" title="小さく">小</button>
-        <button type="button" data-bullet-size="md" title="標準">中</button>
+        <button type="button" data-bullet-size="sm" title="小さく" class="${(typeof getBulletCompSize==="function"?getBulletCompSize():"sm")==="sm"?"active":""}">小</button>
+        <button type="button" data-bullet-size="md" title="標準" class="${(typeof getBulletCompSize==="function"?getBulletCompSize():"sm")==="md"?"active":""}">中</button>
        </div>
       </div>
-      <div class="bullet-comp-body bullet-size-md" data-bullet-comp>
+      <div class="bullet-comp-body bullet-size-${typeof getBulletCompSize==="function"?getBulletCompSize():"sm"}" data-bullet-comp>
      `}
   `;
 
@@ -14521,6 +15150,7 @@ function openAttackModal(id, attackKey){
    </div>
   `;
   bindModalAttackAccordions(body);
+  try{ if(typeof applyBulletCompSizeTo==="function") applyBulletCompSizeTo(body); }catch(e){}
   try{ bindAdminRangeFixButtons(body); }catch(e){}
   document.getElementById("detailModal").classList.remove("hidden");
 }
@@ -14606,6 +15236,7 @@ function openModal(id){
  body.innerHTML = h;
  bindLinkLongPress(body);
  bindModalAttackAccordions(body);
+  try{ if(typeof applyBulletCompSizeTo==="function") applyBulletCompSizeTo(body); }catch(e){}
  bindAbnormalChipLongPress(body);
  try{ bindBulletSpecialLongPress(body); }catch(e){}
  try{ bindLinkLongPress(body); }catch(e){}
@@ -15016,18 +15647,56 @@ async function loadComments(){
  if(lab) lab.textContent = "端末ID: " + shortDeviceId(getDeviceId());
  if(!list) return;
  list.innerHTML = `<div class="muted">読み込み中…</div>`;
- try{
-  const r = await fetch(
-   `${URL}/rest/v1/${COMMENTS_TABLE}?select=*&order=created_at.asc`,
-   { headers: { ...authHeaders(), Accept: "application/json" } }
-  );
+
+ const commentsUrl = `${URL}/rest/v1/${COMMENTS_TABLE}?select=*&order=created_at.asc`;
+ const anonHeaders = ()=>({ apikey: KEY, Authorization: "Bearer " + KEY, Accept: "application/json" });
+ const userHeaders = ()=>({ ...authHeaders(), Accept: "application/json" });
+
+ async function fetchComments(headers){
+  const r = await fetch(commentsUrl, { headers });
   const t = await r.text();
-  if(!r.ok) throw Error(t || r.statusText);
+  return { r, t };
+ }
+
+ try{
+  let { r, t } = await fetchComments(userHeaders());
+
+  // JWT期限切れ → リフレッシュして再試行、ダメなら匿名キーで読む
+  if(!r.ok && /JWT expired|PGRST303|invalid JWT|expired/i.test(t)){
+   try{
+    if(typeof refreshSession === "function" && currentSession && currentSession.refresh_token){
+     await refreshSession();
+     ({ r, t } = await fetchComments(userHeaders()));
+    }
+   }catch(refErr){
+    console.warn("session refresh failed", refErr);
+   }
+   if(!r.ok && /JWT expired|PGRST303|invalid JWT|expired/i.test(t)){
+    // ログイン状態は古いので匿名で取得（閲覧のみ）
+    ({ r, t } = await fetchComments(anonHeaders()));
+   }
+  }
+
+  if(!r.ok){
+   let msg = t || r.statusText;
+   try{
+    const j = JSON.parse(t);
+    msg = j.message || j.msg || j.code || msg;
+   }catch(e){}
+   if(/JWT expired|PGRST303/i.test(String(msg))){
+    throw new Error("ログインの有効期限が切れています。一度サインアウトしてから再度サインインしてください。");
+   }
+   if(/Could not find the table|relation .* does not exist|PGRST205/i.test(String(msg)+t)){
+    throw new Error("comments テーブルがありません。Supabase で作成してください。");
+   }
+   throw new Error(msg);
+  }
+
   const rows = JSON.parse(t || "[]");
   renderComments(rows);
  }catch(e){
   console.warn(e);
-  list.innerHTML = `<div class="muted" style="color:#c62828;">コメントを読み込めませんでした。<br><small>Supabase に comments テーブルが無い場合は作成が必要です。<br>${esc(String(e.message||e).slice(0,200))}</small></div>`;
+  list.innerHTML = `<div class="muted" style="color:#c62828;">コメントを読み込めませんでした。<br><small>${esc(String(e.message||e).slice(0,300))}</small></div>`;
  }
 }
 
