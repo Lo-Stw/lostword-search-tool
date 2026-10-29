@@ -3854,10 +3854,49 @@ function syncBigBarrierFromDom(){
  if(downRatio) specialData[skill].downRatio = downRatio.value;
  if(br) specialData[skill].breakEffect = br.value;
 }
+function syncSecretSealFromDom(){
+ const skill = "秘密封印";
+ const btn = document.getElementById("ss-" + skill);
+ const isOn = btn ? btn.classList.contains("on") : !!(specialData[skill] && specialData[skill].enabled);
+ if(!isOn){
+  if(specialData[skill]) specialData[skill].enabled = false;
+  return;
+ }
+ if(!specialData[skill]) specialData[skill] = { enabled:true };
+ specialData[skill].enabled = true;
+ const detail = document.getElementById("sd-" + skill);
+ if(!detail) return;
+ // 倍率
+ const ratioEl = detail.querySelector("[data-seal-ratio]");
+ if(ratioEl){
+  specialData[skill].ratio = ratioEl.value;
+  specialData[skill].upRatio = ratioEl.value;
+ }
+ // ステータス（選択中ボタン）
+ const stats = [];
+ detail.querySelectorAll("#sealStatBtns button.selected, #sealStatBtns .filter.selected").forEach(b=>{
+  const t = (b.textContent||"").trim();
+  if(t) stats.push(t);
+ });
+ // fallback: from specialData if DOM empty but we had data
+ if(stats.length) specialData[skill].stats = stats;
+ // 禁止・制限
+ const restricts = [];
+ detail.querySelectorAll("[data-seal-r]").forEach(el=>{
+  restricts.push(el.value || "");
+ });
+ if(restricts.length) specialData[skill].restrictions = restricts;
+ // 破界
+ const br = detail.querySelector("[data-seal-break]");
+ if(br) specialData[skill].breakEffect = br.value;
+}
+
+
 function snapshotFormToPack(){
  try{ if(typeof syncRank2FieldsFromDom === "function") syncRank2FieldsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncPersistFieldsFromDom === "function") syncPersistFieldsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncBigBarrierFromDom === "function") syncBigBarrierFromDom(); }catch(err){ console.warn(err); }
+ try{ if(typeof syncSecretSealFromDom === "function") syncSecretSealFromDom(); }catch(err){ console.warn(err); }
  return {
   symbol: document.getElementById("aSymbol").value.trim(),
   type: document.getElementById("aType").value,
@@ -6918,7 +6957,11 @@ function formatSpecialSkillDetailText(name, d){
    : [];
   if(!restricts.length && d.effect) restricts.push(String(d.effect).trim());
   if(!restricts.length && d.value) restricts.push(String(d.value).trim());
-  restricts.forEach(r=> lines.push(r));
+  restricts.forEach(r=>{
+   const t = String(r||"").trim();
+   if(!t) return;
+   lines.push(/^ロスト効果[：:]/.test(t) ? t : ("ロスト効果：" + t));
+  });
   if(d.breakEffect && String(d.breakEffect).trim()){
    lines.push("【破界効果】" + String(d.breakEffect).trim());
   }
@@ -7985,20 +8028,32 @@ function buildSpecialDetail(skill, e){
   case "秘密封印":
    {
     const SEAL_STATS = ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避","威力"];
-    if(!Array.isArray(d.stats)) d.stats = d.upStat ? [d.upStat] : [];
-    if(!Array.isArray(d.restrictions) || !d.restrictions.length){
-     d.restrictions = ["","",""];
-     if(d.effect) d.restrictions[0] = d.effect;
-     if(d.value) d.restrictions[1] = String(d.value);
+    // specialData 本体を更新（参照を保つ）
+    if(!specialData["秘密封印"]) specialData["秘密封印"] = d;
+    specialData["秘密封印"].enabled = true;
+    const seal = specialData["秘密封印"];
+    if(!Array.isArray(seal.stats)) seal.stats = seal.upStat ? [seal.upStat] : (Array.isArray(d.stats) ? d.stats.slice() : []);
+    if(!Array.isArray(seal.restrictions)){
+     seal.restrictions = ["","",""];
+     if(seal.effect) seal.restrictions[0] = seal.effect;
+     if(seal.value) seal.restrictions[1] = String(seal.value);
     }
-    while(d.restrictions.length < 3) d.restrictions.push("");
-    const ratio = (d.ratio != null && d.ratio !== "") ? d.ratio : (d.upRatio || "");
+    // 空配列だけ初期3枠。中身がある場合はそのまま
+    if(seal.restrictions.length === 0) seal.restrictions = ["","",""];
+    while(seal.restrictions.length < 3) seal.restrictions.push("");
+    // d を seal に揃える
+    d.stats = seal.stats;
+    d.restrictions = seal.restrictions;
+    d.ratio = (seal.ratio != null && seal.ratio !== "") ? seal.ratio : (seal.upRatio || d.ratio || "");
+    d.upRatio = d.ratio;
+    d.breakEffect = seal.breakEffect || d.breakEffect || "";
+    const ratio = d.ratio || "";
     e.innerHTML =
      '<div class="mini" style="font-weight:700;">味方全体アップ（ステータス）</div>' +
      '<div class="buttons" id="sealStatBtns" style="margin-top:4px;"></div>' +
      '<div class="mini" style="margin-top:8px;">アップ倍率 %</div>' +
      '<input class="input" type="number" placeholder="例：20" data-seal-ratio value="'+esc(ratio)+'">' +
-     '<div class="mini" style="margin-top:12px;font-weight:700;">禁止または制限要素（そのまま表示）</div>' +
+     '<div class="mini" style="margin-top:12px;font-weight:700;">ロスト効果（禁止・制限など・そのまま表示）</div>' +
      '<div id="sealRestrictList"></div>' +
      '<button type="button" class="btn-sm" data-seal-add style="margin-top:6px;">＋ 欄を追加</button>' +
      '<div class="mini" style="margin-top:12px;font-weight:700;">【破界効果】</div>' +
@@ -8017,26 +8072,31 @@ function buildSpecialDetail(skill, e){
        const i = d.stats.indexOf(st);
        if(i>=0) d.stats.splice(i,1);
        else d.stats.push(st);
+       if(specialData["秘密封印"]) specialData["秘密封印"].stats = d.stats.slice();
        renderStats();
       };
       btnBox.appendChild(b);
      });
     };
     renderStats();
-    e.querySelector("[data-seal-ratio]").oninput = function(){ d.ratio = this.value; d.upRatio = this.value; };
+    e.querySelector("[data-seal-ratio]").oninput = function(){ d.ratio = this.value; d.upRatio = this.value; if(specialData["秘密封印"]){ specialData["秘密封印"].ratio = this.value; specialData["秘密封印"].upRatio = this.value; } };
     const rBox = e.querySelector("#sealRestrictList");
     const renderRestrict = ()=>{
      if(!Array.isArray(d.restrictions)) d.restrictions = ["","",""];
      rBox.innerHTML = d.restrictions.map((txt, idx)=>`
       <div style="display:flex;gap:6px;align-items:flex-start;margin-top:6px;">
-       <textarea class="input" data-seal-r="${idx}" rows="2" style="flex:1;border-radius:10px;resize:vertical;" placeholder="禁止・制限の内容を貼り付け">${esc(txt||"")}</textarea>
+       <textarea class="input" data-seal-r="${idx}" rows="2" style="flex:1;border-radius:10px;resize:vertical;" placeholder="ロスト効果の内容を貼り付け">${esc(txt||"")}</textarea>
        <button type="button" class="btn-sm" data-seal-rdel="${idx}" style="padding:4px 8px;">削除</button>
       </div>`).join("");
      rBox.querySelectorAll("[data-seal-r]").forEach(el=>{
-      el.oninput = ()=>{
+      const commit = ()=>{
        const i = +el.getAttribute("data-seal-r");
+       if(!Array.isArray(d.restrictions)) d.restrictions = [];
        d.restrictions[i] = el.value;
+       if(specialData["秘密封印"]) specialData["秘密封印"].restrictions = d.restrictions.slice();
       };
+      el.oninput = commit;
+      el.onchange = commit;
      });
      rBox.querySelectorAll("[data-seal-rdel]").forEach(el=>{
       el.onclick = ()=>{
@@ -8053,7 +8113,7 @@ function buildSpecialDetail(skill, e){
      d.restrictions.push("");
      renderRestrict();
     };
-    e.querySelector("[data-seal-break]").oninput = function(){ d.breakEffect = this.value; };
+    e.querySelector("[data-seal-break]").oninput = function(){ d.breakEffect = this.value; if(specialData["秘密封印"]) specialData["秘密封印"].breakEffect = this.value; };
    }
    break;
   case "有利属性ダメージアップ":
