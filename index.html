@@ -14172,7 +14172,93 @@ function formatAttackBuffSummaryHtml(a){
  return '<div class="attack-buff-summary">' + parts.join("") + '</div>';
 }
 
-function renderAttackDetailHtml(k, a){
+
+async function adminSetAttackRangeFromDetail(charId, attackKey, newRange, side){
+ if(typeof isAdmin === "function" && !isAdmin()){ alert("管理者のみ変更できます"); return; }
+ const c = (data||[]).find(x => String(x.id) === String(charId));
+ if(!c){ alert("キャラが見つかりません"); return; }
+ if(newRange !== "単体" && newRange !== "全体") return;
+
+ let updated = false;
+ const sideUse = side || (typeof getViewSide === "function" ? getViewSide(c) : "after") || "after";
+ const trySet = (attacks)=>{
+  if(attacks && attacks[attackKey]){
+   attacks[attackKey].range = newRange;
+   return true;
+  }
+  return false;
+ };
+ if(c.details && c.details.rebirth && c.details.rebirth.enabled){
+  const bag = c.details.rebirth[sideUse];
+  if(bag && trySet(bag.attacks)) updated = true;
+  // 反対側に同じキーしかない場合は root も
+ }
+ if(!updated) updated = trySet(c.attacks);
+ if(!updated && c.details) updated = trySet(c.details.attacks);
+ if(!updated){
+  // 全バッグを走査
+  if(typeof adminGetCharAttackBags === "function"){
+   adminGetCharAttackBags(c).forEach(bag=>{
+    if(trySet(bag.attacks)) updated = true;
+   });
+  }
+ }
+ if(!updated){ alert("この攻撃データに範囲を書けませんでした"); return; }
+
+ // Supabase に保存
+ try{
+  if(typeof URL === "string" && typeof TABLE === "string" && typeof authHeaders === "function"){
+   const record = {
+    attacks: c.attacks || null,
+    details: c.details || null
+   };
+   const r = await fetch(`${URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(String(c.id))}`, {
+    method: "PATCH",
+    headers: {
+     ...authHeaders(),
+     "Content-Type": "application/json",
+     "Prefer": "return=minimal"
+    },
+    body: JSON.stringify(record)
+   });
+   if(!r.ok){
+    const t = await r.text();
+    console.warn(t);
+    alert("範囲は画面上で変更しましたが、サーバー保存に失敗しました:\\n" + t);
+   }
+  }
+ }catch(err){
+  console.warn(err);
+  alert("範囲は画面上で変更しましたが、保存エラー: " + (err && err.message ? err.message : err));
+ }
+
+ // モーダル再描画
+ try{
+  if(document.getElementById("modalBody") && typeof openModal === "function"){
+   openModal(charId);
+  }
+ }catch(e){}
+}
+
+function bindAdminRangeFixButtons(root){
+ const scope = root || document;
+ scope.querySelectorAll("[data-admin-set-range]").forEach(btn=>{
+  if(btn._rangeBound) return;
+  btn._rangeBound = true;
+  btn.addEventListener("click", (ev)=>{
+   ev.preventDefault();
+   ev.stopPropagation();
+   const range = btn.getAttribute("data-admin-set-range");
+   const charId = btn.getAttribute("data-char-id");
+   const attackKey = btn.getAttribute("data-attack-key");
+   const side = btn.getAttribute("data-side") || "";
+   adminSetAttackRangeFromDetail(charId, attackKey, range, side);
+  });
+ });
+}
+
+function renderAttackDetailHtml(k, a, opts){
+  opts = opts || {};
   const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
   const isSupport = a.range === "補助";
   const hitAtk = isFilterMatch(label, selected.attack);
@@ -14189,6 +14275,13 @@ function renderAttackDetailHtml(k, a){
      <span class="attack-acc-icon">▼</span>
     </button>
     <div class="attack-acc-body" hidden>
+     ${ (typeof isAdmin==="function" && isAdmin() && opts.charId && !isSupport) ? `
+     <div class="admin-range-fix" style="margin:0 0 10px;padding:8px 10px;background:#fff5f5;border:1px solid #f0c2c2;border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+      <span class="mini" style="font-weight:700;color:#c44536;">管理者：範囲</span>
+      <button type="button" class="btn-sm ${a.range==="単体"?"on":""}" data-admin-set-range="単体" data-char-id="${esc(String(opts.charId))}" data-attack-key="${esc(k)}" data-side="${esc(opts.side||"")}">単体</button>
+      <button type="button" class="btn-sm ${a.range==="全体"?"on":""}" data-admin-set-range="全体" data-char-id="${esc(String(opts.charId))}" data-attack-key="${esc(k)}" data-side="${esc(opts.side||"")}">全体</button>
+      <span class="mini" style="opacity:.8;">現在: ${esc(a.range||"（未設定）")}</span>
+     </div>` : "" }
      <div>${getBuffDebuffHtml(a)}</div>
      ${isSupport ? `<div class="mini" style="margin-top:8px;padding:8px;background:#1c2330;border-radius:8px;">バレットなし</div>` : `
      ${formatAttackBuffSummaryHtml(a)}
@@ -14309,10 +14402,11 @@ function openAttackModal(id, attackKey){
    </div>
    <div class="box" style="background:#f9f9f9">
     <div class="title">ショット・スペルカード詳細</div>
-    ${renderAttackDetailHtml(attackKey, attack)}
+    ${renderAttackDetailHtml(attackKey, attack, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : "") })}
    </div>
   `;
   bindModalAttackAccordions(body);
+  try{ bindAdminRangeFixButtons(body); }catch(e){}
   document.getElementById("detailModal").classList.remove("hidden");
 }
 
@@ -14390,7 +14484,7 @@ function openModal(id){
  `;
 
   getOrderedAttacks(vm.attacks).forEach(([k, a]) => {
-   h += renderAttackDetailHtml(k, a);
+   h += renderAttackDetailHtml(k, a, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : "") });
   });
 
  h += `</div>`;
