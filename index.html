@@ -3690,6 +3690,9 @@ const SEARCH_SPECIAL_SKILLS = (function(){
 function hasDurationBanRelease(ss){
   const d = ss && ss["持続"];
   if(!d || !d.enabled) return false;
+  if(Array.isArray(d.list) && d.list.length){
+   return d.list.some(it => it && it.effect === "禁止解除");
+  }
   return d.effect === "禁止解除";
 }
 function collectActiveSpecialLabels(ss){
@@ -6114,7 +6117,7 @@ resetAttackData();
 let specialData={};
 function resetSpecialData(){
  SPECIAL_SKILLS.forEach(x=>{
-  if(x==="RANKⅡバフ" || x==="RANKⅡデバフ" || x==="永続バフ" || x==="永続デバフ" || x===DD_SKILL){
+  if(x==="RANKⅡバフ" || x==="RANKⅡデバフ" || x==="永続バフ" || x==="永続デバフ" || x===DD_SKILL || x==="持続"){
    specialData[x]={ enabled:false, list:[] };
   }else{
    specialData[x]={ enabled:false };
@@ -6904,30 +6907,28 @@ function formatSpecialSkillDetailText(name, d){
   return bits.join(" · ") || "あり";
  }
  if(name === "持続"){
-  const tg = d.target === "自身" ? "自身" : "味方全体";
-  let eff = d.effect || "";
-  if(eff === "霊力上昇") eff = "霊力";
-  const n = (d.value !== "" && d.value != null) ? String(d.value) : "n";
-  const t = (d.duration !== "" && d.duration != null) ? String(d.duration) : "T";
-  if(eff === "霊力"){
-   return "ターン開始時、" + tg + "の霊力を" + n + "上昇(" + t + "T)";
-  }
-  if(eff === "体力回復"){
-   return "ターン開始時、" + tg + "の体力を" + n + "%回復(" + t + "T)";
-  }
-  if(eff === "結界増加"){
-   return "ターン開始時、" + tg + "の結界を" + n + "枚増加(" + t + "T)";
-  }
-  if(eff === "禁止解除"){
-   return "ターン開始時、" + tg + "の禁止状態、つよさ低下を" + n + "つ回復(" + t + "T)";
-  }
-  // 未設定時のフォールバック
-  const bits = [];
-  if(tg) bits.push(tg);
-  if(eff) bits.push(eff);
-  if(d.value !== "" && d.value != null) bits.push(String(d.value));
-  if(d.duration !== "" && d.duration != null) bits.push(String(d.duration) + "T");
-  return bits.join(" ");
+  const formatOne = (it)=>{
+   if(!it) return "";
+   const tg = it.target === "自身" ? "自身" : "味方全体";
+   let eff = it.effect || "";
+   if(eff === "霊力上昇") eff = "霊力";
+   const n = (it.value !== "" && it.value != null) ? String(it.value) : "n";
+   const t = (it.duration !== "" && it.duration != null) ? String(it.duration) : "T";
+   if(eff === "霊力") return "ターン開始時、" + tg + "の霊力を" + n + "上昇(" + t + "T)";
+   if(eff === "体力回復") return "ターン開始時、" + tg + "の体力を" + n + "%回復(" + t + "T)";
+   if(eff === "結界増加") return "ターン開始時、" + tg + "の結界を" + n + "枚増加(" + t + "T)";
+   if(eff === "禁止解除") return "ターン開始時、" + tg + "の禁止状態、つよさ低下を" + n + "つ回復(" + t + "T)";
+   const bits = [];
+   if(tg) bits.push(tg);
+   if(eff) bits.push(eff);
+   if(it.value !== "" && it.value != null) bits.push(String(it.value));
+   if(it.duration !== "" && it.duration != null) bits.push(String(it.duration) + "T");
+   return bits.join(" ");
+  };
+  const list = Array.isArray(d.list) && d.list.length
+   ? d.list
+   : [{ target:d.target, effect:d.effect, value:d.value, duration:d.duration }];
+  return list.map(formatOne).filter(Boolean).join("\n") || "あり";
  }
  if(name === "畜力"){
   const list = Array.isArray(d.list) && d.list.length
@@ -8359,35 +8360,107 @@ function buildSpecialDetail(skill, e){
    e.innerHTML=`<input class="input" type="number" placeholder="何段階ダウン" data-rank-stage value="${esc(d.stage||"")}">`;
    break;
   case "持続":
-   if(d.effect === "霊力上昇") d.effect = "霊力";
-   if(d.target !== "自身" && d.target !== "味方全体") d.target = "味方全体";
-   const durEff = d.effect || "";
-   let durValHint = "数値";
-   let durValPh = "数値";
-   if(durEff === "体力回復"){ durValHint = "回復量（%）"; durValPh = "回復量 %"; }
-   else if(durEff === "結界増加"){ durValHint = "増加枚数"; durValPh = "増加枚数"; }
-   else if(durEff === "禁止解除"){ durValHint = "回復数（つ）"; durValPh = "回復数"; }
-   else if(durEff === "霊力"){ durValHint = "上昇量"; durValPh = "上昇量"; }
-   e.innerHTML =
-    '<div class="mini">対象</div>' +
-    '<select class="select" data-duration-target>' +
-     '<option value="味方全体"'+(d.target==="味方全体"?' selected':'')+'>味方全体</option>' +
-     '<option value="自身"'+(d.target==="自身"?' selected':'')+'>自身</option>' +
-    '</select>' +
-    '<div class="mini" style="margin-top:6px">効果</div>' +
-    '<select class="select" data-duration-effect>' +
-     '<option value="">効果を選択</option>' +
-     ["霊力","体力回復","結界増加","禁止解除"].map(x=>'<option value="'+x+'"'+(durEff===x?' selected':'')+'>'+x+'</option>').join("") +
-    '</select>' +
-    '<div class="mini" style="margin-top:6px">'+durValHint+'</div>' +
-    '<input class="input" type="number" placeholder="'+durValPh+'" data-duration-value value="'+esc(d.value||"")+'">' +
-    '<div class="mini" style="margin-top:6px">ターン数（T）</div>' +
-    '<input class="input" type="number" placeholder="例：3" data-duration value="'+esc(d.duration||"")+'">';
-   e.querySelector("[data-duration-effect]")?.addEventListener("change", function(ev){
-    d.effect = ev.target.value;
+   // 旧単体データ → list へ移行
+   if(!Array.isArray(d.list) || !d.list.length){
+    if(d.effect || d.value || d.duration){
+     d.list = [{
+      target: (d.target === "自身") ? "自身" : "味方全体",
+      effect: (d.effect === "霊力上昇") ? "霊力" : (d.effect || ""),
+      value: (d.value != null && d.value !== "") ? d.value : "",
+      duration: (d.duration != null && d.duration !== "") ? d.duration : ""
+     }];
+    } else {
+     d.list = [{ target:"味方全体", effect:"", value:"", duration:"" }];
+    }
+   }
+   d.list = d.list.map(it=>{
+    if(!it) return { target:"味方全体", effect:"", value:"", duration:"" };
+    if(it.effect === "霊力上昇") it.effect = "霊力";
+    if(it.target !== "自身" && it.target !== "味方全体") it.target = "味方全体";
+    return it;
    });
-   e.querySelector("[data-duration-target]")?.addEventListener("change", function(ev){
-    d.target = ev.target.value === "自身" ? "自身" : "味方全体";
+   e.innerHTML =
+    '<div class="mini" style="margin-bottom:6px;">複数の持続効果を追加できます</div>' +
+    '<div id="durationList"></div>' +
+    '<button type="button" class="btn-sm" data-dur-add style="margin-top:6px;">＋ 持続を追加</button>';
+   const durBox = e.querySelector("#durationList");
+   const DUR_EFFS = ["霊力","体力回復","結界増加","禁止解除"];
+   const durValMeta = (eff)=>{
+    if(eff === "体力回復") return { hint:"回復量（%）", ph:"回復量 %" };
+    if(eff === "結界増加") return { hint:"増加枚数", ph:"増加枚数" };
+    if(eff === "禁止解除") return { hint:"回復数（つ）", ph:"回復数" };
+    if(eff === "霊力") return { hint:"上昇量", ph:"上昇量" };
+    return { hint:"数値", ph:"数値" };
+   };
+   const renderDur = ()=>{
+    if(!Array.isArray(d.list)) d.list = [];
+    if(!d.list.length) d.list.push({ target:"味方全体", effect:"", value:"", duration:"" });
+    durBox.innerHTML = d.list.map((it, idx)=>{
+     const tg = (it.target === "自身") ? "自身" : "味方全体";
+     const eff = it.effect || "";
+     const meta = durValMeta(eff);
+     const effOpts = '<option value="">効果を選択</option>' + DUR_EFFS.map(x=>'<option value="'+x+'"'+(eff===x?' selected':'')+'>'+x+'</option>').join("");
+     return `<div class="dur-row" data-dur-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
+      <div class="mini" style="display:flex;justify-content:space-between;align-items:center;">
+       <span>持続 ${idx+1}</span>
+       <button type="button" class="btn-sm" data-dur-del="${idx}" style="padding:2px 8px;">削除</button>
+      </div>
+      <div class="mini">対象</div>
+      <select class="select" data-dur-target="${idx}">
+       <option value="味方全体"${tg==="味方全体"?' selected':''}>味方全体</option>
+       <option value="自身"${tg==="自身"?' selected':''}>自身</option>
+      </select>
+      <div class="mini" style="margin-top:6px">効果</div>
+      <select class="select" data-dur-effect="${idx}">${effOpts}</select>
+      <div class="mini" style="margin-top:6px">${meta.hint}</div>
+      <input class="input" type="number" placeholder="${meta.ph}" data-dur-value="${idx}" value="${esc(it.value||"")}">
+      <div class="mini" style="margin-top:6px">ターン数（T）</div>
+      <input class="input" type="number" placeholder="例：3" data-dur-turns="${idx}" value="${esc(it.duration||"")}">
+     </div>`;
+    }).join("");
+    durBox.querySelectorAll("[data-dur-target]").forEach(el=>{
+     el.onchange = ()=>{
+      const i = +el.getAttribute("data-dur-target");
+      if(!d.list[i]) return;
+      d.list[i].target = el.value === "自身" ? "自身" : "味方全体";
+     };
+    });
+    durBox.querySelectorAll("[data-dur-effect]").forEach(el=>{
+     el.onchange = ()=>{
+      const i = +el.getAttribute("data-dur-effect");
+      if(!d.list[i]) return;
+      d.list[i].effect = el.value;
+      renderDur();
+     };
+    });
+    durBox.querySelectorAll("[data-dur-value]").forEach(el=>{
+     el.oninput = ()=>{
+      const i = +el.getAttribute("data-dur-value");
+      if(!d.list[i]) return;
+      d.list[i].value = el.value;
+     };
+    });
+    durBox.querySelectorAll("[data-dur-turns]").forEach(el=>{
+     el.oninput = ()=>{
+      const i = +el.getAttribute("data-dur-turns");
+      if(!d.list[i]) return;
+      d.list[i].duration = el.value;
+     };
+    });
+    durBox.querySelectorAll("[data-dur-del]").forEach(el=>{
+     el.onclick = ()=>{
+      const i = +el.getAttribute("data-dur-del");
+      d.list.splice(i, 1);
+      if(!d.list.length) d.list.push({ target:"味方全体", effect:"", value:"", duration:"" });
+      renderDur();
+     };
+    });
+   };
+   renderDur();
+   e.querySelector("[data-dur-add]")?.addEventListener("click", ()=>{
+    if(!Array.isArray(d.list)) d.list = [];
+    d.list.push({ target:"味方全体", effect:"", value:"", duration:"" });
+    renderDur();
    });
    break;
   case "永続バフ":
