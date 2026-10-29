@@ -2830,6 +2830,7 @@ body.theme-dark .bullet-size-btns button.active{
   <button type="button" id="adminSearchSameStats" class="sub" style="width:auto;">転生前後ステータス同一</button>
   <button type="button" id="adminBulkRangeFix" class="sub" style="width:auto;">全体/単体 一括再判定</button>
   <button type="button" id="adminRangeReport" class="sub" style="width:auto;">範囲の集計</button>
+  <button type="button" id="adminSearchAllZentai" class="sub" style="width:auto;">全攻撃が全体</button>
 </div>
 <button id="searchBtn" class="main" type="button">🔍 検索する</button>
 </div>
@@ -13264,6 +13265,59 @@ function adminBulkRecomputeAttackRanges(){
  alert("再判定完了\n変更: " + changed + "件 / 走査: " + scanned + "件 / キャラ: " + charsTouched + "体\n\nメモリ上は更新済みです。永続化は各キャラを保存するか、再取り込みしてください。");
 }
 
+
+/** 表示用パックで、登録済み攻撃がすべて「全体」（1件以上ある） */
+function adminMatchAllAttacksZentai(c){
+ if(!c) return false;
+ const sides = [];
+ try{
+  if(typeof getCharRebirth === "function" && getCharRebirth(c).enabled){
+   sides.push("before", "after");
+  } else {
+   sides.push((typeof getViewSide === "function") ? getViewSide(c) : "before");
+  }
+ }catch(e){ sides.push("before"); }
+
+ const checkAttacks = (attacks)=>{
+  if(!attacks || typeof attacks !== "object") return false;
+  let count = 0;
+  let allZ = true;
+  const keys = (typeof ATTACKS !== "undefined")
+   ? ATTACKS.map(x=>x[0])
+   : Object.keys(attacks);
+  keys.forEach(key=>{
+   const a = attacks[key];
+   if(!a) return;
+   // 名前または弾があるものだけ「登録済み」とみなす
+   const hasContent = !!(a.name || (Array.isArray(a.bullets) && a.bullets.some(b=>b && (b.name || b.attr || b.bulletType))));
+   if(!hasContent && a.range !== "補助") {
+    // 空データはスキップ
+    if(!a.range) return;
+   }
+   if(!hasContent && !a.range) return;
+   if(a.range === "補助") return; // 補助は対象外
+   if(!hasContent) return;
+   count++;
+   if(a.range !== "全体") allZ = false;
+  });
+  return count > 0 && allZ;
+ };
+
+ // どれかの side で「全攻撃が全体」ならヒット（転生前後どちらか直す必要があるため）
+ for(const side of sides){
+  try{
+   const pack = (typeof packFromCharacterSide === "function")
+    ? packFromCharacterSide(c, side)
+    : null;
+   const attacks = (pack && pack.attacks) || c.attacks || (c.details && c.details.attacks) || null;
+   if(checkAttacks(attacks)) return true;
+  }catch(e){}
+ }
+ // root 直
+ if(checkAttacks(c.attacks)) return true;
+ return false;
+}
+
 function adminRunDebugSearch(predicate, label){
  if(!isAdmin()){ alert("管理者のみ利用できます"); return; }
  const hits = (data || []).filter(c => {
@@ -15296,6 +15350,8 @@ if(tabOwnedEl){
   if(rangeFixBtn) rangeFixBtn.onclick = ()=> adminBulkRecomputeAttackRanges();
   const rangeRepBtn = document.getElementById("adminRangeReport");
   if(rangeRepBtn) rangeRepBtn.onclick = ()=> adminReportAttackRanges();
+  const allZBtn = document.getElementById("adminSearchAllZentai");
+  if(allZBtn) allZBtn.onclick = ()=> adminRunDebugSearch(adminMatchAllAttacksZentai, "全攻撃が全体");
   try{ updateAdminDebugSearchVisibility(); }catch(e){}
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 500);
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 1500);
