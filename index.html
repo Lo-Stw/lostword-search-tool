@@ -6902,9 +6902,27 @@ function formatSpecialSkillDetailText(name, d){
   return parts.join(" / ");
  }
  if(name === "秘密封印"){
-  if(d.effect) bits.push(d.effect);
-  if(d.value !== "" && d.value != null) bits.push(String(d.value));
-  return bits.join(" · ") || "あり";
+  const lines = [];
+  const stats = Array.isArray(d.stats) && d.stats.length
+   ? d.stats
+   : (d.upStat ? [d.upStat] : []);
+  const ratio = (d.ratio != null && d.ratio !== "") ? String(d.ratio)
+   : ((d.upRatio != null && d.upRatio !== "") ? String(d.upRatio) : "n");
+  if(stats.length){
+   lines.push("味方全体の" + stats.join("、") + "を" + ratio + "%アップ");
+  } else if(ratio !== "n" || d.enabled){
+   lines.push("味方全体の各ステを" + ratio + "%アップ");
+  }
+  const restricts = Array.isArray(d.restrictions)
+   ? d.restrictions.map(x=>String(x||"").trim()).filter(Boolean)
+   : [];
+  if(!restricts.length && d.effect) restricts.push(String(d.effect).trim());
+  if(!restricts.length && d.value) restricts.push(String(d.value).trim());
+  restricts.forEach(r=> lines.push(r));
+  if(d.breakEffect && String(d.breakEffect).trim()){
+   lines.push("【破界効果】" + String(d.breakEffect).trim());
+  }
+  return lines.join("\n") || "あり";
  }
  if(name === "持続"){
   const formatOne = (it)=>{
@@ -7965,12 +7983,78 @@ function buildSpecialDetail(skill, e){
    e.innerHTML=`<input class="input" placeholder="効果詳細" data-special-effect value="${esc(d.effect||"")}">`;
    break;
   case "秘密封印":
-   e.innerHTML=`
-    <div class="mini" style="margin-bottom:4px;">概要（任意）</div>
-    <input class="input" placeholder="例：敵味方の能力を1つ封印し味方に強力バフ／破界で相手にデバフ" data-special-effect value="${esc(d.effect||"")}">
-    <div class="mini" style="margin-top:8px;margin-bottom:4px;">備考</div>
-    <input class="input" placeholder="補足があれば" data-special-value value="${esc(d.value||"")}">
-   `;
+   {
+    const SEAL_STATS = ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避","威力"];
+    if(!Array.isArray(d.stats)) d.stats = d.upStat ? [d.upStat] : [];
+    if(!Array.isArray(d.restrictions) || !d.restrictions.length){
+     d.restrictions = ["","",""];
+     if(d.effect) d.restrictions[0] = d.effect;
+     if(d.value) d.restrictions[1] = String(d.value);
+    }
+    while(d.restrictions.length < 3) d.restrictions.push("");
+    const ratio = (d.ratio != null && d.ratio !== "") ? d.ratio : (d.upRatio || "");
+    e.innerHTML =
+     '<div class="mini" style="font-weight:700;">味方全体アップ（ステータス）</div>' +
+     '<div class="buttons" id="sealStatBtns" style="margin-top:4px;"></div>' +
+     '<div class="mini" style="margin-top:8px;">アップ倍率 %</div>' +
+     '<input class="input" type="number" placeholder="例：20" data-seal-ratio value="'+esc(ratio)+'">' +
+     '<div class="mini" style="margin-top:12px;font-weight:700;">禁止または制限要素（そのまま表示）</div>' +
+     '<div id="sealRestrictList"></div>' +
+     '<button type="button" class="btn-sm" data-seal-add style="margin-top:6px;">＋ 欄を追加</button>' +
+     '<div class="mini" style="margin-top:12px;font-weight:700;">【破界効果】</div>' +
+     '<textarea class="input" data-seal-break rows="3" style="margin-top:6px;width:100%;border-radius:10px;resize:vertical;" placeholder="破界効果の文章をそのまま貼り付け">'+esc(d.breakEffect||"")+'</textarea>';
+    const btnBox = e.querySelector("#sealStatBtns");
+    const renderStats = ()=>{
+     btnBox.innerHTML = "";
+     SEAL_STATS.forEach(st=>{
+      const b = document.createElement("button");
+      const on = (d.stats||[]).includes(st);
+      b.type = "button";
+      b.className = "filter"+(on?" selected":"");
+      b.textContent = st;
+      b.onclick = ()=>{
+       if(!Array.isArray(d.stats)) d.stats = [];
+       const i = d.stats.indexOf(st);
+       if(i>=0) d.stats.splice(i,1);
+       else d.stats.push(st);
+       renderStats();
+      };
+      btnBox.appendChild(b);
+     });
+    };
+    renderStats();
+    e.querySelector("[data-seal-ratio]").oninput = function(){ d.ratio = this.value; d.upRatio = this.value; };
+    const rBox = e.querySelector("#sealRestrictList");
+    const renderRestrict = ()=>{
+     if(!Array.isArray(d.restrictions)) d.restrictions = ["","",""];
+     rBox.innerHTML = d.restrictions.map((txt, idx)=>`
+      <div style="display:flex;gap:6px;align-items:flex-start;margin-top:6px;">
+       <textarea class="input" data-seal-r="${idx}" rows="2" style="flex:1;border-radius:10px;resize:vertical;" placeholder="禁止・制限の内容を貼り付け">${esc(txt||"")}</textarea>
+       <button type="button" class="btn-sm" data-seal-rdel="${idx}" style="padding:4px 8px;">削除</button>
+      </div>`).join("");
+     rBox.querySelectorAll("[data-seal-r]").forEach(el=>{
+      el.oninput = ()=>{
+       const i = +el.getAttribute("data-seal-r");
+       d.restrictions[i] = el.value;
+      };
+     });
+     rBox.querySelectorAll("[data-seal-rdel]").forEach(el=>{
+      el.onclick = ()=>{
+       const i = +el.getAttribute("data-seal-rdel");
+       d.restrictions.splice(i,1);
+       if(!d.restrictions.length) d.restrictions = [""];
+       renderRestrict();
+      };
+     });
+    };
+    renderRestrict();
+    e.querySelector("[data-seal-add]").onclick = ()=>{
+     if(!Array.isArray(d.restrictions)) d.restrictions = [];
+     d.restrictions.push("");
+     renderRestrict();
+    };
+    e.querySelector("[data-seal-break]").oninput = function(){ d.breakEffect = this.value; };
+   }
    break;
   case "有利属性ダメージアップ":
   case "不利属性ダメージアップ":
