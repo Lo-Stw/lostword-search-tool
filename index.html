@@ -3892,11 +3892,82 @@ function syncSecretSealFromDom(){
 }
 
 
+
+function syncDurationFromDom(){
+ const skill = "持続";
+ const btn = document.getElementById("ss-" + skill);
+ const isOn = btn ? btn.classList.contains("on") : !!(specialData[skill] && specialData[skill].enabled);
+ if(!isOn){
+  if(specialData[skill]) specialData[skill].enabled = false;
+  return;
+ }
+ if(!specialData[skill]) specialData[skill] = { enabled:true, list:[] };
+ specialData[skill].enabled = true;
+ const detail = document.getElementById("sd-" + skill);
+ if(!detail) return;
+ const list = [];
+ detail.querySelectorAll(".dur-row").forEach(row=>{
+  const idx = row.getAttribute("data-dur-idx");
+  const targetEl = row.querySelector("[data-dur-target]");
+  const effectEl = row.querySelector("[data-dur-effect]");
+  const valueEl = row.querySelector("[data-dur-value]");
+  const turnsEl = row.querySelector("[data-dur-turns]");
+  list.push({
+   target: (targetEl && targetEl.value === "自身") ? "自身" : "味方全体",
+   effect: effectEl ? effectEl.value : "",
+   value: valueEl ? valueEl.value : "",
+   duration: turnsEl ? turnsEl.value : ""
+  });
+ });
+ if(list.length){
+  specialData[skill].list = list;
+  // 互換: 先頭をフラットにも
+  const f = list[0];
+  specialData[skill].target = f.target;
+  specialData[skill].effect = f.effect;
+  specialData[skill].value = f.value;
+  specialData[skill].duration = f.duration;
+ }
+}
+
+function syncAccumFromDom(){
+ const skill = "蓄積";
+ const btn = document.getElementById("ss-" + skill);
+ const isOn = btn ? btn.classList.contains("on") : !!(specialData[skill] && specialData[skill].enabled);
+ if(!isOn){
+  if(specialData[skill]) specialData[skill].enabled = false;
+  return;
+ }
+ if(!specialData[skill]) specialData[skill] = { enabled:true, list:[] };
+ specialData[skill].enabled = true;
+ const detail = document.getElementById("sd-" + skill);
+ if(!detail) return;
+ const list = [];
+ detail.querySelectorAll(".accum-row").forEach(row=>{
+  list.push({
+   target: (row.querySelector("[data-accum-target]")?.value === "自身") ? "自身" : "味方全体",
+   fromStat: row.querySelector("[data-accum-from]")?.value || "",
+   ratio: row.querySelector("[data-accum-ratio]")?.value || "",
+   toStat: row.querySelector("[data-accum-to]")?.value || ""
+  });
+ });
+ if(list.length){
+  specialData[skill].list = list;
+  const f = list[0];
+  specialData[skill].target = f.target;
+  specialData[skill].fromStat = f.fromStat;
+  specialData[skill].ratio = f.ratio;
+  specialData[skill].toStat = f.toStat;
+ }
+}
+
 function snapshotFormToPack(){
  try{ if(typeof syncRank2FieldsFromDom === "function") syncRank2FieldsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncPersistFieldsFromDom === "function") syncPersistFieldsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncBigBarrierFromDom === "function") syncBigBarrierFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncSecretSealFromDom === "function") syncSecretSealFromDom(); }catch(err){ console.warn(err); }
+ try{ if(typeof syncDurationFromDom === "function") syncDurationFromDom(); }catch(err){ console.warn(err); }
+ try{ if(typeof syncAccumFromDom === "function") syncAccumFromDom(); }catch(err){ console.warn(err); }
  return {
   symbol: document.getElementById("aSymbol").value.trim(),
   type: document.getElementById("aType").value,
@@ -7048,8 +7119,8 @@ if(name === "蓄積"){
    if(!it) return "";
    const fromSt = it.fromStat || "各ステータス";
    const n = (it.ratio !== "" && it.ratio != null) ? String(it.ratio) : "n";
-   const tg = it.target === "味方全体" ? "味方全体" : "自身";
-   const toSt = it.toStat || "各ステータス";
+      const tg = it.target === "自身" ? "自身" : "味方全体";
+const toSt = it.toStat || "各ステータス";
    return "自身の" + fromSt + "の" + n + "%を" + tg + "の" + toSt + "に上乗せする";
   }).filter(Boolean);
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
@@ -7761,7 +7832,8 @@ function buildSpecialDetail(skill, e){
     d.list = [{
      fromStat: d.fromStat || "",
      ratio: (d.ratio != null && d.ratio !== "") ? d.ratio : "",
-     toStat: d.toStat || ""
+     toStat: d.toStat || "",
+     target: (d.target === "自身") ? "自身" : "味方全体"
     }];
    }
    e.innerHTML =
@@ -7771,13 +7843,19 @@ function buildSpecialDetail(skill, e){
    const accumBox = e.querySelector("#accumList");
    const renderAccum = ()=>{
     if(!Array.isArray(d.list)) d.list = [];
-    if(!d.list.length) d.list.push({ fromStat:"", ratio:"", toStat:"", target:"自身" });
+    if(!d.list.length) d.list.push({ fromStat:"", ratio:"", toStat:"", target:"味方全体" });
     accumBox.innerHTML = d.list.map((it, idx)=>{
      const fromOpts = STAT_TYPES_SHORT.map(x=>`<option value="${x}" ${it.fromStat===x?"selected":""}>${x}</option>`).join("");
      const toOpts = STAT_TYPES_SHORT.map(x=>`<option value="${x}" ${it.toStat===x?"selected":""}>${x}</option>`).join("");
+     const tg = (it.target === "自身") ? "自身" : "味方全体";
      return `<div class="accum-row" data-accum-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
       <div class="mini" style="font-weight:700;margin-bottom:6px;">蓄積 #${idx+1}</div>
-      <div class="mini">参照するステータス</div>
+      <div class="mini">対象</div>
+      <select class="select" data-accum-target>
+       <option value="味方全体"${tg==="味方全体"?' selected':''}>味方全体</option>
+       <option value="自身"${tg==="自身"?' selected':''}>自身</option>
+      </select>
+      <div class="mini" style="margin-top:6px">参照するステータス</div>
       <select class="select" data-accum-from><option value="">参照元を選択</option>${fromOpts}</select>
       <div class="mini" style="margin-top:6px">参照倍率 %</div>
       <input class="input" type="number" placeholder="倍率 %" data-accum-ratio value="${esc(it.ratio||"")}">
@@ -7799,20 +7877,21 @@ function buildSpecialDetail(skill, e){
       d.list[idx].fromStat = row.querySelector("[data-accum-from]")?.value || "";
       d.list[idx].ratio = row.querySelector("[data-accum-ratio]")?.value || "";
       d.list[idx].toStat = row.querySelector("[data-accum-to]")?.value || "";
-      d.list[idx].target = row.querySelector("[data-accum-target]")?.value || "自身";
+      d.list[idx].target = row.querySelector("[data-accum-target]")?.value || "味方全体";
       const f = d.list[0] || {};
       d.fromStat = f.fromStat || "";
       d.ratio = f.ratio != null ? f.ratio : "";
       d.toStat = f.toStat || "";
-      d.target = f.target || "自身";
+      d.target = f.target || "味方全体";
      };
+     row.querySelector("[data-accum-target]")?.addEventListener("change", sync);
      row.querySelector("[data-accum-from]")?.addEventListener("change", sync);
      row.querySelector("[data-accum-ratio]")?.addEventListener("input", sync);
      row.querySelector("[data-accum-to]")?.addEventListener("change", sync);
      row.querySelector("[data-accum-del]")?.addEventListener("click", (ev)=>{
       ev.preventDefault();
       d.list.splice(idx, 1);
-      if(!d.list.length) d.list.push({ fromStat:"", ratio:"", toStat:"", target:"自身" });
+      if(!d.list.length) d.list.push({ fromStat:"", ratio:"", toStat:"", target:"味方全体" });
       renderAccum();
      });
     });
@@ -7821,7 +7900,7 @@ function buildSpecialDetail(skill, e){
    e.querySelector("[data-accum-add]")?.addEventListener("click", (ev)=>{
     ev.preventDefault();
     if(!Array.isArray(d.list)) d.list = [];
-    d.list.push({ fromStat:"", ratio:"", toStat:"", target:"自身" });
+    d.list.push({ fromStat:"", ratio:"", toStat:"", target:"味方全体" });
     renderAccum();
    });
    break;
@@ -8582,6 +8661,7 @@ function buildSpecialDetail(skill, e){
       const i = +el.getAttribute("data-dur-value");
       if(!d.list[i]) return;
       d.list[i].value = el.value;
+      if(specialData["持続"]) specialData["持続"].list = d.list;
      };
     });
     durBox.querySelectorAll("[data-dur-turns]").forEach(el=>{
@@ -8589,6 +8669,7 @@ function buildSpecialDetail(skill, e){
       const i = +el.getAttribute("data-dur-turns");
       if(!d.list[i]) return;
       d.list[i].duration = el.value;
+      if(specialData["持続"]) specialData["持続"].list = d.list;
      };
     });
     durBox.querySelectorAll("[data-dur-del]").forEach(el=>{
