@@ -4084,6 +4084,7 @@ function syncAccumFromDom(){
 
 function snapshotFormToPack(){
  try{ if(typeof syncRank2FieldsFromDom === "function") syncRank2FieldsFromDom(); }catch(err){ console.warn(err); }
+ try{ if(typeof syncSpecialXcFlagsFromDom === "function") syncSpecialXcFlagsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncPersistFieldsFromDom === "function") syncPersistFieldsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncBigBarrierFromDom === "function") syncBigBarrierFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncSecretSealFromDom === "function") syncSecretSealFromDom(); }catch(err){ console.warn(err); }
@@ -7910,12 +7911,12 @@ function normalizeSpecialSkillsObject(ss){
    d.enabled = true;
   }
   d.list = d.list.map(it=>{
-   if(!it || typeof it !== "object") return { source:"スキル", target:(typeof skill!=="undefined" && skill.includes && skill.includes("デバフ"))?"対象":"自身", stat:"", stage:"" };
+   if(!it || typeof it !== "object") return { source:"スキル", target:String(k||"").includes("デバフ")?"相手":"自身", stat:"", stage:"" };
    let tgt = String(it.target || it.to || "").trim();
-   if(!tgt) tgt = String(k||"").includes("デバフ") ? "対象" : "自身";
+   if(!tgt) tgt = String(k||"").includes("デバフ") ? "相手" : "自身";
    else if(String(k||"").includes("デバフ")){
-    if(tgt==="自身") tgt = "対象";
-    if(tgt==="味方全体") tgt = "対象全体";
+    if(tgt==="自身" || tgt==="対象") tgt = "相手";
+    if(tgt==="味方全体" || tgt==="対象全体") tgt = "相手全体";
    }
    return {
     source: pickRank2Source(it) || "スキル",
@@ -7924,6 +7925,30 @@ function normalizeSpecialSkillsObject(ss){
     stage: pickRank2Stage(it)
    };
   });
+  if(d.xc && typeof d.xc === "object"){
+   if(!Array.isArray(d.xc.list)) d.xc.list = [];
+   d.xc.list = d.xc.list.map(it=>{
+    if(!it || typeof it !== "object") return { source:"スキル", target:String(k||"").includes("デバフ")?"相手":"自身", stat:"", stage:"" };
+    let tgt = String(it.target || it.to || "").trim();
+    if(!tgt) tgt = String(k||"").includes("デバフ") ? "相手" : "自身";
+    else if(String(k||"").includes("デバフ")){
+     if(tgt==="自身" || tgt==="対象") tgt = "相手";
+     if(tgt==="味方全体" || tgt==="対象全体") tgt = "相手全体";
+    }
+    return {
+     source: pickRank2Source(it) || "スキル",
+     target: tgt,
+     stat: pickRank2Stat(it),
+     stage: pickRank2Stage(it)
+    };
+   });
+   if(d.xc.list.some(it => it && (pickRank2Stat(it) || pickRank2Stage(it)))){
+    d.xc.enabled = true;
+    d.xcEnabled = true;
+   }
+  }
+  if(d.xChangeOnly) d.xChangeOnly = true;
+  if(d.xcEnabled) d.xcEnabled = true;
  });
  return out;
 }
@@ -9637,79 +9662,98 @@ function removeRank2Item(skill, idx){
 }
 
 /** 保存直前：DOM上の RANKⅡ 入力を specialData に再同期 */
+function syncSpecialXcFlagsFromDom(){
+ const editor = document.getElementById("specialSkillEditor");
+ if(!editor || typeof specialData === "undefined") return;
+ ["RANKⅡバフ","RANKⅡデバフ"].concat(typeof SPECIAL_SKILLS!=="undefined" ? SPECIAL_SKILLS : []).forEach(skill=>{
+  if(!skill) return;
+  const xcOnlyChk = document.getElementById("ss-xc-only-" + skill);
+  const xcAddChk = document.getElementById("ss-xc-add-" + skill);
+  if(!xcOnlyChk && !xcAddChk) return;
+  if(!specialData[skill]) specialData[skill] = { enabled:false };
+  if(xcOnlyChk) specialData[skill].xChangeOnly = !!xcOnlyChk.checked;
+  if(xcAddChk){
+   specialData[skill].xcEnabled = !!xcAddChk.checked;
+   if(specialData[skill].xcEnabled){
+    if(!specialData[skill].xc) specialData[skill].xc = { enabled:true, list:[] };
+    specialData[skill].xc.enabled = true;
+   }
+  }
+ });
+}
+
 function syncRank2FieldsFromDom(){
- // 特殊スキル編集UIから RANKⅡ を直接回収（specialData 未反映・ID問題を回避）
+ // 特殊スキル編集UIから RANKⅡ を直接回収（primary / X-Change用を分離）
  const editor = document.getElementById("specialSkillEditor");
  if(!editor) return;
 
- const applyList = (skill, list)=>{
+ try{ syncSpecialXcFlagsFromDom(); }catch(e){}
+
+ const applyList = (skill, list, isXc)=>{
   if(!skill) return;
   if(!specialData[skill]) specialData[skill] = { enabled:false, list:[] };
-  // ボタンが「なし」なら DOM があっても有効化しない
   const btn = document.getElementById("ss-" + skill);
   const isOn = btn ? btn.classList.contains("on") : !!specialData[skill].enabled;
+  // チェックボックス状態を毎回反映
+  const xcOnlyChk = document.getElementById("ss-xc-only-" + skill);
+  const xcAddChk = document.getElementById("ss-xc-add-" + skill);
+  if(xcOnlyChk) specialData[skill].xChangeOnly = !!xcOnlyChk.checked;
+  if(xcAddChk) specialData[skill].xcEnabled = !!xcAddChk.checked;
+
   if(!isOn){
    specialData[skill].enabled = false;
-   specialData[skill].list = [];
+   if(!isXc) specialData[skill].list = [];
    return;
   }
-  specialData[skill].list = list;
   specialData[skill].enabled = true;
+  if(isXc){
+   if(!specialData[skill].xc) specialData[skill].xc = { enabled:true, list:[] };
+   specialData[skill].xc.list = list;
+   specialData[skill].xc.enabled = true;
+   specialData[skill].xcEnabled = true;
+  }else{
+   specialData[skill].list = list;
+  }
  };
 
- // 1) data-rank2-skill コンテナ
+ // 1) data-rank2-skill コンテナ（primary / xc を分ける）
  editor.querySelectorAll("[data-rank2-skill]").forEach(box=>{
   const skill = box.getAttribute("data-rank2-skill");
+  const panelEl = box.closest("[data-special-panel]");
+  const isXc = !!(panelEl && panelEl.getAttribute("data-special-panel") === "xc");
   const tmp = {};
   box.querySelectorAll("[data-rank2-field]").forEach(el=>{
    const idx = Number(el.getAttribute("data-rank2-idx"));
    const field = el.getAttribute("data-rank2-field");
    if(!Number.isFinite(idx) || idx < 0 || !field) return;
-   if(!tmp[idx]) tmp[idx] = { source:"スキル", target:(typeof skill!=="undefined" && skill.includes && skill.includes("デバフ"))?"対象":"自身", stat:"", stage:"" };
+   if(!tmp[idx]) tmp[idx] = { source:"スキル", target:(skill && skill.includes("デバフ"))?"相手":"自身", stat:"", stage:"" };
    tmp[idx][field] = String(el.value ?? "");
   });
   const list = Object.keys(tmp).sort((a,b)=>Number(a)-Number(b)).map(k=>tmp[k]);
-  if(list.length) applyList(skill, list);
+  if(list.length) applyList(skill, list, isXc);
  });
 
- // 2) フォールバック: 各 .ability ブロックをボタン文言から判定
- editor.querySelectorAll(".ability").forEach(box=>{
-  const btn = box.querySelector(".switch button, button");
-  if(!btn) return;
-  const t = btn.textContent || "";
-  let skill = null;
-  if(/RANK\s*[ⅡII２2].*デバフ/.test(t)) skill = "RANKⅡデバフ";
-  else if(/RANK\s*[ⅡII２2].*バフ/.test(t)) skill = "RANKⅡバフ";
-  if(!skill) return;
-  if(!(btn.classList.contains("on") || /：あり/.test(t))) return;
-
+ // 2) フォールバック: 各パネル内の .rank-item
+ editor.querySelectorAll("[data-special-panel]").forEach(panel=>{
+  const skill = panel.getAttribute("data-special-skill");
+  if(!skill || (skill !== "RANKⅡバフ" && skill !== "RANKⅡデバフ")) return;
+  const isXc = panel.getAttribute("data-special-panel") === "xc";
+  const btn = document.getElementById("ss-" + skill);
+  if(btn && !btn.classList.contains("on")) return;
   const items = [];
-  const rankItems = box.querySelectorAll(".rank-item");
-  if(rankItems.length){
-   rankItems.forEach(item=>{
-    const sourceEl = item.querySelector("[data-rank2-field=\"source\"], select");
-    const selects = item.querySelectorAll("select");
-    const inputs = item.querySelectorAll("input[type=\"number\"], input:not([type])");
-    let source = "スキル", target = "", stat = "", stage = "";
-    const srcField = item.querySelector("[data-rank2-field=\"source\"]");
-    const tgtField = item.querySelector("[data-rank2-field=\"target\"]");
-    const statField = item.querySelector("[data-rank2-field=\"stat\"]");
-    const stageField = item.querySelector("[data-rank2-field=\"stage\"]");
-    if(srcField) source = srcField.value || "スキル";
-    else if(selects[0]) source = selects[0].value || "スキル";
-    if(tgtField) target = tgtField.value || "";
-    if(statField) stat = statField.value || "";
-    else if(selects[1]) {
-      // source, target, stat order if 3 selects
-      const selStat = item.querySelector("[data-rank2-field=\"stat\"]") || selects[selects.length-1];
-      if(selStat && selStat !== srcField) stat = selStat.value || "";
-    }
-    if(stageField) stage = stageField.value || "";
-    else if(inputs[0]) stage = inputs[0].value || "";
-    items.push({ source, target, stat, stage });
+  panel.querySelectorAll(".rank-item").forEach(item=>{
+   const srcField = item.querySelector("[data-rank2-field=\"source\"]");
+   const tgtField = item.querySelector("[data-rank2-field=\"target\"]");
+   const statField = item.querySelector("[data-rank2-field=\"stat\"]");
+   const stageField = item.querySelector("[data-rank2-field=\"stage\"]");
+   items.push({
+    source: (srcField && srcField.value) || "スキル",
+    target: (tgtField && tgtField.value) || (skill.includes("デバフ")?"相手":"自身"),
+    stat: (statField && statField.value) || "",
+    stage: (stageField && stageField.value) || ""
    });
-  }
-  if(items.length) applyList(skill, items);
+  });
+  if(items.length) applyList(skill, items, isXc);
  });
 }
 
