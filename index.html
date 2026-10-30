@@ -7471,6 +7471,59 @@ function withXChangeOnlySuffix(text, d){
  }).join("\n");
 }
 
+
+function getCharSymbol(c){
+ if(!c) return "";
+ try{
+  if(typeof getViewModel === "function"){
+   const vm = getViewModel(c);
+   if(vm && vm.symbol) return String(vm.symbol);
+  }
+ }catch(e){}
+ return String(c.symbol || (c.details && c.details.symbol) || "");
+}
+function getCharEpithet(c){
+ if(!c) return "";
+ return String(c.epithet || (c.details && c.details.epithet) || "");
+}
+/** 表示用：名前（汎異 / 二つ名） */
+function formatCharIdentityLabel(c, opts){
+ if(!c) return "";
+ const options = opts || {};
+ const name = c.character || c.name || "";
+ const sym = getCharSymbol(c);
+ const epi = getCharEpithet(c);
+ const bits = [];
+ if(name) bits.push(name);
+ const sub = [];
+ if(sym) sub.push(sym);
+ if(epi) sub.push(epi);
+ if(sub.length) bits.push("(" + sub.join(" / ") + ")");
+ return bits.join(" ");
+}
+function resolveCharByPartner(p){
+ if(!p) return null;
+ const id = p.id != null ? String(p.id) : "";
+ if(id){
+  const byId = (data||[]).find(c => c && String(c.id) === id);
+  if(byId) return byId;
+ }
+ const nm = p.name || "";
+ if(nm){
+  const byName = (data||[]).filter(c => c && c.character === nm);
+  if(byName.length === 1) return byName[0];
+  // 汎異・二つ名付きで一致
+  if(p.symbol || p.epithet){
+   const hit = byName.find(c =>
+    (!p.symbol || getCharSymbol(c) === p.symbol) &&
+    (!p.epithet || getCharEpithet(c) === p.epithet)
+   );
+   if(hit) return hit;
+  }
+ }
+ return null;
+}
+
 function formatSpecialSkillDetailText(name, d){
  if(!d || !d.enabled) return "";
  const bits = [];
@@ -7771,7 +7824,14 @@ if(name === "蓄積"){
  if(name === "X-Change"){
   const partners = Array.isArray(d.partners) ? d.partners : [];
   if(partners.length){
-   return partners.map(p => (p && (p.name || p.id)) ? String(p.name || p.id) : "").filter(Boolean).join("、");
+   return partners.map(p=>{
+    if(!p) return "";
+    const ch = (typeof resolveCharByPartner==="function") ? resolveCharByPartner(p) : null;
+    if(ch && typeof formatCharIdentityLabel==="function") return formatCharIdentityLabel(ch);
+    const nm = p.name || p.id || "";
+    const sub = [p.symbol, p.epithet].filter(Boolean);
+    return sub.length ? (nm + " (" + sub.join(" / ") + ")") : nm;
+   }).filter(Boolean).join("、");
   }
   if(d.effect) return String(d.effect);
   return "";
@@ -8043,18 +8103,16 @@ function formatSpecialSkillsHtml(ss, opts){
    if(partners.length){
     const links = partners.map(p=>{
      if(!p) return "";
-     const nm = p.name || p.id || "";
-     const id = p.id ? String(p.id) : "";
-     // id が無く名前だけなら検索して補完
-     let cid = id;
-     if(!cid && nm && typeof data !== "undefined"){
-      const hit = (data||[]).find(c => c && c.character === nm);
-      if(hit) cid = String(hit.id);
-     }
+     const ch = (typeof resolveCharByPartner==="function") ? resolveCharByPartner(p) : null;
+     const label = ch ? formatCharIdentityLabel(ch) : (
+      (p.name || p.id || "") + ((p.symbol || p.epithet) ? (" (" + [p.symbol, p.epithet].filter(Boolean).join(" / ") + ")") : "")
+     );
+     let cid = p.id ? String(p.id) : "";
+     if(ch) cid = String(ch.id);
      if(cid){
-      return `<button type="button" class="tag tag-kind xc-partner-link" data-open-char="${esc(cid)}" style="cursor:pointer;margin:2px;">${esc(nm)}</button>`;
+      return `<button type="button" class="tag tag-kind xc-partner-link" data-open-char="${esc(cid)}" style="cursor:pointer;margin:2px;text-align:left;">${esc(label)}</button>`;
      }
-     return `<span class="tag tag-kind">${esc(nm)}</span>`;
+     return `<span class="tag tag-kind">${esc(label)}</span>`;
     }).filter(Boolean).join(" ");
     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} ${links}</div>`);
    }else{
@@ -8771,7 +8829,7 @@ function buildSpecialDetail(skill, e){
    if(!Array.isArray(d.partners)) d.partners = [];
    e.innerHTML = `
     <div class="mini" style="margin-bottom:6px;">X-Change対応キャラ（複数可）</div>
-    <input class="input" id="xcPartnerFilter" placeholder="キャラ名で絞り込み" style="margin-bottom:8px;">
+    <input class="input" id="xcPartnerFilter" placeholder="名前・汎異記号・二つ名で絞り込み" style="margin-bottom:8px;">
     <div id="xcPartnerList" style="max-height:220px;overflow:auto;border:1px solid #e0d6c8;border-radius:8px;padding:6px;background:#faf8f5;"></div>
     <div class="mini" style="margin-top:10px;">選択中</div>
     <div id="xcPartnerSelected" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
@@ -8788,8 +8846,11 @@ function buildSpecialDetail(skill, e){
      return;
     }
     selBox.innerHTML = d.partners.map((p, idx)=>{
-     const label = esc(p.name || p.id || "?");
-     return `<button type="button" class="btn-sm" data-xc-remove="${idx}" style="background:#fff;">${label} ×</button>`;
+     const ch = (typeof resolveCharByPartner==="function") ? resolveCharByPartner(p) : null;
+     const label = esc(ch ? formatCharIdentityLabel(ch) : (
+      (p.name||"?") + ((p.symbol||p.epithet) ? (" (" + [p.symbol,p.epithet].filter(Boolean).join(" / ") + ")") : "")
+     ));
+     return `<button type="button" class="btn-sm" data-xc-remove="${idx}" style="background:#fff;text-align:left;">${label} ×</button>`;
     }).join("");
     selBox.querySelectorAll("[data-xc-remove]").forEach(btn=>{
      btn.addEventListener("click", (ev)=>{
@@ -8809,23 +8870,30 @@ function buildSpecialDetail(skill, e){
      if(selfId && String(c.id) === selfId) return false;
      const name = (typeof normalizeSearchText==="function") ? normalizeSearchText(c.character || "") : String(c.character||"").toLowerCase();
      const reading = (typeof normalizeSearchText==="function" && typeof getCharReading==="function") ? normalizeSearchText(getCharReading(c)) : "";
-     if(q && !name.includes(q) && !reading.includes(q)) return false;
+     const sym = (typeof normalizeSearchText==="function") ? normalizeSearchText(getCharSymbol(c)) : getCharSymbol(c);
+     const epi = (typeof normalizeSearchText==="function") ? normalizeSearchText(getCharEpithet(c)) : getCharEpithet(c);
+     if(q && !name.includes(q) && !reading.includes(q) && !sym.includes(q) && !epi.includes(q)) return false;
      return true;
     }).slice(0, 100);
     listBox.innerHTML = rows.map(c=>{
      const id = String(c.id);
      const name = c.character || "";
-     const on = d.partners.some(p => String(p.id) === id || (p.name && p.name === name));
-     return `<button type="button" class="filter${on?" selected":""}" data-xc-id="${esc(id)}" data-xc-name="${esc(name)}" style="margin:3px;">${esc(name)}</button>`;
+     const sym = getCharSymbol(c);
+     const epi = getCharEpithet(c);
+     const label = formatCharIdentityLabel(c);
+     const on = d.partners.some(p => String(p.id) === id);
+     return `<button type="button" class="filter${on?" selected":""}" data-xc-id="${esc(id)}" data-xc-name="${esc(name)}" data-xc-symbol="${esc(sym)}" data-xc-epithet="${esc(epi)}" style="margin:3px;display:block;width:100%;text-align:left;">${esc(label)}</button>`;
     }).join("") || `<span class="mini">候補なし</span>`;
     listBox.querySelectorAll("[data-xc-id]").forEach(btn=>{
      btn.addEventListener("click", (ev)=>{
       ev.preventDefault();
       const id = btn.getAttribute("data-xc-id");
       const name = btn.getAttribute("data-xc-name") || "";
+      const symbol = btn.getAttribute("data-xc-symbol") || "";
+      const epithet = btn.getAttribute("data-xc-epithet") || "";
       const ix = d.partners.findIndex(p => String(p.id) === String(id));
       if(ix >= 0) d.partners.splice(ix, 1);
-      else d.partners.push({ id, name });
+      else d.partners.push({ id, name, symbol, epithet });
       renderSelected();
       renderList();
      });
