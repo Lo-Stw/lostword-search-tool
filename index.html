@@ -3842,7 +3842,7 @@ const selected={
  owned:[],
  sealStat:[], barrierUpStat:[], barrierDownStat:[],
  resonanceStat:[], attrBoostAttr:[], bulletBoostType:[],
- accumFromStat:[], accumToStat:[], durationEffect:[],
+ accumSource:[], accumFromStat:[], accumToStat:[], durationEffect:[],
  weakAttr:[], buddyTarget:[], buddyCountKind:[], buddyStat:[],
  zoneTarget:[], zoneStat:[], reverseDownStat:[], reverseFromStat:[], reverseToStat:[],
  gaugeDelayTarget:[], chikuKind:[], chikuTarget:[],
@@ -6931,10 +6931,13 @@ function collectSkillDetailOptions(){
   list.forEach(it=>{ if(it && it.bullet) bulB.add(String(it.bullet)); });
  });
  collectSpecialSkillObjsFromData("蓄積").forEach(d=>{
-  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ fromStat:d.fromStat, toStat:d.toStat }];
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ fromStat:d.fromStat, toStat:d.toStat, source:d.source }];
   list.forEach(it=>{
-   if(it && it.fromStat) accFrom.add(String(it.fromStat));
-   if(it && it.toStat) accTo.add(String(it.toStat));
+   if(!it) return;
+   if(it.fromStat) accFrom.add(String(it.fromStat));
+   if(it.toStat) accTo.add(String(it.toStat));
+   const src = it.source || "スキル";
+   accSrc.add(String(src));
   });
  });
  collectSpecialSkillObjsFromData("持続").forEach(d=>{
@@ -7007,7 +7010,7 @@ function collectSkillDetailOptions(){
  return {
   sealStat: [...seal].sort(), barrierUpStat: [...bUp].sort(), barrierDownStat: [...bDown].sort(),
   resonanceStat: [...res].sort(), attrBoostAttr: [...attrB].sort(), bulletBoostType: [...bulB].sort(),
-  accumFromStat: [...accFrom].sort(), accumToStat: [...accTo].sort(), durationEffect: [...dur].sort(),
+  accumFromStat: [...accFrom].sort(), accumToStat: [...accTo].sort(), accumSource: [...accSrc].sort(), durationEffect: [...dur].sort(),
   weakAttr: [...weak].sort(), buddyTarget: [...buddyTg].sort(), buddyCountKind: [...buddyCk].sort(), buddyStat: [...buddySt].sort(),
   zoneTarget: [...zoneTg].sort(), zoneStat: [...zoneSt].sort(),
   reverseDownStat: [...revDown].sort(), reverseFromStat: [...revFrom].sort(), reverseToStat: [...revTo].sort(),
@@ -7065,7 +7068,7 @@ function updateSkillDetailVisibility(){
  if(!flags.res) clear(selected.resonanceStat);
  if(!flags.attr) clear(selected.attrBoostAttr);
  if(!flags.bul) clear(selected.bulletBoostType);
- if(!flags.acc){ clear(selected.accumFromStat); clear(selected.accumToStat); }
+ if(!flags.acc){ clear(selected.accumFromStat); clear(selected.accumToStat); clear(selected.accumSource); }
  if(!flags.dur) clear(selected.durationEffect);
  if(!flags.weak) clear(selected.weakAttr);
  if(!flags.buddy){ clear(selected.buddyTarget); clear(selected.buddyCountKind); clear(selected.buddyStat); }
@@ -7087,7 +7090,7 @@ function updateSkillDetailVisibility(){
  if(flags.res) chip("fResonanceStat", opts.resonanceStat, selected.resonanceStat);
  if(flags.attr) chip("fAttrBoostAttr", opts.attrBoostAttr, selected.attrBoostAttr, { attrColor:true });
  if(flags.bul) chip("fBulletBoostType", opts.bulletBoostType, selected.bulletBoostType, { bulletIcon:true });
- if(flags.acc){ chip("fAccumFromStat", opts.accumFromStat, selected.accumFromStat); chip("fAccumToStat", opts.accumToStat, selected.accumToStat); }
+ if(flags.acc){ chip("fAccumSource", opts.accumSource && opts.accumSource.length ? opts.accumSource : ["スキル","スペルカード1","スペルカード2","LASTWORD"], selected.accumSource); chip("fAccumFromStat", opts.accumFromStat, selected.accumFromStat); chip("fAccumToStat", opts.accumToStat, selected.accumToStat); }
  if(flags.dur) chip("fDurationEffect", opts.durationEffect, selected.durationEffect);
  if(flags.weak) chip("fWeakAttr", opts.weakAttr, selected.weakAttr, { attrColor:true });
  if(flags.buddy){ chip("fBuddyTarget", opts.buddyTarget, selected.buddyTarget); chip("fBuddyCountKind", opts.buddyCountKind, selected.buddyCountKind); chip("fBuddyStat", opts.buddyStat, selected.buddyStat); }
@@ -7210,13 +7213,17 @@ function matchSkillDetailFilters(ss){
   const list = Array.isArray(d.list)&&d.list.length ? d.list : [{bullet:d.bullet}];
   if(!matchArray(selected.bulletBoostType, list.map(it=>it&&it.bullet).filter(Boolean).map(String), mode)) return false;
  }
- if(selected.char.includes("蓄積") && (has(selected.accumFromStat)||has(selected.accumToStat))){
+ if(selected.char.includes("蓄積") && (has(selected.accumFromStat)||has(selected.accumToStat)||has(selected.accumSource))){
   const d = ss["蓄積"]; if(!d||!d.enabled) return false;
-  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{fromStat:d.fromStat,toStat:d.toStat}];
+  const list = Array.isArray(d.list)&&d.list.length ? d.list : [{fromStat:d.fromStat,toStat:d.toStat,source:d.source||"スキル"}];
+  if(has(selected.accumSource)){
+   const srcs = list.map(it=>String((it&&it.source)||"スキル"));
+   if(!matchArray(selected.accumSource, srcs, mode)) return false;
+  }
   if(has(selected.accumFromStat) && !matchArray(selected.accumFromStat, list.map(it=>it&&it.fromStat).filter(Boolean).map(String), mode)) return false;
   if(has(selected.accumToStat) && !matchArray(selected.accumToStat, list.map(it=>it&&it.toStat).filter(Boolean).map(String), mode)) return false;
  }
- if(selected.char.includes("持続") && has(selected.durationEffect)){
+if(selected.char.includes("持続") && has(selected.durationEffect)){
   const d = ss["持続"]; if(!d||!d.enabled) return false;
   const list = Array.isArray(d.list)&&d.list.length ? d.list : [{effect:d.effect}];
   const effects = list.map(it=>{ let e=it&&it.effect; if(e==="霊力上昇") e="霊力"; return e; }).filter(Boolean).map(String);
@@ -7653,17 +7660,20 @@ function formatSpecialSkillDetailText(name, d){
  }
 
 if(name === "蓄積"){
-  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ fromStat:d.fromStat, ratio:d.ratio, toStat:d.toStat, target:d.target }];
+  const list = Array.isArray(d.list) && d.list.length ? d.list : [{ source:d.source, fromStat:d.fromStat, ratio:d.ratio, toStat:d.toStat, target:d.target }];
   const parts = list.map(it=>{
    if(!it) return "";
+   const src = (it.source && typeof RANK2_SOURCES !== "undefined" && RANK2_SOURCES.includes(it.source)) ? it.source : "スキル";
    const fromSt = it.fromStat || "各ステータス";
    const n = (it.ratio !== "" && it.ratio != null) ? String(it.ratio) : "n";
-      const tg = it.target === "自身" ? "自身" : "味方全体";
-const toSt = it.toStat || "各ステータス";
-   return "自身の" + fromSt + "の" + n + "%を" + tg + "の" + toSt + "に上乗せする";
+   const tg = it.target === "自身" ? "自身" : "味方全体";
+   const toSt = it.toStat || "各ステータス";
+   return "【" + src + "】自身の" + fromSt + "の" + n + "%を" + tg + "の" + toSt + "に上乗せする";
   }).filter(Boolean);
-  return parts.length ? parts.join(String.fromCharCode(10)) : "";
+  return parts.join(String.fromCharCode(10));
  }
+
+
  if(name === "共鳴"){
   const list = Array.isArray(d.list) && d.list.length
    ? d.list
@@ -8420,27 +8430,37 @@ function buildSpecialDetail(skill, e){
   case "蓄積":
    if(!Array.isArray(d.list) || !d.list.length){
     d.list = [{
+     source: d.source || "スキル",
      fromStat: d.fromStat || "",
      ratio: (d.ratio != null && d.ratio !== "") ? d.ratio : "",
      toStat: d.toStat || "",
      target: (d.target === "自身") ? "自身" : "味方全体"
     }];
    }
+   d.list.forEach(it=>{
+    if(!it) return;
+    if(!it.source || (typeof RANK2_SOURCES!=="undefined" && !RANK2_SOURCES.includes(it.source))) it.source = "スキル";
+   });
    e.innerHTML =
-    '<div class="mini" style="margin-bottom:6px;">複数の蓄積を追加できます</div>' +
+    '<div class="mini" style="margin-bottom:6px;">複数の蓄積を追加できます（発動箇所を指定）</div>' +
     '<div id="accumList"></div>' +
     '<button type="button" class="btn-sm" data-accum-add style="margin-top:6px;">＋ 蓄積を追加</button>';
    const accumBox = e.querySelector("#accumList");
    const renderAccum = ()=>{
     if(!Array.isArray(d.list)) d.list = [];
-    if(!d.list.length) d.list.push({ fromStat:"", ratio:"", toStat:"", target:"味方全体" });
+    if(!d.list.length) d.list.push({ source:"スキル", fromStat:"", ratio:"", toStat:"", target:"味方全体" });
+    const srcList = (typeof RANK2_SOURCES!=="undefined") ? RANK2_SOURCES : ["スキル","スペルカード1","スペルカード2","LASTWORD"];
     accumBox.innerHTML = d.list.map((it, idx)=>{
      const fromOpts = STAT_TYPES_SHORT.map(x=>`<option value="${x}" ${it.fromStat===x?"selected":""}>${x}</option>`).join("");
      const toOpts = STAT_TYPES_SHORT.map(x=>`<option value="${x}" ${it.toStat===x?"selected":""}>${x}</option>`).join("");
      const tg = (it.target === "自身") ? "自身" : "味方全体";
+     const src = (it.source && srcList.includes(it.source)) ? it.source : "スキル";
+     const srcOpts = srcList.map(x=>`<option value="${x}" ${src===x?"selected":""}>${x}</option>`).join("");
      return `<div class="accum-row" data-accum-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
       <div class="mini" style="font-weight:700;margin-bottom:6px;">蓄積 #${idx+1}</div>
-      <div class="mini">対象</div>
+      <div class="mini">発動箇所</div>
+      <select class="select" data-accum-source>${srcOpts}</select>
+      <div class="mini" style="margin-top:6px">対象</div>
       <select class="select" data-accum-target>
        <option value="味方全体"${tg==="味方全体"?' selected':''}>味方全体</option>
        <option value="自身"${tg==="自身"?' selected':''}>自身</option>
@@ -8460,10 +8480,12 @@ function buildSpecialDetail(skill, e){
     d.fromStat = first.fromStat || "";
     d.ratio = first.ratio != null ? first.ratio : "";
     d.toStat = first.toStat || "";
+    d.source = first.source || "スキル";
     accumBox.querySelectorAll(".accum-row").forEach(row=>{
      const idx = Number(row.getAttribute("data-accum-idx"));
      const sync = ()=>{
       if(!d.list[idx]) return;
+      d.list[idx].source = row.querySelector("[data-accum-source]")?.value || "スキル";
       d.list[idx].fromStat = row.querySelector("[data-accum-from]")?.value || "";
       d.list[idx].ratio = row.querySelector("[data-accum-ratio]")?.value || "";
       d.list[idx].toStat = row.querySelector("[data-accum-to]")?.value || "";
@@ -8473,7 +8495,9 @@ function buildSpecialDetail(skill, e){
       d.ratio = f.ratio != null ? f.ratio : "";
       d.toStat = f.toStat || "";
       d.target = f.target || "味方全体";
+      d.source = f.source || "スキル";
      };
+     row.querySelector("[data-accum-source]")?.addEventListener("change", sync);
      row.querySelector("[data-accum-target]")?.addEventListener("change", sync);
      row.querySelector("[data-accum-from]")?.addEventListener("change", sync);
      row.querySelector("[data-accum-ratio]")?.addEventListener("input", sync);
@@ -8481,7 +8505,7 @@ function buildSpecialDetail(skill, e){
      row.querySelector("[data-accum-del]")?.addEventListener("click", (ev)=>{
       ev.preventDefault();
       d.list.splice(idx, 1);
-      if(!d.list.length) d.list.push({ fromStat:"", ratio:"", toStat:"", target:"味方全体" });
+      if(!d.list.length) d.list.push({ source:"スキル", fromStat:"", ratio:"", toStat:"", target:"味方全体" });
       renderAccum();
      });
     });
@@ -8490,10 +8514,11 @@ function buildSpecialDetail(skill, e){
    e.querySelector("[data-accum-add]")?.addEventListener("click", (ev)=>{
     ev.preventDefault();
     if(!Array.isArray(d.list)) d.list = [];
-    d.list.push({ fromStat:"", ratio:"", toStat:"", target:"味方全体" });
+    d.list.push({ source:"スキル", fromStat:"", ratio:"", toStat:"", target:"味方全体" });
     renderAccum();
    });
    break;
+
   case "バディコネクト":
    if(d.target !== "自身" && d.target !== "味方全体") d.target = "味方全体";
    if(d.countKind !== "ゆっくり・バディガ" && d.countKind !== "ゆっくり") d.countKind = "ゆっくり";
@@ -13548,7 +13573,7 @@ function isDetailSearchActive(){
  if(selected.r2Source.length || selected.r2Stat.length || r2Stage) return true;
  if((selected.char||[]).length) return true;
  // 特殊スキル詳細の選択
- if(["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k => (selected[k]||[]).length)) return true;
+ if(["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","accumSource","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k => (selected[k]||[]).length)) return true;
  return false;
 }
 
@@ -13653,7 +13678,7 @@ function analyzeSearchMatchSides(c){
  const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
  const r2StageQ = (document.getElementById("fR2Stage")?.value || "").trim();
  const needR2 = selected.r2Source.length || selected.r2Stat.length || r2StageQ;
- const needSkillDetail = ["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k=>selected[k]&&selected[k].length);
+ const needSkillDetail = ["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","accumSource","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k=>selected[k]&&selected[k].length);
  const ddAttr = selected.ddAttr || [];
  const ddBullet = selected.ddBullet || [];
  const ddRaceQ = (document.getElementById("fDdRace")?.value || "").trim().toLowerCase();
