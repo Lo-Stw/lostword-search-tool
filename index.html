@@ -7822,19 +7822,21 @@ if(name === "蓄積"){
   return lines.length ? lines.join(String.fromCharCode(10)) : "";
  }
  if(name === "X-Change"){
+  const lines = [];
+  if(d.effect && String(d.effect).trim()) lines.push(String(d.effect).trim());
   const partners = Array.isArray(d.partners) ? d.partners : [];
   if(partners.length){
-   return partners.map(p=>{
+   const names = partners.map(p=>{
     if(!p) return "";
     const ch = (typeof resolveCharByPartner==="function") ? resolveCharByPartner(p) : null;
     if(ch && typeof formatCharIdentityLabel==="function") return formatCharIdentityLabel(ch);
     const nm = p.name || p.id || "";
     const sub = [p.symbol, p.epithet].filter(Boolean);
     return sub.length ? (nm + " (" + sub.join(" / ") + ")") : nm;
-   }).filter(Boolean).join("、");
+   }).filter(Boolean);
+   if(names.length) lines.push("対応: " + names.join("、"));
   }
-  if(d.effect) return String(d.effect);
-  return "";
+  return lines.join(String.fromCharCode(10));
  }
  if(d.ratio !== "" && d.ratio != null) bits.push(`${d.ratio}%`);
  if(d.value !== "" && d.value != null) bits.push(String(d.value));
@@ -8097,9 +8099,17 @@ function formatSpecialSkillsHtml(ss, opts){
      });
     }
    }
-  }else if(x === "X-Change"){
+    }else if(x === "X-Change"){
    const matched = isFilterMatch(x, selected.char);
+   const effect = (ss[x].effect && String(ss[x].effect).trim()) ? String(ss[x].effect).trim() : "";
    const partners = Array.isArray(ss[x].partners) ? ss[x].partners : [];
+   let body = "";
+   if(effect){
+    const lines = effect.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean);
+    body += lines.map(line =>
+     `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(line)}</span></div>`
+    ).join("");
+   }
    if(partners.length){
     const links = partners.map(p=>{
      if(!p) return "";
@@ -8114,8 +8124,11 @@ function formatSpecialSkillsHtml(ss, opts){
      }
      return `<span class="tag tag-kind">${esc(label)}</span>`;
     }).filter(Boolean).join(" ");
-    parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} ${links}</div>`);
-   }else{
+    body += `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${effect ? "" : tagWithHl(x, matched, "")} ${links}</div>`;
+   }
+   if(body) parts.push(body);
+   else parts.push(tagWithHl(x, matched, ""));
+    }else{
     const detail = formatSpecialSkillDetailText(x, ss[x]);
     if(detail){
      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(detail)}</span></div>`);
@@ -8828,23 +8841,20 @@ function buildSpecialDetail(skill, e){
   case "X-Change":
    if(!Array.isArray(d.partners)) d.partners = [];
    e.innerHTML = `
-    <div class="mini" style="margin-bottom:6px;">X-Change対応キャラ（複数可）</div>
-    <div class="mini" style="margin-bottom:4px;">コピペ反映（改行・読点・カンマ区切り）</div>
-    <textarea class="input" id="xcPartnerPaste" rows="3" placeholder="例：&#10;博麗霊夢&#10;霧雨魔理沙 (魔理沙 / 普通の魔法使い)" style="margin-bottom:6px;min-height:64px;"></textarea>
-    <button type="button" class="btn-sm" id="xcPartnerPasteBtn" style="margin-bottom:10px;">コピペを反映</button>
-    <span class="mini" id="xcPartnerPasteMsg" style="margin-left:8px;"></span>
+    <div class="mini" style="margin-bottom:4px;">X-Change効果（コピペ可）</div>
+    <textarea class="input" data-special-effect rows="4" placeholder="効果文を貼り付け" style="margin-bottom:12px;min-height:80px;">${esc(d.effect||"")}</textarea>
+    <div class="mini" style="margin-bottom:6px;">X-Change対応キャラ（任意・複数可）</div>
     <input class="input" id="xcPartnerFilter" placeholder="名前・汎異記号・二つ名で絞り込み" style="margin-bottom:8px;">
     <div id="xcPartnerList" style="max-height:220px;overflow:auto;border:1px solid #e0d6c8;border-radius:8px;padding:6px;background:#faf8f5;"></div>
     <div class="mini" style="margin-top:10px;">選択中</div>
     <div id="xcPartnerSelected" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
-    ${d.effect ? `<div class="mini" style="margin-top:10px;opacity:.8;">旧メモ: ${esc(d.effect)}</div>` : ""}
    `;
    const listBox = e.querySelector("#xcPartnerList");
    const selBox = e.querySelector("#xcPartnerSelected");
    const filterIn = e.querySelector("#xcPartnerFilter");
-   const pasteIn = e.querySelector("#xcPartnerPaste");
-   const pasteBtn = e.querySelector("#xcPartnerPasteBtn");
-   const pasteMsg = e.querySelector("#xcPartnerPasteMsg");
+   const effectIn = e.querySelector("[data-special-effect]");
+   effectIn?.addEventListener("input", ()=>{ d.effect = effectIn.value || ""; });
+   effectIn?.addEventListener("change", ()=>{ d.effect = effectIn.value || ""; });
    const selfId = (typeof editingId !== "undefined" && editingId) ? String(editingId) : "";
    const renderSelected = ()=>{
     if(!selBox) return;
@@ -8906,84 +8916,6 @@ function buildSpecialDetail(skill, e){
      });
     });
    };
-   const applyXcPaste = ()=>{
-    const raw = (pasteIn?.value || "").trim();
-    if(!raw){
-     if(pasteMsg) pasteMsg.textContent = "空です";
-     return;
-    }
-    const tokens = raw.split(/[\n\r,、／/|]+/).map(s=>s.trim()).filter(Boolean);
-    let added = 0, miss = [];
-    const norm = (s)=> (typeof normalizeSearchText==="function") ? normalizeSearchText(s) : String(s||"").toLowerCase();
-    tokens.forEach(tok=>{
-     // 「名前 (汎異 / 二つ名)」形式を分解
-     let namePart = tok;
-     let symPart = "";
-     let epiPart = "";
-     const m = tok.match(/^(.+?)\s*[（(]\s*(.+?)\s*[）)]$/);
-     if(m){
-      namePart = m[1].trim();
-      const inside = m[2].split(/[\/／|,、]/).map(x=>x.trim()).filter(Boolean);
-      if(inside.length >= 1) symPart = inside[0];
-      if(inside.length >= 2) epiPart = inside[1];
-     }
-     const nq = norm(namePart);
-     const sq = norm(symPart);
-     const eq = norm(epiPart);
-     let hits = (data||[]).filter(c=>{
-      if(!c) return false;
-      if(selfId && String(c.id) === selfId) return false;
-      return norm(c.character||"") === nq || norm(c.character||"").includes(nq);
-     });
-     if(hits.length > 1 && (symPart || epiPart)){
-      const narrowed = hits.filter(c=>{
-       const sym = norm(typeof getCharSymbol==="function" ? getCharSymbol(c) : "");
-       const epi = norm(typeof getCharEpithet==="function" ? getCharEpithet(c) : "");
-       if(sq && sym !== sq && !sym.includes(sq)) return false;
-       if(eq && epi !== eq && !epi.includes(eq)) return false;
-       return true;
-      });
-      if(narrowed.length) hits = narrowed;
-     }
-     // 汎異・二つ名だけで当たる場合
-     if(!hits.length && (symPart || epiPart || namePart)){
-      hits = (data||[]).filter(c=>{
-       if(!c || (selfId && String(c.id)===selfId)) return false;
-       const sym = norm(typeof getCharSymbol==="function" ? getCharSymbol(c) : "");
-       const epi = norm(typeof getCharEpithet==="function" ? getCharEpithet(c) : "");
-       const label = norm(typeof formatCharIdentityLabel==="function" ? formatCharIdentityLabel(c) : "");
-       const q = norm(tok);
-       return label === q || label.includes(q) || sym === nq || epi === nq;
-      });
-     }
-     if(!hits.length){ miss.push(tok); return; }
-     // 複数ヒット時は先頭（完全一致優先）
-     hits.sort((a,b)=>{
-      const an = norm(a.character||"") === nq ? 0 : 1;
-      const bn = norm(b.character||"") === nq ? 0 : 1;
-      return an - bn;
-     });
-     const c = hits[0];
-     const id = String(c.id);
-     if(d.partners.some(p => String(p.id) === id)) return;
-     d.partners.push({
-      id,
-      name: c.character || namePart,
-      symbol: (typeof getCharSymbol==="function" ? getCharSymbol(c) : "") || symPart,
-      epithet: (typeof getCharEpithet==="function" ? getCharEpithet(c) : "") || epiPart
-     });
-     added++;
-    });
-    renderSelected();
-    renderList();
-    if(pasteMsg){
-     pasteMsg.textContent = added
-      ? (added + "件追加" + (miss.length ? " / 不明:" + miss.slice(0,3).join("、") : ""))
-      : ("一致なし" + (miss.length ? ": " + miss.slice(0,5).join("、") : ""));
-    }
-   };
-   pasteBtn?.addEventListener("click", (ev)=>{ ev.preventDefault(); applyXcPaste(); });
-   pasteIn?.addEventListener("paste", ()=>{ setTimeout(applyXcPaste, 0); });
    filterIn?.addEventListener("input", ()=> renderList());
    renderSelected();
    renderList();
