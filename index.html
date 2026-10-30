@@ -8128,14 +8128,6 @@ function formatSpecialSkillsHtml(ss, opts){
    }
    if(body) parts.push(body);
    else parts.push(tagWithHl(x, matched, ""));
-    }else{
-    const detail = formatSpecialSkillDetailText(x, ss[x]);
-    if(detail){
-     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(detail)}</span></div>`);
-    }else{
-     parts.push(tagWithHl(x, matched, ""));
-    }
-   }
   }else{
    let detail = formatSpecialSkillDetailText(x, ss[x]);
    detail = withXChangeOnlySuffix(detail, ss[x]);
