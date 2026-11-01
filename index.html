@@ -314,6 +314,18 @@ header .notice .tagline{display:block;margin-bottom:4px;font-weight:700;color:#f
   color:inherit !important;
 }
 .bento-tile .tag{opacity:1 !important}
+.modal .ability, .modal [data-ability], .char-ability-detail, .ability-block, .ability-inline-detail,
+.modal .skill-detail-line, .modal .muted.ability-line {
+  opacity: 1 !important;
+  font-weight: 700 !important;
+  color: inherit !important;
+}
+.modal .ability .muted, .modal .ability-block .muted {
+  opacity: 1 !important;
+  font-weight: 700 !important;
+  color: inherit !important;
+}
+
 
 body.theme-dark .skill-detail-line{color:#f0ebe3}
 .result{
@@ -723,7 +735,7 @@ body.theme-dark .feature-tip-bubble::before{border-bottom-color:#152038}
 body.theme-dark .abnormal-chip{
  background:linear-gradient(180deg,#3a2a48,#2a1e38) !important;color:#e1bee7 !important;border-color:#ab47bc !important
 }
-.ability-inline-detail{font-size:12px;line-height:1.45}
+.ability-inline-detail{font-size:13px;line-height:1.5;font-weight:700;opacity:1;color:inherit.45}
 .ability-inline-detail .tag{font-size:11px}
 
 .tag-only-after{
@@ -739,7 +751,7 @@ body.theme-dark
 body.theme-dark .abnormal-chip{
  background:linear-gradient(180deg,#3a2a48,#2a1e38) !important;color:#e1bee7 !important;border-color:#ab47bc !important
 }
-.ability-inline-detail{font-size:12px;line-height:1.45}
+.ability-inline-detail{font-size:13px;line-height:1.5;font-weight:700;opacity:1;color:inherit.45}
 .ability-inline-detail .tag{font-size:11px}
 
 .tag-only-after{
@@ -6601,7 +6613,12 @@ function bindSuggest(inputId, listId, getItems){
   list.innerHTML = "";
   activeIdx = -1;
   if(!items.length){ hide(); return; }
-  items.slice(0, 12).forEach((it, i)=>{
+  const arr = items.slice();
+  for(let i = arr.length - 1; i > 0; i--){
+   const j = Math.floor(Math.random() * (i + 1));
+   const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  arr.slice(0, 12).forEach((it, i)=>{
    const btn = document.createElement("button");
    btn.type = "button";
    btn.className = "suggest-item";
@@ -7752,7 +7769,9 @@ if(name === "蓄積"){
    const n = (it.value !== "" && it.value != null) ? String(it.value) : "n";
    if(it.stat === "霊力") return tg + "の霊力を" + n + "×前衛のゆっくりの数に応じて上昇";
    if(it.stat === "攻撃時CRI率") return tg + "の攻撃時CRI率を" + n + "%×前衛のゆっくりの数に応じてアップ";
-   return tg + "の与える" + it.stat + "を" + n + "%×前衛のゆっくりの数に応じてアップ";
+   if(it.stat === "ダメージ" || it.stat === "CRIダメージ")
+    return tg + "の与える" + it.stat + "を" + n + "%×前衛のゆっくりの数に応じてアップ";
+   return tg + "の" + it.stat + "を" + n + "%×前衛のゆっくりの数に応じてアップ";
   }).filter(Boolean);
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
@@ -8248,7 +8267,7 @@ function formatAbilitiesHtml(ab, opts){
   const abs = (abnormals || []).filter(Boolean);
   const absAttr = abs.length ? ` data-abnormals="${esc(abs.join("・"))}"` : "";
   const titleTag = `<span class="tag tag-kind ability-effect-chip${matched?" hl-match":""}" data-ability-effect="${esc(title)}"${absAttr} title="長押しで効果の説明">${esc(title)}</span>`;
-  parts.push(`<div style="margin:4px 0;">${titleTag} <span class="muted">${detailHtml}</span></div>`);
+  parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${titleTag} <span style="font-size:13px;font-weight:700;opacity:1;">${detailHtml}</span></div>`);
  }
 
  if(conv.atkRank || (conv.atkAbnormal||[]).length)
@@ -9173,7 +9192,7 @@ function buildSpecialDetail(skill, e){
     '<div id="unityList"></div>' +
     '<button type="button" class="btn-sm" data-uni-add style="margin-top:6px;">＋ 団結を追加</button>';
    const uniBox = e.querySelector("#unityList");
-   const UNI_STATS = ["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力"];
+   const UNI_STATS = ["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力","陽攻","陰攻","陽防","陰防","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"];
    const renderUni = ()=>{
     if(!Array.isArray(d.list)) d.list = [];
     if(!d.list.length) d.list.push({ stat:"", value:"", target:"味方全体" });
