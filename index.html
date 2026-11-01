@@ -2760,10 +2760,16 @@ body.theme-dark .bullet-size-btns button.active{
   <div id="fChargeCount" class="buttons"></div>
 </div>
 <div id="skillDetailPersist" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">永続バフ：ステータス</div>
+  <div class="mini" style="margin-bottom:4px;font-weight:700;">永続バフ</div>
+  <div class="mini" style="margin-bottom:4px;">ステータス</div>
   <div id="fPersistBuffStat" class="buttons"></div>
-  <div class="mini" style="margin:8px 0 4px;">永続デバフ：ステータス</div>
+  <div class="mini" style="margin:8px 0 4px;">段階（以上）</div>
+  <input id="fPersistBuffStage" class="input" type="number" placeholder="例：2" style="max-width:160px;">
+  <div class="mini" style="margin:12px 0 4px;font-weight:700;">永続デバフ</div>
+  <div class="mini" style="margin-bottom:4px;">ステータス</div>
   <div id="fPersistDebuffStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">段階（以上）</div>
+  <input id="fPersistDebuffStage" class="input" type="number" placeholder="例：2" style="max-width:160px;">
 </div>
 <div id="skillDetailResist" class="hidden" style="margin-bottom:10px;">
   <div class="mini" style="margin-bottom:4px;">全体耐性ダウン：段階（以上）</div>
@@ -3855,7 +3861,7 @@ const selected={
  zoneTarget:[], zoneStat:[], reverseDownStat:[], reverseFromStat:[], reverseToStat:[],
  gaugeDelayTarget:[], chikuKind:[], chikuTarget:[],
  favTarget:[], unfavTarget:[], skillCdTarget:[], unityStat:[], unityTarget:[],
- fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[], persistBuffStat:[], persistDebuffStat:[], resistStage:[], favRatio:"", unfavRatio:""
+ fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[], persistBuffStat:[], persistDebuffStat:[], persistBuffStage:"", persistDebuffStage:"", resistStage:[], favRatio:"", unfavRatio:""
 };
 const AB_TARGETS=["自身","味方全体"];
 const AB_CONV_KINDS=["攻Rank上昇","防Rank上昇","速Rank上昇","霊力上昇","体力回復"];
@@ -7177,6 +7183,34 @@ function updateSkillDetailVisibility(){
   chip("fChargeTarget", ct, selected.chargeTarget);
   chip("fChargeCount", opts.chargeCount, selected.chargeCount);
  }
+ if(flags.persist){
+  const fallback = (typeof RANK2_STATS!=="undefined" && RANK2_STATS.length) ? RANK2_STATS.slice() : ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"];
+  chip("fPersistBuffStat", fallback, selected.persistBuffStat);
+  chip("fPersistDebuffStat", fallback, selected.persistDebuffStat);
+  const bs = document.getElementById("fPersistBuffStage");
+  const ds = document.getElementById("fPersistDebuffStage");
+  if(bs && !bs._bound){
+   bs._bound = true;
+   bs.addEventListener("input", ()=>{ selected.persistBuffStage = bs.value; });
+  }
+  if(ds && !ds._bound){
+   ds._bound = true;
+   ds.addEventListener("input", ()=>{ selected.persistDebuffStage = ds.value; });
+  }
+  if(bs && selected.persistBuffStage != null) bs.value = selected.persistBuffStage;
+  if(ds && selected.persistDebuffStage != null) ds.value = selected.persistDebuffStage;
+ }
+ if(flags.resist){
+  chip("fResistStage", (opts && opts.resistStage) || [], selected.resistStage);
+  const rin = document.getElementById("fResistStageInput");
+  if(rin && !rin._bound){
+   rin._bound = true;
+   rin.addEventListener("input", ()=>{
+    const v = String(rin.value||"").trim();
+    selected.resistStage = v ? [v] : [];
+   });
+  }
+ }
 }
 
 
@@ -7369,17 +7403,39 @@ if(selected.char.includes("持続") && has(selected.durationEffect)){
  if(selected.char.includes("チャージ") && (has(selected.chargeTarget)||has(selected.chargeCount))){
   if(!matchFastCharge("チャージ", selected.chargeTarget, selected.chargeCount)) return false;
  }
- if(selected.char.includes("永続バフ") && has(selected.persistBuffStat)){
+ if(selected.char.includes("永続バフ") && (has(selected.persistBuffStat) || (selected.persistBuffStage !== "" && selected.persistBuffStage != null))){
   const d = ss["永続バフ"]; if(!d||!d.enabled) return false;
   const list = Array.isArray(d.list) ? d.list : [];
-  const stats = list.map(it => (typeof pickRank2Stat==="function" ? pickRank2Stat(it) : (it&&it.stat)) ).filter(Boolean).map(String);
-  if(!matchArray(selected.persistBuffStat, stats, mode)) return false;
+  if(has(selected.persistBuffStat)){
+   const stats = list.map(it => (typeof pickRank2Stat==="function" ? pickRank2Stat(it) : (it&&it.stat)) ).filter(Boolean).map(String);
+   if(!matchArray(selected.persistBuffStat, stats, mode)) return false;
+  }
+  const need = Number(selected.persistBuffStage);
+  if(Number.isFinite(need) && selected.persistBuffStage !== "" && selected.persistBuffStage != null){
+   const stages = list.map(it=>{
+    if(!it) return NaN;
+    const v = (it.stage !== "" && it.stage != null) ? it.stage : it.rank;
+    return Number(v);
+   }).filter(Number.isFinite);
+   if(!stages.length || Math.max(...stages) < need) return false;
+  }
  }
- if(selected.char.includes("永続デバフ") && has(selected.persistDebuffStat)){
+ if(selected.char.includes("永続デバフ") && (has(selected.persistDebuffStat) || (selected.persistDebuffStage !== "" && selected.persistDebuffStage != null))){
   const d = ss["永続デバフ"]; if(!d||!d.enabled) return false;
   const list = Array.isArray(d.list) ? d.list : [];
-  const stats = list.map(it => (typeof pickRank2Stat==="function" ? pickRank2Stat(it) : (it&&it.stat)) ).filter(Boolean).map(String);
-  if(!matchArray(selected.persistDebuffStat, stats, mode)) return false;
+  if(has(selected.persistDebuffStat)){
+   const stats = list.map(it => (typeof pickRank2Stat==="function" ? pickRank2Stat(it) : (it&&it.stat)) ).filter(Boolean).map(String);
+   if(!matchArray(selected.persistDebuffStat, stats, mode)) return false;
+  }
+  const need = Number(selected.persistDebuffStage);
+  if(Number.isFinite(need) && selected.persistDebuffStage !== "" && selected.persistDebuffStage != null){
+   const stages = list.map(it=>{
+    if(!it) return NaN;
+    const v = (it.stage !== "" && it.stage != null) ? it.stage : it.rank;
+    return Number(v);
+   }).filter(Number.isFinite);
+   if(!stages.length || Math.max(...stages) < need) return false;
+  }
  }
  if(selected.char.includes("全体耐性ダウン") && has(selected.resistStage)){
   const d = ss["全体耐性ダウン"]; if(!d||!d.enabled) return false;
@@ -9855,26 +9911,39 @@ function renderPersistList(skill, container){
  const d = getSpecialSkillData(skill);
  if(!d.list) d.list = [];
  if(container) container.setAttribute("data-persist-skill", skill);
+ const stats = (typeof RANK2_STATS !== "undefined" && RANK2_STATS.length)
+  ? RANK2_STATS
+  : (typeof STAT_TARGETS !== "undefined" ? STAT_TARGETS : ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"]);
+ const isDebuff = String(skill||"").includes("デバフ");
  let html = "";
  d.list.forEach((item, idx)=>{
-  let tgt = String(item.target || "自身").trim();
-  if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体" || tgt === "対象全体") tgt = "味方全体";
-  else tgt = "自身";
+  let tgt = String(item.target || (isDebuff ? "相手" : "自身")).trim();
+  if(isDebuff){
+   if(tgt === "味方全体" || tgt === "自身") tgt = "相手";
+   if(tgt === "対象全体" || tgt === "敵全体") tgt = "相手全体";
+   if(tgt !== "相手全体") tgt = "相手";
+  }else{
+   if(tgt === "味方全体" || tgt === "敵全体" || tgt === "相手全体" || tgt === "対象全体") tgt = "味方全体";
+   else tgt = "自身";
+  }
+  const st = item.stat || "";
+  const stageVal = (item.stage != null && item.stage !== "") ? item.stage : (item.rank != null ? item.rank : "");
   html += `
    <div class="rank-item" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
     <button type="button" class="btn-del" onclick="removePersistItem('${skill}', ${idx})">削除</button>
     <div class="mini">対象</div>
     <select class="select" onchange="updatePersistItem('${skill}', ${idx}, 'target', this.value)">
-     <option value="自身" ${tgt==="自身"?"selected":""}>自身</option>
-     <option value="味方全体" ${tgt==="味方全体"?"selected":""}>味方全体</option>
+     ${isDebuff
+       ? `<option value="相手" ${tgt==="相手"?"selected":""}>相手</option><option value="相手全体" ${tgt==="相手全体"?"selected":""}>相手全体</option>`
+       : `<option value="自身" ${tgt==="自身"?"selected":""}>自身</option><option value="味方全体" ${tgt==="味方全体"?"selected":""}>味方全体</option>`}
     </select>
-    <div class="mini" style="margin-top:6px">ステータス</div>
-    <select class="select" onchange="updatePersistItem('${skill}', ${idx}, 'stat', this.value)">
-     <option value="">選択してください</option>
-     ${STAT_TARGETS.map(x=>`<option ${item.stat===x?"selected":""}>${x}</option>`).join("")}
+    <div class="mini" style="margin-top:6px;font-weight:700;">ステータス（必須）</div>
+    <select class="select" onchange="updatePersistItem('${skill}', ${idx}, 'stat', this.value)" style="border:2px solid #c9a24a;">
+     <option value="">▼ ステータスを選択</option>
+     ${stats.map(x=>`<option value="${x}" ${st===x?"selected":""}>${x}</option>`).join("")}
     </select>
-    <div class="mini" style="margin-top:6px">ランク</div>
-    <input class="input" type="number" placeholder="段階" value="${esc(item.rank||"")}" oninput="updatePersistItem('${skill}', ${idx}, 'rank', this.value)">
+    <div class="mini" style="margin-top:6px;font-weight:700;">段階（必須）</div>
+    <input class="input" type="number" inputmode="numeric" placeholder="例：2" value="${esc(stageVal)}" oninput="updatePersistItem('${skill}', ${idx}, 'stage', this.value); updatePersistItem('${skill}', ${idx}, 'rank', this.value);" style="border:2px solid #c9a24a;font-size:16px;">
    </div>
   `;
  });
