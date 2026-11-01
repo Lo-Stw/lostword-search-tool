@@ -2675,10 +2675,6 @@ body.theme-dark .bullet-size-btns button.active{
 <div class="mini" style="margin:8px 0 6px">対象種族（種族特防・部分一致）</div>
 <input id="fDdRace" class="input" placeholder="例：妖怪、妖精、人間">
 </div>
-</div>
-</div>
-
-
 <div class="hidden" id="skillDetailSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
 <div class="mini" style="margin-bottom:8px;color:#666;font-weight:700;">特殊スキル詳細</div>
 <div id="skillDetailSeal" class="hidden" style="margin-bottom:10px;">
@@ -2790,6 +2786,11 @@ body.theme-dark .bullet-size-btns button.active{
   <div id="fResistStage" class="buttons"></div>
 </div>
 </div>
+
+</div>
+</div>
+
+
 <div class="acc-section hidden" id="rank2DetailSection" data-acc>
 <button type="button" class="acc-head">RANKⅡ詳細 <span class="acc-icon">▼</span></button>
 <div class="acc-body">
@@ -6929,7 +6930,7 @@ function collectSpecialSkillObjsFromData(skillName){
 
 function collectSkillDetailOptions(){
  const seal = new Set(), bUp = new Set(), bDown = new Set(), res = new Set();
- const attrB = new Set(), bulB = new Set(), accFrom = new Set(), accTo = new Set(), dur = new Set();
+ const attrB = new Set(), bulB = new Set(), accFrom = new Set(), accTo = new Set(), accSrc = new Set(), dur = new Set();
  const persistBuff = new Set(), persistDebuff = new Set(), resistStage = new Set();
  const weak = new Set(), buddyTg = new Set(), buddyCk = new Set(), buddySt = new Set();
  const zoneTg = new Set(), zoneSt = new Set();
@@ -7099,7 +7100,10 @@ function updateSkillDetailVisibility(){
  };
  const any = Object.values(flags).some(Boolean);
  sec.classList.toggle("hidden", !any);
- const opts = any ? collectSkillDetailOptions() : null;
+ let opts = null;
+ if(any){
+  try{ opts = collectSkillDetailOptions(); }catch(err){ console.warn("collectSkillDetailOptions", err); opts = {}; }
+ }
  const box = (id, on)=>{ const el=document.getElementById(id); if(el) el.classList.toggle("hidden", !on); };
  box("skillDetailSeal", flags.seal); box("skillDetailBarrier", flags.bar);
  box("skillDetailResonance", flags.res); box("skillDetailAttrBoost", flags.attr);
