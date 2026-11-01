@@ -2779,6 +2779,16 @@ body.theme-dark .bullet-size-btns button.active{
   <div class="mini" style="margin:8px 0 4px;">チャージ：個数</div>
   <div id="fChargeCount" class="buttons"></div>
 </div>
+<div id="skillDetailPersist" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">永続バフ：ステータス</div>
+  <div id="fPersistBuffStat" class="buttons"></div>
+  <div class="mini" style="margin:8px 0 4px;">永続デバフ：ステータス</div>
+  <div id="fPersistDebuffStat" class="buttons"></div>
+</div>
+<div id="skillDetailResist" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;">全体耐性ダウン：段階</div>
+  <div id="fResistStage" class="buttons"></div>
+</div>
 </div>
 <div class="acc-section hidden" id="rank2DetailSection" data-acc>
 <button type="button" class="acc-head">RANKⅡ詳細 <span class="acc-icon">▼</span></button>
@@ -3859,7 +3869,7 @@ const selected={
  zoneTarget:[], zoneStat:[], reverseDownStat:[], reverseFromStat:[], reverseToStat:[],
  gaugeDelayTarget:[], chikuKind:[], chikuTarget:[],
  favTarget:[], unfavTarget:[], skillCdTarget:[], unityStat:[], unityTarget:[],
- fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[]
+ fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[], persistBuffStat:[], persistDebuffStat:[], resistStage:[]
 };
 const AB_TARGETS=["自身","味方全体"];
 const AB_CONV_KINDS=["攻Rank上昇","防Rank上昇","速Rank上昇","霊力上昇","体力回復"];
@@ -6920,6 +6930,7 @@ function collectSpecialSkillObjsFromData(skillName){
 function collectSkillDetailOptions(){
  const seal = new Set(), bUp = new Set(), bDown = new Set(), res = new Set();
  const attrB = new Set(), bulB = new Set(), accFrom = new Set(), accTo = new Set(), dur = new Set();
+ const persistBuff = new Set(), persistDebuff = new Set(), resistStage = new Set();
  const weak = new Set(), buddyTg = new Set(), buddyCk = new Set(), buddySt = new Set();
  const zoneTg = new Set(), zoneSt = new Set();
  const revDown = new Set(), revFrom = new Set(), revTo = new Set();
@@ -7025,6 +7036,24 @@ function collectSkillDetailOptions(){
    if(d.count!==""&&d.count!=null) chargeCnt.add(String(d.count));
   }
  });
+ collectSpecialSkillObjsFromData("永続バフ").forEach(d=>{
+  const list = Array.isArray(d.list) ? d.list : [];
+  list.forEach(it=>{
+   const st = (typeof pickRank2Stat==="function") ? pickRank2Stat(it) : (it && it.stat);
+   if(st) persistBuff.add(String(st));
+  });
+ });
+ collectSpecialSkillObjsFromData("永続デバフ").forEach(d=>{
+  const list = Array.isArray(d.list) ? d.list : [];
+  list.forEach(it=>{
+   const st = (typeof pickRank2Stat==="function") ? pickRank2Stat(it) : (it && it.stat);
+   if(st) persistDebuff.add(String(st));
+  });
+ });
+ collectSpecialSkillObjsFromData("全体耐性ダウン").forEach(d=>{
+  const n = (d.stage !== "" && d.stage != null) ? d.stage : d.rank;
+  if(n !== "" && n != null) resistStage.add(String(n));
+ });
  return {
   sealStat: [...seal].sort(), barrierUpStat: [...bUp].sort(), barrierDownStat: [...bDown].sort(),
   resonanceStat: [...res].sort(), attrBoostAttr: [...attrB].sort(), bulletBoostType: [...bulB].sort(),
@@ -7036,7 +7065,9 @@ function collectSkillDetailOptions(){
   favTarget: [...favTg].sort(), unfavTarget: [...unfavTg].sort(), skillCdTarget: [...cdTg].sort(),
   unityStat: [...unitySt].sort(), unityTarget: [...unityTg].sort(),
   fastTarget: [...fastTg].sort(), fastCount: [...fastCnt].sort((a,b)=>Number(a)-Number(b)),
-  chargeTarget: [...chargeTg].sort(), chargeCount: [...chargeCnt].sort((a,b)=>Number(a)-Number(b))
+  chargeTarget: [...chargeTg].sort(), chargeCount: [...chargeCnt].sort((a,b)=>Number(a)-Number(b)),
+  persistBuffStat: [...persistBuff].sort(), persistDebuffStat: [...persistDebuff].sort(),
+  resistStage: [...resistStage].sort((a,b)=>Number(a)-Number(b))
  };
 }
 
@@ -7062,7 +7093,9 @@ function updateSkillDetailVisibility(){
   cd: selected.char.includes("スキル再使用ターン数短縮"),
   unity: selected.char.includes("団結"),
   fast: selected.char.includes("ファスト"),
-  charge: selected.char.includes("チャージ")
+  charge: selected.char.includes("チャージ"),
+  persist: selected.char.includes("永続バフ") || selected.char.includes("永続デバフ"),
+  resist: selected.char.includes("全体耐性ダウン")
  };
  const any = Object.values(flags).some(Boolean);
  sec.classList.toggle("hidden", !any);
@@ -7079,6 +7112,8 @@ function updateSkillDetailVisibility(){
  box("skillDetailUnity", flags.unity);
  box("skillDetailFast", flags.fast);
  box("skillDetailCharge", flags.charge);
+ box("skillDetailPersist", flags.persist);
+ box("skillDetailResist", flags.resist);
 
  const clear = (arr)=>{ if(arr && arr.splice) arr.splice(0); };
  if(!flags.seal) clear(selected.sealStat);
@@ -7100,6 +7135,8 @@ function updateSkillDetailVisibility(){
  if(!flags.unity){ clear(selected.unityStat); clear(selected.unityTarget); }
  if(!flags.fast){ clear(selected.fastTarget); clear(selected.fastCount); }
  if(!flags.charge){ clear(selected.chargeTarget); clear(selected.chargeCount); }
+ if(!flags.persist){ clear(selected.persistBuffStat); clear(selected.persistDebuffStat); }
+ if(!flags.resist) clear(selected.resistStage);
 
  if(!opts) return;
  const chip = (id, arr, sel, chipOpts)=>{ if(arr && arr.length) chips(id, arr, sel, (x,b)=>toggle(sel,x,b), chipOpts||{}); else { const e=document.getElementById(id); if(e) e.innerHTML = '<span class="mini" style="opacity:.7;">実装データなし</span>'; } };
@@ -7322,6 +7359,23 @@ if(selected.char.includes("持続") && has(selected.durationEffect)){
  }
  if(selected.char.includes("チャージ") && (has(selected.chargeTarget)||has(selected.chargeCount))){
   if(!matchFastCharge("チャージ", selected.chargeTarget, selected.chargeCount)) return false;
+ }
+ if(selected.char.includes("永続バフ") && has(selected.persistBuffStat)){
+  const d = ss["永続バフ"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list) ? d.list : [];
+  const stats = list.map(it => (typeof pickRank2Stat==="function" ? pickRank2Stat(it) : (it&&it.stat)) ).filter(Boolean).map(String);
+  if(!matchArray(selected.persistBuffStat, stats, mode)) return false;
+ }
+ if(selected.char.includes("永続デバフ") && has(selected.persistDebuffStat)){
+  const d = ss["永続デバフ"]; if(!d||!d.enabled) return false;
+  const list = Array.isArray(d.list) ? d.list : [];
+  const stats = list.map(it => (typeof pickRank2Stat==="function" ? pickRank2Stat(it) : (it&&it.stat)) ).filter(Boolean).map(String);
+  if(!matchArray(selected.persistDebuffStat, stats, mode)) return false;
+ }
+ if(selected.char.includes("全体耐性ダウン") && has(selected.resistStage)){
+  const d = ss["全体耐性ダウン"]; if(!d||!d.enabled) return false;
+  const n = (d.stage !== "" && d.stage != null) ? String(d.stage) : ((d.rank !== "" && d.rank != null) ? String(d.rank) : "");
+  if(!n || !selected.resistStage.includes(n)) return false;
  }
  return true;
 }
@@ -7784,11 +7838,15 @@ if(name === "蓄積"){
   return tg + "の" + st + "を" + x + "%+" + y + "%×チーム内の" + kind + "の数に応じてアップ";
  }
  if(name === "X-Change" && d.effect) return String(d.effect);
+ if(name === "全体耐性ダウン"){
+  const n = (d.stage !== "" && d.stage != null) ? String(d.stage) : ((d.rank !== "" && d.rank != null) ? String(d.rank) : "n");
+  return "全体耐性を" + n + "段階ダウン";
+ }
  if(name === "有利属性ダメージアップ" || name === "不利属性ダメージアップ"){
   const tg = (d.target === "自身") ? "自身" : "味方全体";
-  const bits = [tg];
-  if(d.ratio !== "" && d.ratio != null) bits.push(`${d.ratio}%`);
-  return bits.join(" ");
+  const kind = name === "有利属性ダメージアップ" ? "有利属性" : "不利属性";
+  const n = (d.ratio !== "" && d.ratio != null) ? String(d.ratio) : "n";
+  return tg + "の" + kind + "に与えるダメージを" + n + "%アップ";
  }
  if(name === "属性強化" || name === "弾強化"){
   const list = Array.isArray(d.list) && d.list.length
@@ -9432,7 +9490,12 @@ function buildSpecialDetail(skill, e){
    break;
   
   case "全体耐性ダウン":
-   e.innerHTML=`<input class="input" type="number" placeholder="何段階ダウン" data-rank-stage value="${esc(d.stage||"")}">`;
+   e.innerHTML=`<div class="mini">段階</div><input class="input" type="number" placeholder="何段階ダウン" data-resist-stage value="${esc(d.stage != null && d.stage !== "" ? d.stage : (d.rank != null ? d.rank : ""))}">`;
+   e.querySelector("[data-resist-stage]")?.addEventListener("input", (ev)=>{
+    d.stage = ev.target.value;
+    d.rank = ev.target.value;
+    d.enabled = true;
+   });
    break;
   case "持続":
    // 旧単体データ → list へ移行
@@ -13829,7 +13892,7 @@ function isDetailSearchActive(){
  if(selected.r2Source.length || selected.r2Stat.length || r2Stage) return true;
  if((selected.char||[]).length) return true;
  // 特殊スキル詳細の選択
- if(["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","accumSource","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount"].some(k => (selected[k]||[]).length)) return true;
+ if(["sealStat","barrierUpStat","barrierDownStat","resonanceStat","attrBoostAttr","bulletBoostType","accumFromStat","accumToStat","accumSource","durationEffect","weakAttr","buddyTarget","buddyCountKind","buddyStat","zoneTarget","zoneStat","reverseDownStat","reverseFromStat","reverseToStat","gaugeDelayTarget","chikuKind","chikuTarget","favTarget","unfavTarget","skillCdTarget","unityStat","unityTarget","fastTarget","fastCount","chargeTarget","chargeCount","persistBuffStat","persistDebuffStat","resistStage"].some(k => (selected[k]||[]).length)) return true;
  return false;
 }
 
