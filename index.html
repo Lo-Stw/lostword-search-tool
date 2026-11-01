@@ -2714,11 +2714,7 @@ body.theme-dark .bullet-size-btns button.active{
   <div id="fWeakAttr" class="buttons"></div>
 </div>
 <div id="skillDetailBuddy" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">バディコネクト：対象</div>
-  <div id="fBuddyTarget" class="buttons"></div>
-  <div class="mini" style="margin:8px 0 4px;">バディコネクト：カウント種類</div>
-  <div id="fBuddyCountKind" class="buttons"></div>
-  <div class="mini" style="margin:8px 0 4px;">バディコネクト：ステータス</div>
+  <div class="mini" style="margin-bottom:4px;">バディコネクト：ステータス</div>
   <div id="fBuddyStat" class="buttons"></div>
 </div>
 <div id="skillDetailZone" class="hidden" style="margin-bottom:10px;">
@@ -2735,33 +2731,21 @@ body.theme-dark .bullet-size-btns button.active{
   <div class="mini" style="margin:8px 0 4px;">逆相：上乗せ先ステータス</div>
   <div id="fReverseToStat" class="buttons"></div>
 </div>
-<div id="skillDetailGauge" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">スペルゲージ遅延：対象</div>
-  <div id="fGaugeDelayTarget" class="buttons"></div>
-</div>
 <div id="skillDetailChiku" class="hidden" style="margin-bottom:10px;">
   <div class="mini" style="margin-bottom:4px;">畜力：種類</div>
   <div id="fChikuKind" class="buttons"></div>
-  <div class="mini" style="margin:8px 0 4px;">畜力：対象</div>
-  <div id="fChikuTarget" class="buttons"></div>
 </div>
 <div id="skillDetailFav" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">有利属性ダメージアップ：対象</div>
-  <div id="fFavTarget" class="buttons"></div>
+  <div class="mini" style="margin-bottom:4px;">有利属性ダメージアップ：%（以上）</div>
+  <input id="fFavRatio" class="input" type="number" placeholder="例：20" style="max-width:160px;">
 </div>
 <div id="skillDetailUnfav" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">不利属性ダメージアップ：対象</div>
-  <div id="fUnfavTarget" class="buttons"></div>
-</div>
-<div id="skillDetailSkillCd" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">スキル再使用短縮：対象</div>
-  <div id="fSkillCdTarget" class="buttons"></div>
+  <div class="mini" style="margin-bottom:4px;">不利属性ダメージアップ：%（以上）</div>
+  <input id="fUnfavRatio" class="input" type="number" placeholder="例：20" style="max-width:160px;">
 </div>
 <div id="skillDetailUnity" class="hidden" style="margin-bottom:10px;">
   <div class="mini" style="margin-bottom:4px;">団結：ステータス</div>
   <div id="fUnityStat" class="buttons"></div>
-  <div class="mini" style="margin:8px 0 4px;">団結：対象</div>
-  <div id="fUnityTarget" class="buttons"></div>
 </div>
 <div id="skillDetailFast" class="hidden" style="margin-bottom:10px;">
   <div class="mini" style="margin-bottom:4px;">ファスト：対象（未選択時は自身として判定）</div>
@@ -2782,8 +2766,9 @@ body.theme-dark .bullet-size-btns button.active{
   <div id="fPersistDebuffStat" class="buttons"></div>
 </div>
 <div id="skillDetailResist" class="hidden" style="margin-bottom:10px;">
-  <div class="mini" style="margin-bottom:4px;">全体耐性ダウン：段階</div>
-  <div id="fResistStage" class="buttons"></div>
+  <div class="mini" style="margin-bottom:4px;">全体耐性ダウン：段階（以上）</div>
+  <div id="fResistStage" class="buttons" style="margin-bottom:6px;"></div>
+  <input id="fResistStageInput" class="input" type="number" placeholder="段階を直接入力 例：2" style="max-width:200px;">
 </div>
 </div>
 
@@ -3870,7 +3855,7 @@ const selected={
  zoneTarget:[], zoneStat:[], reverseDownStat:[], reverseFromStat:[], reverseToStat:[],
  gaugeDelayTarget:[], chikuKind:[], chikuTarget:[],
  favTarget:[], unfavTarget:[], skillCdTarget:[], unityStat:[], unityTarget:[],
- fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[], persistBuffStat:[], persistDebuffStat:[], resistStage:[]
+ fastTarget:[], fastCount:[], chargeTarget:[], chargeCount:[], persistBuffStat:[], persistDebuffStat:[], resistStage:[], favRatio:"", unfavRatio:""
 };
 const AB_TARGETS=["自身","味方全体"];
 const AB_CONV_KINDS=["攻Rank上昇","防Rank上昇","速Rank上昇","霊力上昇","体力回復"];
@@ -7072,6 +7057,14 @@ function collectSkillDetailOptions(){
  };
 }
 
+
+(function bindFavUnfavRatioInputs(){
+ const fav = document.getElementById("fFavRatio");
+ const unfav = document.getElementById("fUnfavRatio");
+ if(fav && !fav._bound){ fav._bound=true; fav.addEventListener("input", ()=>{ selected.favRatio = fav.value; }); }
+ if(unfav && !unfav._bound){ unfav._bound=true; unfav.addEventListener("input", ()=>{ selected.unfavRatio = unfav.value; }); }
+})();
+
 function updateSkillDetailVisibility(){
  const sec = document.getElementById("skillDetailSection");
  if(!sec) return;
@@ -7087,11 +7080,11 @@ function updateSkillDetailVisibility(){
   buddy: selected.char.includes("バディコネクト"),
   zone: selected.char.includes("ゾーン"),
   rev: selected.char.includes("逆相"),
-  gauge: selected.char.includes("スペルゲージ遅延"),
+  gauge: false,
   chiku: selected.char.includes("畜力"),
   fav: selected.char.includes("有利属性ダメージアップ"),
   unfav: selected.char.includes("不利属性ダメージアップ"),
-  cd: selected.char.includes("スキル再使用ターン数短縮"),
+  cd: false,
   unity: selected.char.includes("団結"),
   fast: selected.char.includes("ファスト"),
   charge: selected.char.includes("チャージ"),
@@ -7152,15 +7145,24 @@ function updateSkillDetailVisibility(){
  if(flags.acc){ chip("fAccumSource", opts.accumSource && opts.accumSource.length ? opts.accumSource : ["スキル","スペルカード1","スペルカード2","LASTWORD"], selected.accumSource); chip("fAccumFromStat", opts.accumFromStat, selected.accumFromStat); chip("fAccumToStat", opts.accumToStat, selected.accumToStat); }
  if(flags.dur) chip("fDurationEffect", opts.durationEffect, selected.durationEffect);
  if(flags.weak) chip("fWeakAttr", opts.weakAttr, selected.weakAttr, { attrColor:true });
- if(flags.buddy){ chip("fBuddyTarget", opts.buddyTarget, selected.buddyTarget); chip("fBuddyCountKind", opts.buddyCountKind, selected.buddyCountKind); chip("fBuddyStat", opts.buddyStat, selected.buddyStat); }
- if(flags.zone){ chip("fZoneTarget", opts.zoneTarget, selected.zoneTarget); chip("fZoneStat", opts.zoneStat, selected.zoneStat); }
+ if(flags.buddy){ chip("fBuddyStat", opts.buddyStat, selected.buddyStat); }
+ if(flags.zone){ chip("fZoneStat", opts.zoneStat, selected.zoneStat); }
  if(flags.rev){ chip("fReverseDownStat", opts.reverseDownStat, selected.reverseDownStat); chip("fReverseFromStat", opts.reverseFromStat, selected.reverseFromStat); chip("fReverseToStat", opts.reverseToStat, selected.reverseToStat); }
  if(flags.gauge) chip("fGaugeDelayTarget", opts.gaugeDelayTarget, selected.gaugeDelayTarget);
- if(flags.chiku){ chip("fChikuKind", opts.chikuKind, selected.chikuKind); chip("fChikuTarget", opts.chikuTarget, selected.chikuTarget); }
- if(flags.fav) chip("fFavTarget", opts.favTarget, selected.favTarget);
- if(flags.unfav) chip("fUnfavTarget", opts.unfavTarget, selected.unfavTarget);
- if(flags.cd) chip("fSkillCdTarget", opts.skillCdTarget, selected.skillCdTarget);
- if(flags.unity){ chip("fUnityStat", opts.unityStat, selected.unityStat); chip("fUnityTarget", opts.unityTarget, selected.unityTarget); }
+ if(flags.chiku){ const ck = (opts.chikuKind && opts.chikuKind.length) ? opts.chikuKind : ["体力畜力","結界畜力","霊力畜力"]; chip("fChikuKind", ck, selected.chikuKind); }
+ if(flags.fav){
+  const el = document.getElementById("fFavRatio");
+  if(el && el.value === "" && selected.favRatio) el.value = selected.favRatio;
+ }
+ if(flags.unfav){
+  const el = document.getElementById("fUnfavRatio");
+  if(el && el.value === "" && selected.unfavRatio) el.value = selected.unfavRatio;
+ }
+ if(flags.unity){
+  const us = (opts.unityStat && opts.unityStat.length) ? opts.unityStat : (typeof RANK2_STATS!=="undefined" ? RANK2_STATS.slice() : []);
+  chip("fUnityStat", us, selected.unityStat);
+ }
+
  if(flags.fast){
   const ft = (opts.fastTarget && opts.fastTarget.length) ? opts.fastTarget.slice() : ["自身","味方全体"];
   if(!ft.includes("自身")) ft.unshift("自身");
@@ -7292,16 +7294,13 @@ if(selected.char.includes("持続") && has(selected.durationEffect)){
   const d = ss["弱点付与"]; if(!d||!d.enabled||!d.attr) return false;
   if(!selected.weakAttr.includes(String(d.attr))) return false;
  }
- if(selected.char.includes("バディコネクト") && (has(selected.buddyTarget)||has(selected.buddyCountKind)||has(selected.buddyStat))){
+ if(selected.char.includes("バディコネクト") && has(selected.buddyStat)){
   const d = ss["バディコネクト"]; if(!d||!d.enabled) return false;
-  if(has(selected.buddyTarget) && !selected.buddyTarget.includes(String(d.target||""))) return false;
-  if(has(selected.buddyCountKind) && !selected.buddyCountKind.includes(String(d.countKind||""))) return false;
   if(has(selected.buddyStat) && !selected.buddyStat.includes(String(d.stat||""))) return false;
  }
- if(selected.char.includes("ゾーン") && (has(selected.zoneTarget)||has(selected.zoneStat))){
+ if(selected.char.includes("ゾーン") && has(selected.zoneStat)){
   const d = ss["ゾーン"]; if(!d||!d.enabled) return false;
-  if(has(selected.zoneTarget) && !selected.zoneTarget.includes(String(d.target||""))) return false;
-  if(has(selected.zoneStat) && !selected.zoneStat.includes(String(d.stat||""))) return false;
+  if(!selected.zoneStat.includes(String(d.stat||""))) return false;
  }
  if(selected.char.includes("逆相") && (has(selected.reverseDownStat)||has(selected.reverseFromStat)||has(selected.reverseToStat))){
   const d = ss["逆相"]; if(!d||!d.enabled) return false;
@@ -7314,29 +7313,35 @@ if(selected.char.includes("持続") && has(selected.durationEffect)){
   const d = ss["スペルゲージ遅延"]; if(!d||!d.enabled) return false;
   if(!selected.gaugeDelayTarget.includes(String(d.target||""))) return false;
  }
- if(selected.char.includes("畜力") && (has(selected.chikuKind)||has(selected.chikuTarget))){
+ if(selected.char.includes("畜力") && has(selected.chikuKind)){
   const d = ss["畜力"]; if(!d||!d.enabled) return false;
   const list = Array.isArray(d.list)&&d.list.length ? d.list : [d];
-  if(has(selected.chikuKind) && !matchArray(selected.chikuKind, list.map(it=>it&&it.kind).filter(Boolean).map(String), mode)) return false;
-  if(has(selected.chikuTarget) && !matchArray(selected.chikuTarget, list.map(it=>it&&it.target).filter(Boolean).map(String), mode)) return false;
+  if(!matchArray(selected.chikuKind, list.map(it=>it&&it.kind).filter(Boolean).map(String), mode)) return false;
  }
- if(selected.char.includes("有利属性ダメージアップ") && has(selected.favTarget)){
+ if(selected.char.includes("有利属性ダメージアップ")){
   const d = ss["有利属性ダメージアップ"]; if(!d||!d.enabled) return false;
-  if(!selected.favTarget.includes(String(d.target||"味方全体"))) return false;
+  const need = Number(selected.favRatio);
+  if(Number.isFinite(need) && selected.favRatio !== "" && selected.favRatio != null){
+   const got = Number(d.ratio);
+   if(!Number.isFinite(got) || got < need) return false;
+  }
  }
- if(selected.char.includes("不利属性ダメージアップ") && has(selected.unfavTarget)){
+ if(selected.char.includes("不利属性ダメージアップ")){
   const d = ss["不利属性ダメージアップ"]; if(!d||!d.enabled) return false;
-  if(!selected.unfavTarget.includes(String(d.target||"味方全体"))) return false;
+  const need = Number(selected.unfavRatio);
+  if(Number.isFinite(need) && selected.unfavRatio !== "" && selected.unfavRatio != null){
+   const got = Number(d.ratio);
+   if(!Number.isFinite(got) || got < need) return false;
+  }
  }
  if(selected.char.includes("スキル再使用ターン数短縮") && has(selected.skillCdTarget)){
   const d = ss["スキル再使用ターン数短縮"]; if(!d||!d.enabled) return false;
   if(!selected.skillCdTarget.includes(String(d.target||""))) return false;
  }
- if(selected.char.includes("団結") && (has(selected.unityStat)||has(selected.unityTarget))){
+ if(selected.char.includes("団結") && has(selected.unityStat)){
   const d = ss["団結"]; if(!d||!d.enabled) return false;
   const list = Array.isArray(d.list)&&d.list.length ? d.list : [d];
-  if(has(selected.unityStat) && !matchArray(selected.unityStat, list.map(it=>it&&it.stat).filter(Boolean).map(String), mode)) return false;
-  if(has(selected.unityTarget) && !matchArray(selected.unityTarget, list.map(it=>it&&it.target).filter(Boolean).map(String), mode)) return false;
+  if(!matchArray(selected.unityStat, list.map(it=>it&&it.stat).filter(Boolean).map(String), mode)) return false;
  }
  function matchFastCharge(skillName, targets, counts){
   const d = ss[skillName];
@@ -7378,9 +7383,11 @@ if(selected.char.includes("持続") && has(selected.durationEffect)){
  }
  if(selected.char.includes("全体耐性ダウン") && has(selected.resistStage)){
   const d = ss["全体耐性ダウン"]; if(!d||!d.enabled) return false;
-  const n = (d.stage !== "" && d.stage != null) ? String(d.stage) : ((d.rank !== "" && d.rank != null) ? String(d.rank) : "");
-  if(!n || !selected.resistStage.includes(n)) return false;
+  const n = Number((d.stage !== "" && d.stage != null) ? d.stage : d.rank);
+  const need = Math.min(...selected.resistStage.map(Number).filter(Number.isFinite));
+  if(!Number.isFinite(n) || !Number.isFinite(need) || n < need) return false;
  }
+
  return true;
 }
 
