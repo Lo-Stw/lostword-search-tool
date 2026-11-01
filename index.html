@@ -2759,13 +2759,15 @@ body.theme-dark .bullet-size-btns button.active{
   <div class="mini" style="margin:8px 0 4px;">チャージ：個数</div>
   <div id="fChargeCount" class="buttons"></div>
 </div>
-<div id="skillDetailPersist" class="hidden" style="margin-bottom:10px;">
+<div id="skillDetailPersistBuff" class="hidden" style="margin-bottom:10px;">
   <div class="mini" style="margin-bottom:4px;font-weight:700;">永続バフ</div>
   <div class="mini" style="margin-bottom:4px;">ステータス</div>
   <div id="fPersistBuffStat" class="buttons"></div>
   <div class="mini" style="margin:8px 0 4px;">段階（以上）</div>
   <input id="fPersistBuffStage" class="input" type="number" placeholder="例：2" style="max-width:160px;">
-  <div class="mini" style="margin:12px 0 4px;font-weight:700;">永続デバフ</div>
+</div>
+<div id="skillDetailPersistDebuff" class="hidden" style="margin-bottom:10px;">
+  <div class="mini" style="margin-bottom:4px;font-weight:700;">永続デバフ</div>
   <div class="mini" style="margin-bottom:4px;">ステータス</div>
   <div id="fPersistDebuffStat" class="buttons"></div>
   <div class="mini" style="margin:8px 0 4px;">段階（以上）</div>
@@ -7094,7 +7096,8 @@ function updateSkillDetailVisibility(){
   unity: selected.char.includes("団結"),
   fast: selected.char.includes("ファスト"),
   charge: selected.char.includes("チャージ"),
-  persist: selected.char.includes("永続バフ") || selected.char.includes("永続デバフ"),
+  persistBuff: selected.char.includes("永続バフ"),
+  persistDebuff: selected.char.includes("永続デバフ"),
   resist: selected.char.includes("全体耐性ダウン")
  };
  const any = Object.values(flags).some(Boolean);
@@ -7115,7 +7118,8 @@ function updateSkillDetailVisibility(){
  box("skillDetailUnity", flags.unity);
  box("skillDetailFast", flags.fast);
  box("skillDetailCharge", flags.charge);
- box("skillDetailPersist", flags.persist);
+ box("skillDetailPersistBuff", flags.persistBuff);
+ box("skillDetailPersistDebuff", flags.persistDebuff);
  box("skillDetailResist", flags.resist);
 
  const clear = (arr)=>{ if(arr && arr.splice) arr.splice(0); };
@@ -7138,7 +7142,9 @@ function updateSkillDetailVisibility(){
  if(!flags.unity){ clear(selected.unityStat); clear(selected.unityTarget); }
  if(!flags.fast){ clear(selected.fastTarget); clear(selected.fastCount); }
  if(!flags.charge){ clear(selected.chargeTarget); clear(selected.chargeCount); }
- if(!flags.persist){ clear(selected.persistBuffStat); clear(selected.persistDebuffStat); }
+ if(!flags.persistBuff){ clear(selected.persistBuffStat); selected.persistBuffStage=""; const bs=document.getElementById("fPersistBuffStage"); if(bs) bs.value=""; }
+ if(!flags.persistDebuff){ clear(selected.persistDebuffStat); selected.persistDebuffStage=""; const ds=document.getElementById("fPersistDebuffStage"); if(ds) ds.value=""; }
+
  if(!flags.resist) clear(selected.resistStage);
 
  if(!opts) return;
@@ -7183,21 +7189,23 @@ function updateSkillDetailVisibility(){
   chip("fChargeTarget", ct, selected.chargeTarget);
   chip("fChargeCount", opts.chargeCount, selected.chargeCount);
  }
- if(flags.persist){
-  const fallback = (typeof RANK2_STATS!=="undefined" && RANK2_STATS.length) ? RANK2_STATS.slice() : ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"];
-  chip("fPersistBuffStat", fallback, selected.persistBuffStat);
-  chip("fPersistDebuffStat", fallback, selected.persistDebuffStat);
+ const persistFallback = (typeof RANK2_STATS!=="undefined" && RANK2_STATS.length) ? RANK2_STATS.slice() : ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"];
+ if(flags.persistBuff){
+  chip("fPersistBuffStat", persistFallback, selected.persistBuffStat);
   const bs = document.getElementById("fPersistBuffStage");
-  const ds = document.getElementById("fPersistDebuffStage");
   if(bs && !bs._bound){
    bs._bound = true;
    bs.addEventListener("input", ()=>{ selected.persistBuffStage = bs.value; });
   }
+  if(bs && selected.persistBuffStage != null) bs.value = selected.persistBuffStage;
+ }
+ if(flags.persistDebuff){
+  chip("fPersistDebuffStat", persistFallback, selected.persistDebuffStat);
+  const ds = document.getElementById("fPersistDebuffStage");
   if(ds && !ds._bound){
    ds._bound = true;
    ds.addEventListener("input", ()=>{ selected.persistDebuffStage = ds.value; });
   }
-  if(bs && selected.persistBuffStage != null) bs.value = selected.persistBuffStage;
   if(ds && selected.persistDebuffStage != null) ds.value = selected.persistDebuffStage;
  }
  if(flags.resist){
