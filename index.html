@@ -16502,7 +16502,15 @@ document.getElementById("statMax").onclick=()=>{
 };
 
 document.getElementById("reset").onclick=()=>{
- Object.values(selected).forEach(a=>a.splice(0));
+ Object.keys(selected).forEach(k=>{
+   const a = selected[k];
+   if(Array.isArray(a)) a.splice(0);
+   else if(typeof a === "string" || typeof a === "number") selected[k] = "";
+  });
+  ["fFavRatio","fUnfavRatio","fPersistBuffStage","fPersistDebuffStage","fResistStageInput"].forEach(id=>{
+   const el=document.getElementById(id);
+   if(el) el.value="";
+  });
  ["qChar","qSpell","qShot","qBullet","qSymbol"].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.value="";
