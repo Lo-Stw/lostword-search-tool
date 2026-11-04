@@ -15673,10 +15673,49 @@ function authHeaders(){
  return { apikey:KEY, Authorization:"Bearer "+token };
 }
 
+const DATA_CACHE_KEY = "tlw_characters_cache_v1";
+
+function saveDataCache(){
+ try{
+  if(!Array.isArray(data) || !data.length) return;
+  // localStorage容量対策：直近のまま全文保存（失敗したら無視）
+  localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(data));
+ }catch(e){ /* quota等 */ }
+}
+
+/** 前回データを即表示（ネット待ち前） */
+function hydrateFromCache(){
+ try{
+  const raw = localStorage.getItem(DATA_CACHE_KEY);
+  if(!raw) return false;
+  const parsed = JSON.parse(raw);
+  if(!Array.isArray(parsed) || !parsed.length) return false;
+  data = parsed;
+  (data||[]).forEach(c => normalizeDetailsObj(c));
+  sortDataInPlace();
+  try{ buildFilters(); }catch(e){}
+  const el = document.getElementById("results");
+  if(el){
+   el.innerHTML = `<div class="loading">前回データを表示中（${data.length}件）。最新を取得しています…</div>`;
+  }
+  return true;
+ }catch(e){
+  return false;
+ }
+}
+
 async function load(){
  try{
+  const el = document.getElementById("results");
+  if(el && !(data && data.length)){
+   el.innerHTML = `<div class="loading">キャラデータを読み込み中…</div>`;
+  }
+  const headers = Object.assign({}, authHeaders(), {
+   "Accept": "application/json"
+  });
   const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{
-   headers: authHeaders()
+   headers,
+   cache: "no-cache"
   });
   const t=await r.text();
   if(!r.ok) throw Error(t);
@@ -15684,10 +15723,19 @@ async function load(){
   (data||[]).forEach(c => normalizeDetailsObj(c));
   sortDataInPlace();
   buildFilters();
-  document.getElementById("results").innerHTML=
+  saveDataCache();
+  if(el){
+   el.innerHTML=
     `<div class="loading">データを読み込みました（${data.length}件）。条件を選んで「検索する」を押してください</div>`;
+  }
  }catch(e){
-  document.getElementById("results").innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`;
+  const el = document.getElementById("results");
+  // キャッシュがあるならエラーでも検索は可能のまま
+  if(data && data.length){
+   if(el) el.innerHTML = `<div class="loading">最新の取得に失敗しました。前回データ（${data.length}件）で検索できます。<br><small>${esc(e.message)}</small></div>`;
+  }else if(el){
+   el.innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`;
+  }
  }
 }
 
@@ -15804,12 +15852,6 @@ async function save(){
  if(!character){
   msg.className="msg err";
   msg.textContent="キャラクター名を入力してください。";
-  return;
- }
- // 式は現在面 or 転生前に入っていればOK（保存時にバッファへ集約）
- if(!type && !(beforePack && beforePack.type) && !(afterPack && afterPack.type)){
-  msg.className="msg err";
-  msg.textContent="式を入力してください（転生前または転生後）。";
   return;
  }
 
@@ -16589,11 +16631,21 @@ function initTheme(){
 }
 
 async function init(){
+ // 1) 前回キャッシュを即表示（ネット待ちなし）
+ try{ hydrateFromCache(); }catch(e){}
+
+ // 2) キャラ取得はセッション確認と並列で開始
+ const loadPromise = load();
+
  // ローカルに保存したセッションを復元
  const local = loadSessionLocal();
  if(local && local.access_token){
   currentSession = local;
-  // トークンが有効か軽く確認（失敗しても一旦そのまま使う）
+ }
+
+ // セッション検証は裏で（キャラ読み込みを待たせない）
+ const sessionPromise = (async ()=>{
+  if(!(currentSession && currentSession.access_token)) return;
   try{
    const user = await authApi("user");
    if(user && user.id){
@@ -16601,21 +16653,20 @@ async function init(){
     saveSessionLocal(currentSession);
    }
   }catch(e){
-   // 期限切れなど → クリア
    console.warn("保存セッションが無効です:", e.message);
    currentSession = null;
    saveSessionLocal(null);
   }
- }
+ })();
 
- // supabase-js がある場合は同期も試す
+ // supabase-js がある場合は同期も試す（待たない）
  if(sb && sb.auth){
   try{
    if(currentSession && currentSession.refresh_token){
-    await sb.auth.setSession({
+    sb.auth.setSession({
      access_token: currentSession.access_token,
      refresh_token: currentSession.refresh_token
-    });
+    }).catch(()=>{});
    }
    sb.auth.onAuthStateChange(async (event, session)=>{
     if(session && session.access_token){
@@ -16648,19 +16699,21 @@ async function init(){
 
  renderAuthBar();
  updatePrefsUI();
- if(isLoggedIn()) await loadUserPrefs();
- await load();
  initAccordions();
  initSearchSuggest();
  initBgSettings();
  bindDetailFiltersToggle();
  initTheme();
 
- // 履歴・お気に入りUIイベント
  const addFavBtn = document.getElementById("addFavBtn");
  const clearHistoryBtn = document.getElementById("clearHistoryBtn");
  if(addFavBtn) addFavBtn.onclick = addCurrentToFavorites;
  if(clearHistoryBtn) clearHistoryBtn.onclick = clearAllHistory;
+
+ // 3) セッション検証と設定・キャラ取得を並列
+ await sessionPromise;
+ const prefsPromise = isLoggedIn() ? loadUserPrefs() : Promise.resolve();
+ await Promise.all([loadPromise, prefsPromise]);
 }
 
 init();
