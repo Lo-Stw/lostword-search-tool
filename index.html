@@ -15704,32 +15704,86 @@ function hydrateFromCache(){
  }
 }
 
+async function loadPageChunk(from, to){
+ const headers = Object.assign({}, authHeaders(), {
+  "Accept": "application/json",
+  "Prefer": "count=exact",
+  "Range": from + "-" + to
+ });
+ const url = `${URL}/rest/v1/${TABLE}?select=*&order=sort_order.asc.nullslast,id.asc`;
+ const r = await fetch(url, { headers, cache: "no-cache" });
+ const t = await r.text();
+ if(!r.ok){
+  const err = new Error(t || ("HTTP " + r.status));
+  err.status = r.status;
+  err.body = t;
+  throw err;
+ }
+ let chunk = [];
+ try{ chunk = t ? JSON.parse(t) : []; }catch(e){ chunk = []; }
+ if(!Array.isArray(chunk)) chunk = [];
+ let total = null;
+ const cr = r.headers.get("content-range") || r.headers.get("Content-Range") || "";
+ const m = String(cr).match(/\/(\d+)/);
+ if(m) total = Number(m[1]);
+ return { chunk, total };
+}
+
+function isStatementTimeoutError(e){
+ const msg = String((e && (e.body || e.message)) || e || "");
+ return msg.includes("57014") || /statement timeout/i.test(msg) || /canceling statement/i.test(msg);
+}
+
 async function load(){
+ const el = document.getElementById("results");
  try{
-  const el = document.getElementById("results");
   if(el && !(data && data.length)){
    el.innerHTML = `<div class="loading">キャラデータを読み込み中…</div>`;
   }
-  const headers = Object.assign({}, authHeaders(), {
-   "Accept": "application/json"
-  });
-  const r=await fetch(`${URL}/rest/v1/${TABLE}?select=*`,{
-   headers,
-   cache: "no-cache"
-  });
-  const t=await r.text();
-  if(!r.ok) throw Error(t);
-  data=JSON.parse(t);
+
+  // 一括取得がタイムアウトしやすいので分割取得（失敗時はさらに小さく）
+  let pageSize = 30;
+  let all = [];
+  let from = 0;
+  let total = null;
+  let guard = 0;
+
+  while(guard++ < 500){
+   const to = from + pageSize - 1;
+   try{
+    const { chunk, total: tot } = await loadPageChunk(from, to);
+    if(tot != null) total = tot;
+    all = all.concat(chunk);
+    if(el){
+     const denom = (total != null) ? ("/" + total) : "";
+     el.innerHTML = `<div class="loading">キャラデータを読み込み中… ${all.length}${denom}件</div>`;
+    }
+    if(chunk.length === 0) break;
+    if(chunk.length < pageSize) break;
+    if(total != null && all.length >= total) break;
+    from += pageSize;
+   }catch(e){
+    if(isStatementTimeoutError(e) && pageSize > 5){
+     // ページを半分にして同じ位置からリトライ
+     pageSize = Math.max(5, Math.floor(pageSize / 2));
+     console.warn("load timeout, retry with pageSize", pageSize);
+     if(el) el.innerHTML = `<div class="loading">通信が重いため分割サイズを下げて再取得中…（${all.length}件取得済）</div>`;
+     continue;
+    }
+    throw e;
+   }
+  }
+
+  data = all;
   (data||[]).forEach(c => normalizeDetailsObj(c));
   sortDataInPlace();
   buildFilters();
   saveDataCache();
   if(el){
-   el.innerHTML=
+   el.innerHTML =
     `<div class="loading">データを読み込みました（${data.length}件）。条件を選んで「検索する」を押してください</div>`;
   }
  }catch(e){
-  const el = document.getElementById("results");
   // キャッシュがあるならエラーでも検索は可能のまま
   if(data && data.length){
    if(el) el.innerHTML = `<div class="loading">最新の取得に失敗しました。前回データ（${data.length}件）で検索できます。<br><small>${esc(e.message)}</small></div>`;
