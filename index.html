@@ -15710,7 +15710,8 @@ async function loadPageChunk(from, to){
   "Prefer": "count=exact",
   "Range": from + "-" + to
  });
- const url = `${URL}/rest/v1/${TABLE}?select=*&order=sort_order.asc.nullslast,id.asc`;
+ // sort_order 列が無いDBもあるため id のみでページング
+ const url = `${URL}/rest/v1/${TABLE}?select=*&order=id.asc`;
  const r = await fetch(url, { headers, cache: "no-cache" });
  const t = await r.text();
  if(!r.ok){
