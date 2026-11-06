@@ -1643,29 +1643,40 @@ body.theme-dark .pickup-card{background:rgba(30,34,42,.9)}
 body.theme-dark .pickup-char-btn{background:#252a34;color:#e8ecf4}
 .pickup-char-btn:hover{filter:brightness(1.05)}
 .pickup-char-grid{
- display:flex;flex-wrap:wrap;gap:10px;
+ display:flex;flex-direction:column;gap:12px;
+ width:100%;
 }
 .pickup-char-card{
  display:block;text-align:left;
- min-width:140px;max-width:220px;
- padding:10px 12px;
- border-radius:12px;
+ width:100%;
+ max-width:100%;
+ box-sizing:border-box;
+ padding:12px 14px;
+ border-radius:14px;
  border:2px solid var(--lw-border);
  cursor:pointer;
  font:inherit;
- box-shadow:0 2px 8px rgba(0,0,0,.08);
+ box-shadow:0 2px 10px rgba(0,0,0,.08);
 }
 .pickup-char-card:hover{filter:brightness(1.03)}
-.pickup-char-card .char{
- font-weight:800;font-size:15px;margin-top:2px;
+.pickup-char-card .bento-meta-row{
+ display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:2px;
 }
 .pickup-char-card .char-epithet{
- font-size:12px;opacity:.9;margin-top:2px;
+ font-size:13px;opacity:.95;margin:2px 0 4px;
+}
+.pickup-char-card .char-name-row{
+ display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:2px;
+}
+.pickup-char-card .char{
+ font-weight:800;font-size:18px;line-height:1.25;
 }
 .pickup-char-card .char-rarity{
- display:inline-block;margin-bottom:4px;
+ display:inline-block;
 }
-
+.pickup-char-card .impl-meta{
+ font-size:12px;opacity:.9;margin:2px 0 4px;
+}
 .pickup-now-badge{
  display:inline-block;
  margin-left:6px;
@@ -16876,11 +16887,19 @@ function renderPickupActiveList(){
    const epi = c && typeof getCharEpithet === "function" ? (getCharEpithet(c) || "") : "";
    const sym = c && typeof getCharSymbol === "function" ? (getCharSymbol(c) || "") : "";
    const nm = c ? (c.character || label) : label;
+   const meta = c && typeof formatImplOriginMetaHtml === "function"
+    ? formatImplOriginMetaHtml(c, { showType:true })
+    : "";
    return `<button type="button" class="pickup-char-card result ${frameCls}" data-open-char="${esc(String(id))}">`
+    + `<div class="bento-meta-row">`
     + (rar ? `<span class="char-rarity ${rarCls}">${esc(rar)}</span>` : "")
+    + `</div>`
     + (epi ? `<div class="char-epithet">${esc(epi)}</div>` : "")
+    + (meta ? `<div class="impl-meta">${meta}</div>` : "")
+    + `<div class="char-name-row">`
     + `<div class="char">${esc(nm)}</div>`
-    + (sym ? `<div class="pickup-sym">${esc(sym)}</div>` : "")
+    + (sym ? `<span class="symbol-badge"><span class="sym-label">汎異</span>${esc(sym)}</span>` : "")
+    + `</div>`
     + `</button>`;
   }).join("") || `<span class="mini">キャラ未設定</span>`;
   return `<div class="pickup-card">
