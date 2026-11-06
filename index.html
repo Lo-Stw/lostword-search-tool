@@ -14341,101 +14341,159 @@ function adminMatchAllAttacksZentai(c){
 }
 
 /** 有効な特殊スキルなのに詳細が空（または中身が空） */
+/** 有効な特殊スキルなのに詳細が空（または中身が空） */
 function isSpecialSkillDetailBlank(name, d){
- if(!d || !d.enabled) return false;
- // X-Change用の追加枠
- if(d.xcEnabled && d.xc){
-  const xc = Object.assign({}, d.xc, { enabled:true });
-  if(isSpecialSkillDetailBlank(name, xc) === false){
-   // xc に内容があれば本体が空でもOKとみなす場合あり → 本体も見る
-  } else if(d.xc.enabled !== false){
-   // xc が有効で空なら未記入
-   try{
-    const xt = (typeof formatSpecialSkillDetailText === "function") ? formatSpecialSkillDetailText(name, xc) : "";
-    if(!xt || !String(xt).trim()) return true;
-   }catch(e){ return true; }
-  }
+ if(!d || typeof d !== "object") return false;
+ if(!d.enabled) return false;
+ const n = String(name || "");
+
+ // list の各要素に中身があるか
+ const listHasMeat = (list, keys)=>{
+  if(!Array.isArray(list) || !list.length) return false;
+  return list.some(it=>{
+   if(!it || typeof it !== "object") return false;
+   return keys.some(k=>{
+    const v = it[k];
+    if(v == null || v === "") return false;
+    if(Array.isArray(v)) return v.length > 0;
+    return true;
+   });
+  });
+ };
+
+ if(n === "RANKⅡバフ" || n === "RANKⅡデバフ" || n === "永続バフ" || n === "永続デバフ"){
+  const list = Array.isArray(d.list) ? d.list : [];
+  if(!list.length) return true;
+  return list.some(it=>{
+   if(!it) return true;
+   const st = (typeof pickRank2Stat==="function") ? pickRank2Stat(it) : (it.stat || "");
+   const stage = (it.stage != null && it.stage !== "") ? it.stage : it.rank;
+   return !String(st||"").trim() || stage == null || stage === "";
+  });
  }
+ if(n === "ファスト" || n === "チャージ"){
+  try{ if(typeof normalizeFastChargeData==="function") normalizeFastChargeData(d); }catch(e){}
+  const hasSide = !!(d.self || d.team || d.target === "自身" || d.target === "味方全体");
+  const hasCount = (d.selfCount != null && d.selfCount !== "") || (d.teamCount != null && d.teamCount !== "") || (d.count != null && d.count !== "");
+  // 正規化で self=1 が付く場合は「記入あり」扱い
+  if(hasSide && hasCount) return false;
+  if(hasSide) return false;
+  return true;
+ }
+ if(n === "全体耐性ダウン"){
+  return (d.stage == null || d.stage === "") && (d.rank == null || d.rank === "");
+ }
+ if(n === "有利属性ダメージアップ" || n === "不利属性ダメージアップ"){
+  return d.ratio == null || d.ratio === "";
+ }
+ if(n === "X-Change"){
+  const hasP = Array.isArray(d.partners) && d.partners.length > 0;
+  const hasE = !!(d.effect && String(d.effect).trim());
+  return !hasP && !hasE;
+ }
+ if(n === "禁止解除"){
+  const hasSkill = !!(d.skill || (d.skillCount != null && d.skillCount !== "") || (Array.isArray(d.skillItems) && d.skillItems.length));
+  const hasSpell = !!(d.spell || (d.spellCount != null && d.spellCount !== "") || (Array.isArray(d.spellItems) && d.spellItems.length));
+  // 旧形式
+  if(d.count != null && d.count !== "") return false;
+  if(d.target) return false;
+  return !hasSkill && !hasSpell;
+ }
+ if(n === "ダメージ軽減" || (typeof DD_SKILL==="string" && n === DD_SKILL) || (typeof DD_SKILL_LEGACY==="string" && n === DD_SKILL_LEGACY)){
+  const list = Array.isArray(d.list) ? d.list : [];
+  if(!list.length) return true;
+  return list.every(it => !it || (!it.kind && (it.ratio == null || it.ratio === "") && !it.target));
+ }
+ if(n === "大結界" || n === "秘密封印"){
+  if(d.upStat || d.downStat || d.breakEffect) return false;
+  if(Array.isArray(d.stats) && d.stats.length) return false;
+  if(listHasMeat(d.list, ["stat","upStat","downStat","ratio","value","effect"])) return false;
+  return true;
+ }
+ if(n === "畜力" || n === "蓄積" || n === "共鳴" || n === "団結" || n === "持続"){
+  if(!Array.isArray(d.list) || !d.list.length){
+   // 単体旧形式
+   if(d.kind || d.stat || d.effect || (d.value != null && d.value !== "") || (d.ratio != null && d.ratio !== "")) return false;
+   return true;
+  }
+  return !listHasMeat(d.list, ["kind","stat","effect","value","ratio","fromStat","toStat","target","duration"]);
+ }
+ if(n === "属性強化" || n === "弾強化" || n === "弱点付与"){
+  if(!Array.isArray(d.list) || !d.list.length){
+   if(d.attr || d.bullet || (d.ratio != null && d.ratio !== "")) return false;
+   return true;
+  }
+  return !listHasMeat(d.list, ["attr","bullet","ratio","value"]);
+ }
+ if(n === "バディコネクト" || n === "ゾーン" || n === "逆相" || n === "スペルゲージ遅延" || n === "スキル再使用ターン数短縮"){
+  if(d.stat || d.upStat || d.downStat || d.target || (d.ratio != null && d.ratio !== "") || (d.value != null && d.value !== "") || (d.x != null && d.x !== "")) return false;
+  if(listHasMeat(d.list, ["stat","ratio","value","target","fromStat","toStat","downStat"])) return false;
+  return true;
+ }
+ // 汎用: format が空なら未記入
  try{
   if(typeof formatSpecialSkillDetailText === "function"){
-   const t = formatSpecialSkillDetailText(name, d);
+   const t = formatSpecialSkillDetailText(n, d);
    if(t && String(t).trim()) return false;
   }
  }catch(e){}
- // list 型
  if(Array.isArray(d.list) && d.list.length){
-  const meaningful = d.list.some(it=>{
-   if(!it || typeof it !== "object") return false;
-   if(it.stat || it.stage || it.rank || it.kind || it.effect || it.value != null && it.value !== "") return true;
-   if(it.ratio != null && it.ratio !== "") return true;
-   if(it.upStat || it.downStat || it.attr || it.bullet) return true;
-   if(it.fromStat || it.toStat || it.source) return true;
-   if(Array.isArray(it.stats) && it.stats.length) return true;
-   return false;
-  });
-  return !meaningful;
+  return !listHasMeat(d.list, ["stat","stage","rank","kind","effect","value","ratio","attr","bullet","fromStat","toStat","source","upStat","downStat"]);
  }
- // 単体フィールド
- if(d.stat || d.stage || d.rank || d.kind || d.effect || d.ratio != null && d.ratio !== "" || d.value != null && d.value !== "") return false;
- if(d.upStat || d.downStat || d.attr || d.bullet || d.target) return false;
- if(Array.isArray(d.partners) && d.partners.length) return false;
- if(d.self || d.team) return false; // ファスト/チャージ
  return true;
+}
+
+function collectSpecialSkillBagsForAdmin(c){
+ const bags = [];
+ const add = (ss)=>{
+  if(ss && typeof ss === "object" && !Array.isArray(ss)) bags.push(ss);
+ };
+ try{
+  const d = c.details || {};
+  add(d.specialSkills);
+  add(d.skills);
+  if(d.rebirth){
+   if(d.rebirth.before) add(d.rebirth.before.specialSkills);
+   if(d.rebirth.after) add(d.rebirth.after.specialSkills);
+  }
+  if(typeof packFromCharacterSide === "function"){
+   try{ add(packFromCharacterSide(c, "before")?.specialSkills); }catch(e){}
+   try{ add(packFromCharacterSide(c, "after")?.specialSkills); }catch(e){}
+  }
+ }catch(e){}
+ return bags;
 }
 
 function adminMatchIncompleteSpecialSkills(c){
  if(!c) return false;
- const names = (typeof SPECIAL_SKILLS !== "undefined" && Array.isArray(SPECIAL_SKILLS))
-  ? SPECIAL_SKILLS.slice()
-  : [];
- if(typeof DD_SKILL === "string") names.push(DD_SKILL);
- if(typeof DD_SKILL_LEGACY === "string") names.push(DD_SKILL_LEGACY);
- // 重複除去
- const uniq = [...new Set(names)];
+ const bags = collectSpecialSkillBagsForAdmin(c);
+ if(!bags.length) return false;
 
- const checkSs = (ss)=>{
-  if(!ss || typeof ss !== "object") return false;
-  return uniq.some(name=>{
+ const known = (typeof SPECIAL_SKILLS !== "undefined" && Array.isArray(SPECIAL_SKILLS)) ? SPECIAL_SKILLS.slice() : [];
+ if(typeof DD_SKILL === "string") known.push(DD_SKILL);
+ if(typeof DD_SKILL_LEGACY === "string") known.push(DD_SKILL_LEGACY);
+
+ const incomplete = [];
+ bags.forEach(ss=>{
+  const names = new Set([...known, ...Object.keys(ss)]);
+  names.forEach(name=>{
    const d = ss[name];
-   if(!d || !d.enabled) return false;
-   if(isSpecialSkillDetailBlank(name, d)) return true;
-   if(d.xcEnabled && d.xc && isSpecialSkillDetailBlank(name, Object.assign({}, d.xc, { enabled:true }))) return true;
-   return false;
+   if(!d || !d.enabled) return;
+   if(isSpecialSkillDetailBlank(name, d)){
+    incomplete.push(name);
+    return;
+   }
+   if(d.xcEnabled && d.xc){
+    const xc = Object.assign({}, d.xc, { enabled: true });
+    if(isSpecialSkillDetailBlank(name, xc)) incomplete.push(name + "(X-Change)");
+   }
   });
- };
-
- const bags = [];
- try{
-  const pack = (typeof packFromCharacterSide === "function")
-   ? null : null;
- }catch(e){}
- try{
-  if(c.details && c.details.specialSkills) bags.push(c.details.specialSkills);
-  if(c.details && c.details.rebirth){
-   ["before","after"].forEach(s=>{
-    const p = c.details.rebirth[s];
-    if(p && p.specialSkills) bags.push(p.specialSkills);
-   });
-  }
-  // view packs
-  if(typeof getCharRebirth === "function" && getCharRebirth(c).enabled){
-   ["before","after"].forEach(side=>{
-    try{
-     if(typeof packFromCharacterSide === "function"){
-      const p = packFromCharacterSide(c, side);
-      if(p && p.specialSkills) bags.push(p.specialSkills);
-     }
-    }catch(e){}
-   });
-  }else if(typeof packFromCharacterSide === "function"){
-   try{
-    const p = packFromCharacterSide(c, "before");
-    if(p && p.specialSkills) bags.push(p.specialSkills);
-   }catch(e){}
-  }
- }catch(e){}
- if(!bags.length && c.details && c.details.specialSkills) bags.push(c.details.specialSkills);
- return bags.some(checkSs);
+ });
+ if(incomplete.length){
+  try{ c._adminIncompleteSkills = [...new Set(incomplete)]; }catch(e){}
+  return true;
+ }
+ return false;
 }
 
 function adminRunDebugSearch(predicate, label){
@@ -14457,6 +14515,17 @@ function adminRunDebugSearch(predicate, label){
    note.style.color = "#c44536";
    note.textContent = "管理者検索：" + label + "（" + hits.length + "件）";
    rc.appendChild(note);
+   if(label && label.indexOf("特殊スキル詳細未記入") >= 0 && hits.length){
+    const more = document.createElement("div");
+    more.className = "mini";
+    more.style.marginTop = "2px";
+    more.textContent = "未記入例: " + hits.slice(0, 8).map(c=>{
+     const n = (c.character||"?");
+     const sk = (c._adminIncompleteSkills||[]).join(",");
+     return sk ? (n+"["+sk+"]") : n;
+    }).join(" / ");
+    rc.appendChild(more);
+   }
   }
  }catch(e){}
 }
