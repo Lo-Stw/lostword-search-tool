@@ -6584,10 +6584,26 @@ function colorizeEffectText(plain){
  const stats = [
   "攻撃時CRI率","CRIダメージ","CRI攻撃","CRI命中","CRI回避","CRI防御",
   "スペルゲージ","陽攻","陰攻","陽防","陰防","速力","命中","回避","注目",
-  "ダメージ","体力","霊力","結界","威力"
+  "ダメージ","体力","霊力","結界","威力",
+  "Ⅱ","II",
+  // 属性
+  "日属性","月属性","火属性","水属性","木属性","金属性","土属性","星属性","無属性",
+  "日","月","火","水","木","金","土","星","無",
+  // 弾種
+  "通常弾","光弾","レーザー弾","質量弾","エネルギー弾","流体弾","尖弾","御札弾","斬撃弾","肉弾","ミサイル弾"
  ];
- stats.sort((a,b)=>b.length-a.length);
+ // 実行時に定数があればマージ
+ try{ if(typeof ATTR !== "undefined") ATTR.forEach(a=>{ stats.push(a+"属性"); stats.push(a); }); }catch(e){}
+ try{ if(typeof BULLETS !== "undefined") BULLETS.forEach(b=> stats.push(b)); }catch(e){}
+ const seen = new Set();
+ const uniq = [];
  stats.forEach(st=>{
+  if(!st || seen.has(st)) return;
+  seen.add(st);
+  uniq.push(st);
+ });
+ uniq.sort((a,b)=>b.length-a.length);
+ uniq.forEach(st=>{
   const e = esc(st);
   if(!e || s.indexOf(e) < 0) return;
   s = s.split(e).join('<span class="eff-stat">' + e + "</span>");
