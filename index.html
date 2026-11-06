@@ -2956,6 +2956,7 @@ body.theme-dark .bullet-size-btns button.active{
   <button type="button" id="adminBulkRangeFix" class="sub" style="width:auto;">全体/単体 一括再判定</button>
   <button type="button" id="adminRangeReport" class="sub" style="width:auto;">範囲の集計</button>
   <button type="button" id="adminSearchAllZentai" class="sub" style="width:auto;">全攻撃が全体</button>
+  <button type="button" id="adminSearchIncompleteSkills" class="sub" style="width:auto;">特殊スキル詳細未記入</button>
 </div>
 <button id="searchBtn" class="main" type="button">🔍 検索する</button>
 </div>
@@ -14465,6 +14466,12 @@ function updateAdminDebugSearchVisibility(){
  const show = typeof isAdmin === "function" && isAdmin();
  box.classList.toggle("hidden", !show);
  box.style.display = show ? "flex" : "none";
+ // ボタンが後から増えた場合でもバインド
+ const incSkillBtn = document.getElementById("adminSearchIncompleteSkills");
+ if(incSkillBtn && !incSkillBtn._bound){
+  incSkillBtn._bound = true;
+  incSkillBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialSkills, "特殊スキル詳細未記入");
+ }
 }
 
 function search(skipHistory) {
