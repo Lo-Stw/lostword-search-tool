@@ -1601,8 +1601,18 @@ body.theme-dark .owned-filter-block{
  color:#5a4030;
 }
 .comments-fab:hover{filter:brightness(1.05)}
+.pickup-fab-wrap{
+ position:fixed;top:116px;right:12px;z-index:1004;
+}
+.pickup-fab-wrap .feature-tip-bubble{
+ position:absolute;right:0;top:calc(100% + 10px);
+ left:auto;width:min(230px,72vw);z-index:1005;
+}
+.pickup-fab-wrap .feature-tip-bubble::before{
+ left:auto;right:16px;
+}
 .pickup-fab{
- position:fixed;top:116px;right:12px;z-index:1003;
+ position:relative;top:auto;right:auto;z-index:1003;
  width:44px;height:44px;border-radius:12px;
  border:1px solid var(--lw-border);
  background:linear-gradient(180deg,#faf4e8,#e8dcc8);
@@ -1632,6 +1642,32 @@ body.theme-dark .pickup-card{background:rgba(30,34,42,.9)}
 }
 body.theme-dark .pickup-char-btn{background:#252a34;color:#e8ecf4}
 .pickup-char-btn:hover{filter:brightness(1.05)}
+.pickup-char-grid{
+ display:flex;flex-wrap:wrap;gap:10px;
+}
+.pickup-char-card{
+ display:block;text-align:left;
+ min-width:140px;max-width:220px;
+ padding:10px 12px;
+ border-radius:12px;
+ border:2px solid var(--lw-border);
+ cursor:pointer;
+ font:inherit;
+ box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.pickup-char-card:hover{filter:brightness(1.03)}
+.pickup-char-card .char{
+ font-weight:800;font-size:15px;margin-top:2px;
+}
+.pickup-char-card .char-epithet{
+ font-size:12px;opacity:.9;margin-top:2px;
+}
+.pickup-char-card .char-rarity{
+ display:inline-block;margin-bottom:4px;
+}
+.pickup-char-card .pickup-sym{
+ font-size:12px;opacity:.85;margin-top:2px;
+}
 .pickup-admin-box{
  margin-top:16px;padding-top:14px;
  border-top:1px dashed rgba(160,130,70,.45);
@@ -2509,7 +2545,9 @@ body.theme-dark .bullet-size-btns button.active{
   <span></span><span></span><span></span>
 </button>
 <button type="button" class="comments-fab" id="commentsFab" aria-label="コメント" title="コメント" onclick="openCommentsPage()">💬</button>
-<button type="button" class="pickup-fab" id="pickupFab" aria-label="ピックアップ中" title="ピックアップ中" onclick="openPickupPage()">PU</button>
+<div class="pickup-fab-wrap" id="pickupFabWrap">
+<button type="button" class="pickup-fab" id="pickupFab" aria-label="ピックアップ中" title="ピックアップ中" onclick="dismissFeatureTip('pickup');openPickupPage()">PU</button>
+</div>
 <div class="menu-overlay" id="menuOverlay"></div>
 <aside class="menu-panel" id="menuPanel" aria-hidden="true">
   <div class="menu-panel-head">
@@ -3306,10 +3344,10 @@ body.theme-dark .bullet-size-btns button.active{
   <div class="title" style="font-size:16px;margin-bottom:8px;">管理者：ピックアップ登録</div>
   <div class="mini" style="margin-bottom:6px;">ガシャ名</div>
   <input id="puGachaName" class="input" placeholder="例：超フェスガチャ">
-  <div class="mini" style="margin:8px 0 4px;">開始日</div>
+  <div class="mini" style="margin:8px 0 4px;">開始日（表示は「日付 メンテ後」）</div>
   <input id="puStart" class="input" type="date">
-  <div class="mini" style="margin:8px 0 4px;">終了日</div>
-  <input id="puEnd" class="input" type="date">
+  <div class="mini" style="margin:8px 0 4px;">終了日時</div>
+  <input id="puEnd" class="input" type="datetime-local">
   <div class="mini" style="margin:8px 0 4px;">ピックアップキャラ（登録済みから選択・複数可）</div>
   <input id="puCharFilter" class="input" placeholder="名前・汎異記号で絞り込み" style="margin-bottom:6px;">
   <div id="puCharList" style="max-height:220px;overflow:auto;border:1px solid var(--lw-border);border-radius:8px;padding:6px;margin-bottom:8px;"></div>
@@ -7752,7 +7790,7 @@ function formatSpecialSkillDetailText(name, d){
    : "";
   const line = (tgt, n, xc)=>{
    const num = (n !== "" && n != null) ? String(n) : "1";
-   let s = tgt + "に" + skillLabel + "を" + num + "個付与";
+   let s = tgt + "に付与(" + num + "個)";
    if(xc) s += "(X-Change時のみ)";
    if(rateSuf) s += " " + rateSuf;
    return s;
@@ -16680,11 +16718,44 @@ function todayYmdLocal(){
 
 function isPickupActive(p){
  if(!p) return false;
- const t = todayYmdLocal();
  const s = String(p.start_at || p.startAt || "").slice(0,10);
- const e = String(p.end_at || p.endAt || "").slice(0,10);
- if(!s || !e) return false;
- return s <= t && t <= e;
+ const eRaw = String(p.end_at || p.endAt || "").trim();
+ if(!s || !eRaw) return false;
+ const now = new Date();
+ // 開始：その日0時から（表記上はメンテ後）
+ const start = new Date(s + "T00:00:00");
+ if(Number.isNaN(start.getTime())) return false;
+ let end;
+ if(eRaw.length <= 10){
+  end = new Date(eRaw.slice(0,10) + "T23:59:59");
+ }else{
+  // datetime-local "YYYY-MM-DDTHH:mm" or ISO
+  const norm = eRaw.includes("T") ? eRaw : eRaw.replace(" ", "T");
+  end = new Date(norm.length === 16 ? norm + ":00" : norm);
+ }
+ if(Number.isNaN(end.getTime())) return false;
+ return now >= start && now <= end;
+}
+
+function formatPickupStartLabel(p){
+ const s = String(p.start_at || p.startAt || "").slice(0,10);
+ if(!s) return "";
+ return s + " メンテ後";
+}
+
+function formatPickupEndLabel(p){
+ const eRaw = String(p.end_at || p.endAt || "").trim();
+ if(!eRaw) return "";
+ if(eRaw.length <= 10) return eRaw.slice(0,10);
+ const norm = eRaw.includes("T") ? eRaw : eRaw.replace(" ", "T");
+ const d = new Date(norm.length === 16 ? norm + ":00" : norm);
+ if(Number.isNaN(d.getTime())) return eRaw.replace("T", " ").slice(0,16);
+ const y = d.getFullYear();
+ const m = String(d.getMonth()+1).padStart(2,"0");
+ const day = String(d.getDate()).padStart(2,"0");
+ const hh = String(d.getHours()).padStart(2,"0");
+ const mm = String(d.getMinutes()).padStart(2,"0");
+ return y + "-" + m + "-" + day + " " + hh + ":" + mm;
 }
 
 function saveGachaPickupsLocal(list){
@@ -16734,8 +16805,8 @@ function renderPickupActiveList(){
  }
  box.innerHTML = active.map(p=>{
   const name = esc(p.gacha_name || p.name || "ガシャ");
-  const s = esc(String(p.start_at||"").slice(0,10));
-  const e = esc(String(p.end_at||"").slice(0,10));
+  const s = esc(formatPickupStartLabel(p));
+  const e = esc(formatPickupEndLabel(p));
   let ids = p.character_ids;
   if(typeof ids === "string"){
    try{ ids = JSON.parse(ids); }catch(err){ ids = []; }
@@ -16747,13 +16818,25 @@ function renderPickupActiveList(){
   }
   if(!Array.isArray(labels)) labels = [];
   const btns = ids.map((id, idx)=>{
+   const c = (data||[]).find(x => x && String(x.id) === String(id));
    const label = resolvePickupCharLabel(id, labels[idx] || "");
-   return `<button type="button" class="pickup-char-btn" data-open-char="${esc(String(id))}">${esc(label)}</button>`;
+   const rar = c ? (c.rarity || (c.details||{}).rarity || "") : "";
+   const frameCls = (typeof rarityFrameClass === "function") ? rarityFrameClass(rar) : "";
+   const rarCls = (typeof rarityClass === "function") ? rarityClass(rar) : "";
+   const epi = c && typeof getCharEpithet === "function" ? (getCharEpithet(c) || "") : "";
+   const sym = c && typeof getCharSymbol === "function" ? (getCharSymbol(c) || "") : "";
+   const nm = c ? (c.character || label) : label;
+   return `<button type="button" class="pickup-char-card result ${frameCls}" data-open-char="${esc(String(id))}">`
+    + (rar ? `<span class="char-rarity ${rarCls}">${esc(rar)}</span>` : "")
+    + (epi ? `<div class="char-epithet">${esc(epi)}</div>` : "")
+    + `<div class="char">${esc(nm)}</div>`
+    + (sym ? `<div class="pickup-sym">${esc(sym)}</div>` : "")
+    + `</button>`;
   }).join("") || `<span class="mini">キャラ未設定</span>`;
   return `<div class="pickup-card">
    <div style="font-weight:800;font-size:15px;margin-bottom:4px;">${name}</div>
    <div class="mini" style="margin-bottom:8px;">期間：${s} 〜 ${e}</div>
-   <div>${btns}</div>
+   <div class="pickup-char-grid">${btns}</div>
   </div>`;
  }).join("");
 }
@@ -16769,8 +16852,8 @@ function renderPickupAdminAllList(){
  box.innerHTML = list.map(p=>{
   const active = isPickupActive(p);
   const name = esc(p.gacha_name || "");
-  const s = esc(String(p.start_at||"").slice(0,10));
-  const e = esc(String(p.end_at||"").slice(0,10));
+  const s = esc(formatPickupStartLabel(p));
+  const e = esc(formatPickupEndLabel(p));
   const id = esc(String(p.id||""));
   return `<div style="margin:6px 0;padding:8px;border:1px solid var(--lw-border);border-radius:8px;">
    <b>${name}</b> ${active ? '<span class="tag" style="margin-left:6px;">表示中</span>' : '<span class="mini">期間外</span>'}
@@ -16867,7 +16950,11 @@ async function saveGachaPickup(){
  const end = document.getElementById("puEnd")?.value || "";
  if(!name){ if(msg) msg.textContent="ガシャ名を入力"; return; }
  if(!start || !end){ if(msg) msg.textContent="期間を入力"; return; }
- if(start > end){ if(msg) msg.textContent="開始日が終了日より後です"; return; }
+ {
+  const startCmp = start;
+  const endCmp = end.length <= 10 ? end : end.slice(0,10);
+  if(startCmp > endCmp){ if(msg) msg.textContent="開始日が終了日より後です"; return; }
+ }
  if(!puSelectedChars.length){ if(msg) msg.textContent="キャラを選択"; return; }
  const body = {
   gacha_name: name,
@@ -16898,6 +16985,31 @@ async function saveGachaPickup(){
  }catch(e){
   if(msg) msg.textContent = "失敗: " + (e.message||e);
  }
+}
+
+
+function showPickupFabTutorial(){
+ const wrap = document.getElementById("pickupFabWrap");
+ if(!wrap) return;
+ if(typeof shouldShowFeatureTip !== "function" || !shouldShowFeatureTip("pickup")) return;
+ if(wrap.querySelector('[data-feature-tip="pickup"]')) return;
+ const tip = document.createElement("div");
+ tip.className = "feature-tip-bubble tip-right";
+ tip.setAttribute("data-feature-tip", "pickup");
+ tip.setAttribute("role", "status");
+ tip.appendChild(document.createTextNode("ここを押すと、現在ガシャでピックアップ中のキャラクターと期間がわかります。"));
+ const closeBtn = document.createElement("button");
+ closeBtn.type = "button";
+ closeBtn.className = "tip-close";
+ closeBtn.textContent = "わかった";
+ tip.appendChild(closeBtn);
+ wrap.appendChild(tip);
+ closeBtn.addEventListener("click", (ev)=>{
+  ev.preventDefault();
+  ev.stopPropagation();
+  if(typeof dismissFeatureTip === "function") dismissFeatureTip("pickup");
+  else tip.remove();
+ });
 }
 
 async function openPickupPage(){
@@ -17285,6 +17397,8 @@ async function init(){
  bindDetailFiltersToggle();
  initTheme();
  try{ fetchGachaPickups(); }catch(e){}
+ try{ showPickupFabTutorial(); }catch(e){}
+
 
  const addFavBtn = document.getElementById("addFavBtn");
  const clearHistoryBtn = document.getElementById("clearHistoryBtn");
