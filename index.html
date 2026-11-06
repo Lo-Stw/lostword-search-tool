@@ -3392,7 +3392,8 @@ body.theme-dark .bullet-size-btns button.active{
   <div class="mini" style="margin-top:14px;font-weight:700;">登録一覧（期限切れ含む）</div>
   <div id="pickupAllList" class="mini" style="margin-top:6px;"></div>
   <div class="mini" style="margin-top:10px;opacity:.85;line-height:1.5;">
-   Supabase に <code>gacha_pickups</code> テーブルが必要です（無ければ下のSQLを実行）。
+   Supabase に <code>gacha_pickups</code> テーブルが必要です。終了時刻用に次も実行してください：
+   <code style="display:block;margin-top:4px;white-space:pre-wrap;">alter table gacha_pickups add column if not exists end_datetime text;</code>
   </div>
  </div>
 </div>
@@ -16060,40 +16061,63 @@ async function load(){
    el.innerHTML = `<div class="loading">キャラデータを読み込み中…</div>`;
   }
 
-  // 一括取得がタイムアウトしやすいので分割取得（失敗時はさらに小さく）
-  let pageSize = 30;
-  let all = [];
-  let from = 0;
-  let total = null;
-  let guard = 0;
+  let all = null;
 
-  while(guard++ < 500){
-   const to = from + pageSize - 1;
-   try{
-    const { chunk, total: tot } = await loadPageChunk(from, to);
-    if(tot != null) total = tot;
-    all = all.concat(chunk);
-    if(el){
-     const denom = (total != null) ? ("/" + total) : "";
-     el.innerHTML = `<div class="loading">キャラデータを読み込み中… ${all.length}${denom}件</div>`;
+  // 1) まず一括取得を試す（成功すれば最速）
+  try{
+   if(el) el.innerHTML = `<div class="loading">キャラデータを一括取得中…</div>`;
+   const headers = Object.assign({}, authHeaders(), {
+    "Accept": "application/json"
+   });
+   const r = await fetch(`${URL}/rest/v1/${TABLE}?select=*&order=id.asc`, {
+    headers,
+    cache: "no-cache"
+   });
+   const t = await r.text();
+   if(!r.ok){
+    const err = new Error(t || ("HTTP " + r.status));
+    err.body = t;
+    throw err;
+   }
+   all = t ? JSON.parse(t) : [];
+   if(!Array.isArray(all)) all = [];
+  }catch(e){
+   console.warn("一括取得失敗、分割取得に切替:", e && e.message);
+   if(el) el.innerHTML = `<div class="loading">一括取得ができなかったため分割で読み込み中…</div>`;
+
+   // 2) 分割取得（最初は大きめ、タイムアウト時だけ小さく）
+   let pageSize = 100;
+   all = [];
+   let from = 0;
+   let total = null;
+   let guard = 0;
+   while(guard++ < 500){
+    const to = from + pageSize - 1;
+    try{
+     const { chunk, total: tot } = await loadPageChunk(from, to);
+     if(tot != null) total = tot;
+     all = all.concat(chunk);
+     if(el){
+      const denom = (total != null) ? ("/" + total) : "";
+      el.innerHTML = `<div class="loading">キャラデータを読み込み中… ${all.length}${denom}件（${pageSize}件ずつ）</div>`;
+     }
+     if(chunk.length === 0) break;
+     if(chunk.length < pageSize) break;
+     if(total != null && all.length >= total) break;
+     from += pageSize;
+    }catch(e2){
+     if(isStatementTimeoutError(e2) && pageSize > 10){
+      pageSize = Math.max(10, Math.floor(pageSize / 2));
+      console.warn("load timeout, retry with pageSize", pageSize);
+      if(el) el.innerHTML = `<div class="loading">通信が重いため分割サイズを下げて再取得中…（${all.length}件取得済 → ${pageSize}件ずつ）</div>`;
+      continue;
+     }
+     throw e2;
     }
-    if(chunk.length === 0) break;
-    if(chunk.length < pageSize) break;
-    if(total != null && all.length >= total) break;
-    from += pageSize;
-   }catch(e){
-    if(isStatementTimeoutError(e) && pageSize > 5){
-     // ページを半分にして同じ位置からリトライ
-     pageSize = Math.max(5, Math.floor(pageSize / 2));
-     console.warn("load timeout, retry with pageSize", pageSize);
-     if(el) el.innerHTML = `<div class="loading">通信が重いため分割サイズを下げて再取得中…（${all.length}件取得済）</div>`;
-     continue;
-    }
-    throw e;
    }
   }
 
-  data = all;
+  data = all || [];
   (data||[]).forEach(c => normalizeDetailsObj(c));
   sortDataInPlace();
   buildFilters();
@@ -16103,7 +16127,6 @@ async function load(){
     `<div class="loading">データを読み込みました（${data.length}件）。条件を選んで「検索する」を押してください</div>`;
   }
  }catch(e){
-  // キャッシュがあるならエラーでも検索は可能のまま
   if(data && data.length){
    if(el) el.innerHTML = `<div class="loading">最新の取得に失敗しました。前回データ（${data.length}件）で検索できます。<br><small>${esc(e.message)}</small></div>`;
   }else if(el){
@@ -16111,6 +16134,7 @@ async function load(){
   }
  }
 }
+
 
 async function deleteCharacter(id){
   if(!isAdmin()){
@@ -16775,17 +16799,15 @@ function pickupNowBadgeHtml(c){
 function isPickupActive(p){
  if(!p) return false;
  const s = String(p.start_at || p.startAt || "").slice(0,10);
- const eRaw = String(p.end_at || p.endAt || "").trim();
+ const eRaw = (typeof getPickupEndRaw === "function") ? getPickupEndRaw(p) : String(p.end_at || "").trim();
  if(!s || !eRaw) return false;
  const now = new Date();
- // 開始：その日0時から（表記上はメンテ後）
  const start = new Date(s + "T00:00:00");
  if(Number.isNaN(start.getTime())) return false;
  let end;
  if(eRaw.length <= 10){
   end = new Date(eRaw.slice(0,10) + "T23:59:59");
  }else{
-  // datetime-local "YYYY-MM-DDTHH:mm" or ISO
   const norm = eRaw.includes("T") ? eRaw : eRaw.replace(" ", "T");
   end = new Date(norm.length === 16 ? norm + ":00" : norm);
  }
@@ -16799,10 +16821,23 @@ function formatPickupStartLabel(p){
  return s + " メンテ後";
 }
 
+function getPickupEndRaw(p){
+ if(!p) return "";
+ // 時刻付きを優先（date型だと end_at から時刻が消えるため）
+ const candidates = [p.end_datetime, p.end_at_full, p.endAtFull, p.end_at, p.endAt];
+ for(const c of candidates){
+  if(c != null && String(c).trim()) return String(c).trim();
+ }
+ return "";
+}
 function formatPickupEndLabel(p){
- const eRaw = String(p.end_at || p.endAt || "").trim();
+ const eRaw = getPickupEndRaw(p);
  if(!eRaw) return "";
- if(eRaw.length <= 10) return eRaw.slice(0,10);
+ // すでに "YYYY-MM-DD HH:mm" など
+ if(/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(eRaw)){
+  return eRaw.replace("T", " ").slice(0,16);
+ }
+ if(eRaw.length <= 10) return eRaw.slice(0,10); // 時刻情報なし
  const norm = eRaw.includes("T") ? eRaw : eRaw.replace(" ", "T");
  const d = new Date(norm.length === 16 ? norm + ":00" : norm);
  if(Number.isNaN(d.getTime())) return eRaw.replace("T", " ").slice(0,16);
@@ -16942,7 +16977,7 @@ function beginEditGachaPickup(id){
  const sEl = document.getElementById("puStart");
  if(sEl) sEl.value = String(p.start_at || "").slice(0,10);
  const eEl = document.getElementById("puEnd");
- if(eEl) eEl.value = toDatetimeLocalValue(p.end_at);
+ if(eEl) eEl.value = toDatetimeLocalValue(p.end_datetime || p.end_at);
  let ids = p.character_ids;
  if(typeof ids === "string"){ try{ ids = JSON.parse(ids); }catch(err){ ids = []; } }
  if(!Array.isArray(ids)) ids = [];
@@ -17086,10 +17121,13 @@ async function saveGachaPickup(){
   if(startCmp > endCmp){ if(msg) msg.textContent="開始日が終了日より後です"; return; }
  }
  if(!puSelectedChars.length){ if(msg) msg.textContent="キャラを選択"; return; }
+ const endDate = end.length >= 10 ? end.slice(0,10) : end;
+ const endDateTime = end.length > 10 ? end.replace(" ", "T").slice(0,16) : (endDate + "T23:59");
  const body = {
   gacha_name: name,
   start_at: start,
-  end_at: end,
+  end_at: endDate,
+  end_datetime: endDateTime,
   character_ids: puSelectedChars.map(p=>p.id),
   character_labels: puSelectedChars.map(p=>p.label||p.name||"")
  };
