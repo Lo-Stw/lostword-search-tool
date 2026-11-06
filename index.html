@@ -304,6 +304,16 @@ header .notice .tagline{display:block;margin-bottom:4px;font-weight:700;color:#f
 .hidden{display:none !important}
 .result-count{font-weight:700;margin:14px 0 8px;color:#e8dcc8;letter-spacing:.06em}
 
+
+.eff-stat{color:#e6c200;font-weight:800}
+.eff-up{color:#e53935;font-weight:800}
+.eff-rise,.eff-heal{color:#2e7d32;font-weight:800}
+.eff-down{color:#1e88e5;font-weight:800}
+body.theme-dark .eff-stat{color:#ffd54f}
+body.theme-dark .eff-up{color:#ff6e6e}
+body.theme-dark .eff-rise,body.theme-dark .eff-heal{color:#81c784}
+body.theme-dark .eff-down{color:#64b5f6}
+
 .skill-detail-line{color:inherit;opacity:1}
 .skill-detail-line span{opacity:1 !important;font-weight:700}
 .result .muted, .attack .muted, .bento-tile .muted{opacity:.9;color:inherit}
@@ -6567,6 +6577,39 @@ function esc(v){
 }
 
 
+/** ステータス名=黄、アップ/上昇=赤、ダウン/遅延/低下=青 */
+function colorizeEffectText(plain){
+ if(plain == null || plain === "") return "";
+ let s = esc(String(plain));
+ const stats = [
+  "攻撃時CRI率","CRIダメージ","CRI攻撃","CRI命中","CRI回避","CRI防御",
+  "スペルゲージ","陽攻","陰攻","陽防","陰防","速力","命中","回避","注目",
+  "ダメージ","体力","霊力","結界","威力"
+ ];
+ stats.sort((a,b)=>b.length-a.length);
+ stats.forEach(st=>{
+  const e = esc(st);
+  if(!e || s.indexOf(e) < 0) return;
+  s = s.split(e).join('<span class="eff-stat">' + e + "</span>");
+ });
+ [
+  ["アップ","eff-up"],
+  ["上昇","eff-heal"],
+  ["回復","eff-heal"],
+  ["増加","eff-heal"],
+  ["付与","eff-down"],
+  ["ダウン","eff-down"],
+  ["遅延","eff-down"],
+  ["低下","eff-down"]
+ ].forEach(([k, cls])=>{
+  const e = esc(k);
+  if(!e || s.indexOf(e) < 0) return;
+  s = s.split(e).join('<span class="' + cls + '">' + e + "</span>");
+ });
+ return s;
+}
+
+
 function getSearchHighlightTerms(){
  const ids = ["qChar","qSpell","qShot","qBullet","qSymbol"];
  const terms = [];
@@ -7737,13 +7780,13 @@ function formatDamageDownHtml(ss){
   let line = formatDamageDownLine(item);
   line = withXChangeOnlySuffix(line, ddObj);
   if(!line) return "";
-  return `<span class="tag tag-debuff">${esc(line)}</span>`;
+  return `<span class="tag tag-debuff">${colorizeEffectText(line)}</span>`;
  }).filter(Boolean);
  if(ddObj && ddObj.xcEnabled && ddObj.xc && Array.isArray(ddObj.xc.list)){
   ddObj.xc.list.forEach(item=>{
    let line = formatDamageDownLine(item);
    line = withXChangeOnlySuffix(line, { xChangeOnly:true });
-   if(line) tags.push(`<span class="tag tag-debuff">${esc(line)}</span>`);
+   if(line) tags.push(`<span class="tag tag-debuff">${colorizeEffectText(line)}</span>`);
   });
  }
  return tags.join(" ");
@@ -8380,7 +8423,7 @@ function formatSpecialSkillsHtml(ss, opts){
      let detail = formatRank2DetailLine(item, x);
      detail = withXChangeOnlySuffix(detail, asXc ? { xChangeOnly:true } : ss[x]);
      if(detail){
-      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(detail)}</span></div>`);
+      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(detail)}</span></div>`);
      }else{
       parts.push(`<div class="skill-detail-line" style="margin:6px 0;">${tagWithHl(x, matched, cls)}${(asXc||ss[x].xChangeOnly)?' <span style="font-size:12px;">(X-Change時のみ)</span>':''}</div>`);
      }
@@ -8429,7 +8472,7 @@ function formatSpecialSkillsHtml(ss, opts){
    if(effect){
     const lines = effect.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean);
     body += lines.map(line =>
-     `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(line)}</span></div>`
+     `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`
     ).join("");
    }
    if(partners.length){
@@ -8466,10 +8509,10 @@ function formatSpecialSkillsHtml(ss, opts){
     const lines = String(detail).split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean);
     if(lines.length > 1){
      lines.forEach(line=>{
-      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(line)}</span></div>`);
+      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`);
      });
     }else{
-     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${esc(detail)}</span></div>`);
+     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(detail)}</span></div>`);
     }
    }else{
     parts.push(tagWithHl(x, matched, ""));
@@ -8536,7 +8579,7 @@ function formatAbilitiesHtml(ab, opts){
  function abLine(title, detail, abnormals){
   const matched = isFilterMatch(title, selected.ability) || (selected.ability||[]).some(a => String(title).includes(String(a)));
   // 対象の結界異常は素で表示。能力名タグを長押しで効果説明
-  let detailHtml = esc(detail);
+  let detailHtml = colorizeEffectText(detail);
   ABNORMAL.forEach(an=>{
    if(detail.includes(an)){
     detailHtml = detailHtml.split(esc(an)).join(`<span class="abnormal-chip">${esc(an)}</span>`);
@@ -11023,7 +11066,7 @@ function formatSupportEffectsHtml(bag, phaseLabel){
   const tgt = r.target || "味方全体";
   let line = `${tgt}の${r.stat}を${r.stages}段階${dir}`;
   if(r.bonusPct !== "" && r.bonusPct != null) line += `（${r.bonusPct}%で追加効果＋1）`;
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${colorizeEffectText(line)}</span></div>`;
  });
  (bag.heals||[]).forEach(x=>{
   if(!x || x.percent==="" || x.percent==null) return;
@@ -11035,7 +11078,7 @@ function formatSupportEffectsHtml(bag, phaseLabel){
   const tgt = x.target || "自身";
   let line = `${tgt}の結界を${x.stacks}枚増加`;
   if(x.bonusPct !== "" && x.bonusPct != null) line += `（${x.bonusPct}%で追加効果＋1）`;
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${colorizeEffectText(line)}</span></div>`;
  });
  return h;
 }
@@ -15584,10 +15627,10 @@ function formatAttackBuffSummaryHtml(a){
  const s = summarizeAttackBuffDebuff(a);
  const parts = [];
  if(s.upLines.length){
-  parts.push('<div class="rank-sum-block sum-up"><div class="rank-sum-title">RANK上昇(バレット内合計)</div><div class="rank-sum-body">' + esc(s.upLines.join("、")) + '</div></div>');
+  parts.push('<div class="rank-sum-block sum-up"><div class="rank-sum-title">RANK上昇(バレット内合計)</div><div class="rank-sum-body">' + colorizeEffectText(s.upLines.join("、")) + '</div></div>');
  }
  if(s.downLines.length){
-  parts.push('<div class="rank-sum-block sum-down"><div class="rank-sum-title">RANK低下(バレット内合計)</div><div class="rank-sum-body">' + esc(s.downLines.join("、")) + '</div></div>');
+  parts.push('<div class="rank-sum-block sum-down"><div class="rank-sum-title">RANK低下(バレット内合計)</div><div class="rank-sum-body">' + colorizeEffectText(s.downLines.join("、")) + '</div></div>');
  }
  if(!parts.length) return "";
  return '<div class="attack-buff-summary">' + parts.join("") + '</div>';
