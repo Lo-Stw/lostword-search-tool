@@ -14339,6 +14339,104 @@ function adminMatchAllAttacksZentai(c){
  return false;
 }
 
+/** 有効な特殊スキルなのに詳細が空（または中身が空） */
+function isSpecialSkillDetailBlank(name, d){
+ if(!d || !d.enabled) return false;
+ // X-Change用の追加枠
+ if(d.xcEnabled && d.xc){
+  const xc = Object.assign({}, d.xc, { enabled:true });
+  if(isSpecialSkillDetailBlank(name, xc) === false){
+   // xc に内容があれば本体が空でもOKとみなす場合あり → 本体も見る
+  } else if(d.xc.enabled !== false){
+   // xc が有効で空なら未記入
+   try{
+    const xt = (typeof formatSpecialSkillDetailText === "function") ? formatSpecialSkillDetailText(name, xc) : "";
+    if(!xt || !String(xt).trim()) return true;
+   }catch(e){ return true; }
+  }
+ }
+ try{
+  if(typeof formatSpecialSkillDetailText === "function"){
+   const t = formatSpecialSkillDetailText(name, d);
+   if(t && String(t).trim()) return false;
+  }
+ }catch(e){}
+ // list 型
+ if(Array.isArray(d.list) && d.list.length){
+  const meaningful = d.list.some(it=>{
+   if(!it || typeof it !== "object") return false;
+   if(it.stat || it.stage || it.rank || it.kind || it.effect || it.value != null && it.value !== "") return true;
+   if(it.ratio != null && it.ratio !== "") return true;
+   if(it.upStat || it.downStat || it.attr || it.bullet) return true;
+   if(it.fromStat || it.toStat || it.source) return true;
+   if(Array.isArray(it.stats) && it.stats.length) return true;
+   return false;
+  });
+  return !meaningful;
+ }
+ // 単体フィールド
+ if(d.stat || d.stage || d.rank || d.kind || d.effect || d.ratio != null && d.ratio !== "" || d.value != null && d.value !== "") return false;
+ if(d.upStat || d.downStat || d.attr || d.bullet || d.target) return false;
+ if(Array.isArray(d.partners) && d.partners.length) return false;
+ if(d.self || d.team) return false; // ファスト/チャージ
+ return true;
+}
+
+function adminMatchIncompleteSpecialSkills(c){
+ if(!c) return false;
+ const names = (typeof SPECIAL_SKILLS !== "undefined" && Array.isArray(SPECIAL_SKILLS))
+  ? SPECIAL_SKILLS.slice()
+  : [];
+ if(typeof DD_SKILL === "string") names.push(DD_SKILL);
+ if(typeof DD_SKILL_LEGACY === "string") names.push(DD_SKILL_LEGACY);
+ // 重複除去
+ const uniq = [...new Set(names)];
+
+ const checkSs = (ss)=>{
+  if(!ss || typeof ss !== "object") return false;
+  return uniq.some(name=>{
+   const d = ss[name];
+   if(!d || !d.enabled) return false;
+   if(isSpecialSkillDetailBlank(name, d)) return true;
+   if(d.xcEnabled && d.xc && isSpecialSkillDetailBlank(name, Object.assign({}, d.xc, { enabled:true }))) return true;
+   return false;
+  });
+ };
+
+ const bags = [];
+ try{
+  const pack = (typeof packFromCharacterSide === "function")
+   ? null : null;
+ }catch(e){}
+ try{
+  if(c.details && c.details.specialSkills) bags.push(c.details.specialSkills);
+  if(c.details && c.details.rebirth){
+   ["before","after"].forEach(s=>{
+    const p = c.details.rebirth[s];
+    if(p && p.specialSkills) bags.push(p.specialSkills);
+   });
+  }
+  // view packs
+  if(typeof getCharRebirth === "function" && getCharRebirth(c).enabled){
+   ["before","after"].forEach(side=>{
+    try{
+     if(typeof packFromCharacterSide === "function"){
+      const p = packFromCharacterSide(c, side);
+      if(p && p.specialSkills) bags.push(p.specialSkills);
+     }
+    }catch(e){}
+   });
+  }else if(typeof packFromCharacterSide === "function"){
+   try{
+    const p = packFromCharacterSide(c, "before");
+    if(p && p.specialSkills) bags.push(p.specialSkills);
+   }catch(e){}
+  }
+ }catch(e){}
+ if(!bags.length && c.details && c.details.specialSkills) bags.push(c.details.specialSkills);
+ return bags.some(checkSs);
+}
+
 function adminRunDebugSearch(predicate, label){
  if(!isAdmin()){ alert("管理者のみ利用できます"); return; }
  const hits = (data || []).filter(c => {
@@ -16528,6 +16626,8 @@ if(tabOwnedEl){
   if(rangeRepBtn) rangeRepBtn.onclick = ()=> adminReportAttackRanges();
   const allZBtn = document.getElementById("adminSearchAllZentai");
   if(allZBtn) allZBtn.onclick = ()=> adminRunDebugSearch(adminMatchAllAttacksZentai, "全攻撃が全体");
+  const incSkillBtn = document.getElementById("adminSearchIncompleteSkills");
+  if(incSkillBtn) incSkillBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialSkills, "特殊スキル詳細未記入");
   try{ updateAdminDebugSearchVisibility(); }catch(e){}
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 500);
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 1500);
