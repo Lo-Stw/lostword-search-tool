@@ -4225,6 +4225,7 @@ function syncAccumFromDom(){
  const list = [];
  detail.querySelectorAll(".accum-row").forEach(row=>{
   list.push({
+   source: row.querySelector("[data-accum-source]")?.value || "スキル",
    target: (row.querySelector("[data-accum-target]")?.value === "自身") ? "自身" : "味方全体",
    fromStat: row.querySelector("[data-accum-from]")?.value || "",
    ratio: row.querySelector("[data-accum-ratio]")?.value || "",
@@ -4234,6 +4235,7 @@ function syncAccumFromDom(){
  if(list.length){
   specialData[skill].list = list;
   const f = list[0];
+  specialData[skill].source = f.source || "スキル";
   specialData[skill].target = f.target;
   specialData[skill].fromStat = f.fromStat;
   specialData[skill].ratio = f.ratio;
@@ -8873,7 +8875,13 @@ function buildSpecialDetail(skill, e){
    }
    d.list.forEach(it=>{
     if(!it) return;
-    if(!it.source || (typeof RANK2_SOURCES!=="undefined" && !RANK2_SOURCES.includes(it.source))) it.source = "スキル";
+    let src = String(it.source || "").trim();
+    if(src === "ラストワード" || src === "ラスワ") src = "LASTWORD";
+    if(src === "スペカ1" || src === "スペルカード") src = "スペルカード1";
+    if(src === "スペカ2") src = "スペルカード2";
+    const srcList = (typeof RANK2_SOURCES!=="undefined") ? RANK2_SOURCES : ["スキル","スペルカード1","スペルカード2","LASTWORD"];
+    it.source = srcList.includes(src) ? src : (src || "スキル");
+    if(!srcList.includes(it.source)) it.source = "スキル";
    });
    e.innerHTML =
     '<div class="mini" style="margin-bottom:6px;">複数の蓄積を追加できます（発動箇所を指定）</div>' +
@@ -8925,6 +8933,7 @@ function buildSpecialDetail(skill, e){
       d.list[idx].toStat = row.querySelector("[data-accum-to]")?.value || "";
       d.list[idx].target = row.querySelector("[data-accum-target]")?.value || "味方全体";
       const f = d.list[0] || {};
+      d.source = f.source || "スキル";
       d.fromStat = f.fromStat || "";
       d.ratio = f.ratio != null ? f.ratio : "";
       d.toStat = f.toStat || "";
