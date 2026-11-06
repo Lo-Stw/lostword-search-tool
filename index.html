@@ -1601,6 +1601,42 @@ body.theme-dark .owned-filter-block{
  color:#5a4030;
 }
 .comments-fab:hover{filter:brightness(1.05)}
+.pickup-fab{
+ position:fixed;top:116px;right:12px;z-index:1003;
+ width:44px;height:44px;border-radius:12px;
+ border:1px solid var(--lw-border);
+ background:linear-gradient(180deg,#faf4e8,#e8dcc8);
+ box-shadow:0 4px 14px rgba(0,0,0,.35);
+ display:flex;align-items:center;justify-content:center;
+ cursor:pointer;padding:0;font-size:11px;font-weight:800;line-height:1.15;
+ color:#5a4030;text-align:center;
+}
+.pickup-fab:hover{filter:brightness(1.05)}
+body.theme-dark .pickup-fab{
+ background:linear-gradient(180deg,#2a303c,#1c212b);
+ color:#e8ecf4;border-color:#3a4250;
+}
+.pickup-card{
+ border:1px solid var(--lw-border);
+ border-radius:12px;
+ padding:12px 14px;
+ margin-bottom:12px;
+ background:rgba(255,255,255,.72);
+}
+body.theme-dark .pickup-card{background:rgba(30,34,42,.9)}
+.pickup-char-btn{
+ display:inline-flex;align-items:center;gap:4px;
+ margin:4px 6px 4px 0;padding:6px 10px;
+ border-radius:999px;border:1px solid var(--lw-border);
+ background:#fff;cursor:pointer;font-size:13px;font-weight:700;
+}
+body.theme-dark .pickup-char-btn{background:#252a34;color:#e8ecf4}
+.pickup-char-btn:hover{filter:brightness(1.05)}
+.pickup-admin-box{
+ margin-top:16px;padding-top:14px;
+ border-top:1px dashed rgba(160,130,70,.45);
+}
+
 body.theme-dark .comments-fab{
  background:linear-gradient(180deg,#2a3038,#1c222a);
  border-color:#3a4450;color:#e8e0d4;
@@ -2473,6 +2509,7 @@ body.theme-dark .bullet-size-btns button.active{
   <span></span><span></span><span></span>
 </button>
 <button type="button" class="comments-fab" id="commentsFab" aria-label="コメント" title="コメント" onclick="openCommentsPage()">💬</button>
+<button type="button" class="pickup-fab" id="pickupFab" aria-label="ピックアップ中" title="ピックアップ中" onclick="openPickupPage()">PU</button>
 <div class="menu-overlay" id="menuOverlay"></div>
 <aside class="menu-panel" id="menuPanel" aria-hidden="true">
   <div class="menu-panel-head">
@@ -3255,6 +3292,39 @@ body.theme-dark .bullet-size-btns button.active{
 </section>
 
 </div>
+
+
+<section id="pickupPage" class="hidden">
+<div class="box">
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+  <div class="title" style="margin:0;">ピックアップ中</div>
+  <button type="button" id="pickupBackToSearch" class="btn-sm" style="padding:8px 14px;font-weight:700;border-radius:999px;" onclick="closePickupPage()">← 検索に戻る</button>
+ </div>
+ <div class="mini" style="margin-bottom:12px;">現在ガシャでピックアップ中のキャラです。名前を押すと詳細が開きます。</div>
+ <div id="pickupActiveList"><div class="muted">読み込み中…</div></div>
+ <div id="pickupAdminBox" class="pickup-admin-box hidden">
+  <div class="title" style="font-size:16px;margin-bottom:8px;">管理者：ピックアップ登録</div>
+  <div class="mini" style="margin-bottom:6px;">ガシャ名</div>
+  <input id="puGachaName" class="input" placeholder="例：超フェスガチャ">
+  <div class="mini" style="margin:8px 0 4px;">開始日</div>
+  <input id="puStart" class="input" type="date">
+  <div class="mini" style="margin:8px 0 4px;">終了日</div>
+  <input id="puEnd" class="input" type="date">
+  <div class="mini" style="margin:8px 0 4px;">ピックアップキャラ（登録済みから選択・複数可）</div>
+  <input id="puCharFilter" class="input" placeholder="名前・汎異記号で絞り込み" style="margin-bottom:6px;">
+  <div id="puCharList" style="max-height:220px;overflow:auto;border:1px solid var(--lw-border);border-radius:8px;padding:6px;margin-bottom:8px;"></div>
+  <div class="mini">選択中</div>
+  <div id="puCharSelected" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px;"></div>
+  <button type="button" class="main" id="puSaveBtn" style="width:auto;padding:10px 18px;">登録する</button>
+  <span id="puAdminMsg" class="mini" style="margin-left:8px;"></span>
+  <div class="mini" style="margin-top:14px;font-weight:700;">登録一覧（期限切れ含む）</div>
+  <div id="pickupAllList" class="mini" style="margin-top:6px;"></div>
+  <div class="mini" style="margin-top:10px;opacity:.85;line-height:1.5;">
+   Supabase に <code>gacha_pickups</code> テーブルが必要です（無ければ下のSQLを実行）。
+  </div>
+ </div>
+</div>
+</section>
 
 <!-- モーダル詳細ウィンドウ -->
 
@@ -16294,6 +16364,8 @@ document.getElementById("save").onclick=()=>{
 
 
 const COMMENTS_TABLE = "comments";
+const GACHA_PICKUPS_TABLE = "gacha_pickups";
+const GACHA_PICKUPS_CACHE_KEY = "tlw_gacha_pickups_v1";
 const DEVICE_ID_KEY = "tlw_device_id";
 
 function getDeviceId(){
@@ -16594,8 +16666,285 @@ async function editComment(id, body, nick){
  }
 }
 
+
+let gachaPickupsCache = [];
+let puSelectedChars = []; // {id,name,symbol,epithet}
+
+function todayYmdLocal(){
+ const d = new Date();
+ const y = d.getFullYear();
+ const m = String(d.getMonth()+1).padStart(2,"0");
+ const day = String(d.getDate()).padStart(2,"0");
+ return y + "-" + m + "-" + day;
+}
+
+function isPickupActive(p){
+ if(!p) return false;
+ const t = todayYmdLocal();
+ const s = String(p.start_at || p.startAt || "").slice(0,10);
+ const e = String(p.end_at || p.endAt || "").slice(0,10);
+ if(!s || !e) return false;
+ return s <= t && t <= e;
+}
+
+function saveGachaPickupsLocal(list){
+ try{ localStorage.setItem(GACHA_PICKUPS_CACHE_KEY, JSON.stringify(list || [])); }catch(e){}
+}
+function loadGachaPickupsLocal(){
+ try{
+  const raw = localStorage.getItem(GACHA_PICKUPS_CACHE_KEY);
+  if(!raw) return [];
+  const a = JSON.parse(raw);
+  return Array.isArray(a) ? a : [];
+ }catch(e){ return []; }
+}
+
+async function fetchGachaPickups(){
+ try{
+  const r = await fetch(`${URL}/rest/v1/${GACHA_PICKUPS_TABLE}?select=*&order=start_at.desc`, {
+   headers: Object.assign({}, authHeaders(), { Accept: "application/json" })
+  });
+  const t = await r.text();
+  if(!r.ok) throw new Error(t || ("HTTP "+r.status));
+  const list = t ? JSON.parse(t) : [];
+  gachaPickupsCache = Array.isArray(list) ? list : [];
+  saveGachaPickupsLocal(gachaPickupsCache);
+  return gachaPickupsCache;
+ }catch(e){
+  console.warn("gacha_pickups fetch", e);
+  gachaPickupsCache = loadGachaPickupsLocal();
+  return gachaPickupsCache;
+ }
+}
+
+function resolvePickupCharLabel(id, fallback){
+ const c = (data||[]).find(x => x && String(x.id) === String(id));
+ if(c && typeof formatCharIdentityLabel === "function") return formatCharIdentityLabel(c);
+ if(c) return c.character || String(id);
+ return fallback || String(id);
+}
+
+function renderPickupActiveList(){
+ const box = document.getElementById("pickupActiveList");
+ if(!box) return;
+ const active = (gachaPickupsCache || []).filter(isPickupActive);
+ if(!active.length){
+  box.innerHTML = `<div class="muted">現在表示中のピックアップはありません。</div>`;
+  return;
+ }
+ box.innerHTML = active.map(p=>{
+  const name = esc(p.gacha_name || p.name || "ガシャ");
+  const s = esc(String(p.start_at||"").slice(0,10));
+  const e = esc(String(p.end_at||"").slice(0,10));
+  let ids = p.character_ids;
+  if(typeof ids === "string"){
+   try{ ids = JSON.parse(ids); }catch(err){ ids = []; }
+  }
+  if(!Array.isArray(ids)) ids = [];
+  let labels = p.character_labels;
+  if(typeof labels === "string"){
+   try{ labels = JSON.parse(labels); }catch(err){ labels = []; }
+  }
+  if(!Array.isArray(labels)) labels = [];
+  const btns = ids.map((id, idx)=>{
+   const label = resolvePickupCharLabel(id, labels[idx] || "");
+   return `<button type="button" class="pickup-char-btn" data-open-char="${esc(String(id))}">${esc(label)}</button>`;
+  }).join("") || `<span class="mini">キャラ未設定</span>`;
+  return `<div class="pickup-card">
+   <div style="font-weight:800;font-size:15px;margin-bottom:4px;">${name}</div>
+   <div class="mini" style="margin-bottom:8px;">期間：${s} 〜 ${e}</div>
+   <div>${btns}</div>
+  </div>`;
+ }).join("");
+}
+
+function renderPickupAdminAllList(){
+ const box = document.getElementById("pickupAllList");
+ if(!box) return;
+ const list = gachaPickupsCache || [];
+ if(!list.length){
+  box.innerHTML = `<span class="muted">登録なし</span>`;
+  return;
+ }
+ box.innerHTML = list.map(p=>{
+  const active = isPickupActive(p);
+  const name = esc(p.gacha_name || "");
+  const s = esc(String(p.start_at||"").slice(0,10));
+  const e = esc(String(p.end_at||"").slice(0,10));
+  const id = esc(String(p.id||""));
+  return `<div style="margin:6px 0;padding:8px;border:1px solid var(--lw-border);border-radius:8px;">
+   <b>${name}</b> ${active ? '<span class="tag" style="margin-left:6px;">表示中</span>' : '<span class="mini">期間外</span>'}
+   <div class="mini">${s} 〜 ${e}</div>
+   <button type="button" class="btn-sm" data-pu-del="${id}" style="margin-top:4px;">削除</button>
+  </div>`;
+ }).join("");
+ box.querySelectorAll("[data-pu-del]").forEach(btn=>{
+  btn.addEventListener("click", async (ev)=>{
+   ev.preventDefault();
+   const id = btn.getAttribute("data-pu-del");
+   if(!id || !confirm("このピックアップを削除しますか？")) return;
+   await deleteGachaPickup(id);
+  });
+ });
+}
+
+function renderPuCharPicker(){
+ const listBox = document.getElementById("puCharList");
+ const selBox = document.getElementById("puCharSelected");
+ const filterIn = document.getElementById("puCharFilter");
+ if(!listBox) return;
+ const q = (typeof normalizeSearchText==="function") ? normalizeSearchText(filterIn?.value||"") : String(filterIn?.value||"").toLowerCase();
+ const rows = (data||[]).filter(c=>{
+  if(!c) return false;
+  const name = (typeof normalizeSearchText==="function") ? normalizeSearchText(c.character||"") : String(c.character||"").toLowerCase();
+  const sym = (typeof normalizeSearchText==="function" && typeof getCharSymbol==="function") ? normalizeSearchText(getCharSymbol(c)) : "";
+  const epi = (typeof normalizeSearchText==="function" && typeof getCharEpithet==="function") ? normalizeSearchText(getCharEpithet(c)) : "";
+  if(q && !name.includes(q) && !sym.includes(q) && !epi.includes(q)) return false;
+  return true;
+ }).slice(0, 120);
+ listBox.innerHTML = rows.map(c=>{
+  const id = String(c.id);
+  const label = (typeof formatCharIdentityLabel==="function") ? formatCharIdentityLabel(c) : (c.character||"");
+  const on = puSelectedChars.some(p => String(p.id) === id);
+  return `<button type="button" class="filter${on?" selected":""}" data-pu-id="${esc(id)}" style="margin:3px;display:block;width:100%;text-align:left;">${esc(label)}</button>`;
+ }).join("") || `<span class="mini">候補なし</span>`;
+ listBox.querySelectorAll("[data-pu-id]").forEach(btn=>{
+  btn.addEventListener("click", (ev)=>{
+   ev.preventDefault();
+   const id = btn.getAttribute("data-pu-id");
+   const c = (data||[]).find(x => String(x.id)===String(id));
+   if(!c) return;
+   const ix = puSelectedChars.findIndex(p => String(p.id)===String(id));
+   if(ix>=0) puSelectedChars.splice(ix,1);
+   else puSelectedChars.push({
+    id,
+    name: c.character||"",
+    symbol: (typeof getCharSymbol==="function"?getCharSymbol(c):""),
+    epithet: (typeof getCharEpithet==="function"?getCharEpithet(c):""),
+    label: (typeof formatCharIdentityLabel==="function"?formatCharIdentityLabel(c):c.character||"")
+   });
+   renderPuCharPicker();
+  });
+ });
+ if(selBox){
+  selBox.innerHTML = puSelectedChars.length
+   ? puSelectedChars.map((p,idx)=>`<button type="button" class="btn-sm" data-pu-rm="${idx}">${esc(p.label||p.name)} ×</button>`).join("")
+   : `<span class="mini">未選択</span>`;
+  selBox.querySelectorAll("[data-pu-rm]").forEach(btn=>{
+   btn.addEventListener("click", (ev)=>{
+    ev.preventDefault();
+    puSelectedChars.splice(Number(btn.getAttribute("data-pu-rm")),1);
+    renderPuCharPicker();
+   });
+  });
+ }
+}
+
+async function deleteGachaPickup(id){
+ if(!isAdmin()) return;
+ try{
+  const r = await fetch(`${URL}/rest/v1/${GACHA_PICKUPS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+   method: "DELETE",
+   headers: Object.assign({}, authHeaders(), { Prefer: "return=minimal" })
+  });
+  if(!r.ok){
+   const t = await r.text();
+   throw new Error(t);
+  }
+  await fetchGachaPickups();
+  renderPickupActiveList();
+  renderPickupAdminAllList();
+ }catch(e){
+  alert("削除に失敗: " + (e.message||e));
+ }
+}
+
+async function saveGachaPickup(){
+ if(!isAdmin()){ alert("管理者のみ"); return; }
+ const msg = document.getElementById("puAdminMsg");
+ const name = (document.getElementById("puGachaName")?.value || "").trim();
+ const start = document.getElementById("puStart")?.value || "";
+ const end = document.getElementById("puEnd")?.value || "";
+ if(!name){ if(msg) msg.textContent="ガシャ名を入力"; return; }
+ if(!start || !end){ if(msg) msg.textContent="期間を入力"; return; }
+ if(start > end){ if(msg) msg.textContent="開始日が終了日より後です"; return; }
+ if(!puSelectedChars.length){ if(msg) msg.textContent="キャラを選択"; return; }
+ const body = {
+  gacha_name: name,
+  start_at: start,
+  end_at: end,
+  character_ids: puSelectedChars.map(p=>p.id),
+  character_labels: puSelectedChars.map(p=>p.label||p.name||"")
+ };
+ if(msg) msg.textContent = "保存中…";
+ try{
+  const r = await fetch(`${URL}/rest/v1/${GACHA_PICKUPS_TABLE}`, {
+   method: "POST",
+   headers: Object.assign({}, authHeaders(), {
+    "Content-Type": "application/json",
+    Prefer: "return=representation"
+   }),
+   body: JSON.stringify(body)
+  });
+  const t = await r.text();
+  if(!r.ok) throw new Error(t);
+  if(msg) msg.textContent = "登録しました";
+  puSelectedChars = [];
+  const nEl = document.getElementById("puGachaName"); if(nEl) nEl.value="";
+  renderPuCharPicker();
+  await fetchGachaPickups();
+  renderPickupActiveList();
+  renderPickupAdminAllList();
+ }catch(e){
+  if(msg) msg.textContent = "失敗: " + (e.message||e);
+ }
+}
+
+async function openPickupPage(){
+ try{
+  document.querySelectorAll(".tab-page, section.hidden, #commentsPage, #pickupPage").forEach(()=>{});
+  // hide main search container pages similar to comments
+  const commentsPage = document.getElementById("commentsPage");
+  if(commentsPage) commentsPage.classList.add("hidden");
+  // hide typical main content
+  const container = document.querySelector(".container");
+  if(container) container.classList.add("hidden");
+  const header = document.querySelector("header");
+  // show pickup
+  const page = document.getElementById("pickupPage");
+  if(page) page.classList.remove("hidden");
+  const adminBox = document.getElementById("pickupAdminBox");
+  if(adminBox) adminBox.classList.toggle("hidden", !(typeof isAdmin==="function" && isAdmin()));
+  await fetchGachaPickups();
+  renderPickupActiveList();
+  if(typeof isAdmin==="function" && isAdmin()){
+   renderPuCharPicker();
+   renderPickupAdminAllList();
+   const filterIn = document.getElementById("puCharFilter");
+   if(filterIn && !filterIn._bound){
+    filterIn._bound = true;
+    filterIn.addEventListener("input", ()=> renderPuCharPicker());
+   }
+   const saveBtn = document.getElementById("puSaveBtn");
+   if(saveBtn && !saveBtn._bound){
+    saveBtn._bound = true;
+    saveBtn.addEventListener("click", (ev)=>{ ev.preventDefault(); saveGachaPickup(); });
+   }
+  }
+  window.scrollTo(0,0);
+ }catch(e){ console.warn(e); }
+}
+
+function closePickupPage(){
+ const page = document.getElementById("pickupPage");
+ if(page) page.classList.add("hidden");
+ const container = document.querySelector(".container");
+ if(container) container.classList.remove("hidden");
+}
+
 function openCommentsPage(){
  try{
+  try{ closePickupPage(); }catch(e){}
   const panel = document.getElementById("menuPanel");
   const overlay = document.getElementById("menuOverlay");
   if(panel){
@@ -16935,6 +17284,7 @@ async function init(){
  initBgSettings();
  bindDetailFiltersToggle();
  initTheme();
+ try{ fetchGachaPickups(); }catch(e){}
 
  const addFavBtn = document.getElementById("addFavBtn");
  const clearHistoryBtn = document.getElementById("clearHistoryBtn");
