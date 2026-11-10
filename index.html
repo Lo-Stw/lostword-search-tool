@@ -10617,8 +10617,9 @@ function getBuffAllowedStats(prefix){
  if(!att) return STAT_TARGETS.slice();
  if(!Array.isArray(att.buffAllowedStats)) att.buffAllowedStats = [];
  // 旧データ：詳細にstatが入っている場合は許可に昇格
- if(att.buffAllowedStats.length === 0 && Array.isArray(att.buffs)){
+ if(Array.isArray(att.buffs) && att.buffs.length){
   att.buffs.forEach(b=>{ if(b && b.stat && !att.buffAllowedStats.includes(b.stat)) att.buffAllowedStats.push(b.stat); });
+  att.buffs = [];
  }
  return att.buffAllowedStats;
 }
@@ -10626,8 +10627,9 @@ function getDebuffAllowedStats(prefix){
  const att = getAttackObjFromPrefix(prefix);
  if(!att) return STAT_TARGETS.slice();
  if(!Array.isArray(att.debuffAllowedStats)) att.debuffAllowedStats = [];
- if(att.debuffAllowedStats.length === 0 && Array.isArray(att.debuffs)){
+ if(Array.isArray(att.debuffs) && att.debuffs.length){
   att.debuffs.forEach(d=>{ if(d && d.stat && !att.debuffAllowedStats.includes(d.stat)) att.debuffAllowedStats.push(d.stat); });
+  att.debuffs = [];
  }
  return att.debuffAllowedStats;
 }
@@ -10704,17 +10706,15 @@ function renderBuffDebuffFields(prefix, targetObj, title) {
  </div>`;
  if (buffOn) {
   if (isAttackLevel) {
-   html += `<div class="mini" style="margin-bottom:4px;">使うステータス（選んだものだけ下とバレットで候補になります）</div>`;
+   targetObj.buffs = [];
+   html += `<div class="mini" style="margin-bottom:4px;">使うステータス（選んだものだけバレット詳細で候補になります）</div>`;
    html += `<div class="buttons" style="margin-bottom:8px;">` +
     STAT_TARGETS.map(s=>{
      const on = buffAllowed.includes(s);
      return `<button type="button" class="filter ${on?"selected":""}" onclick="toggleBuffAllowedStat('${prefix}', '${s}', ${on?"false":"true"})">${s}</button>`;
     }).join("") + `</div>`;
-  }
-  if (!isAttackLevel && buffAllowed.length === 0) {
+  } else if (buffAllowed.length === 0) {
    html += `<div class="mini" style="color:#666;margin-bottom:8px;">全体概要でつよさ上昇のステータスを選ぶと、ここに候補が出ます。</div>`;
-  } else if (buffAllowed.length === 0 && isAttackLevel) {
-   html += `<div class="mini" style="color:#666;margin-bottom:8px;">上でステータスを選んでから、確率・ランクを入力してください。</div>`;
   } else {
    const statOpts = buffAllowed.length ? buffAllowed : STAT_TARGETS;
    targetObj.buffs.forEach((b, idx) => {
@@ -10750,17 +10750,15 @@ function renderBuffDebuffFields(prefix, targetObj, title) {
  </div>`;
  if (debuffOn) {
   if (isAttackLevel) {
-   html += `<div class="mini" style="margin-bottom:4px;">使うステータス（選んだものだけ下とバレットで候補になります）</div>`;
+   targetObj.debuffs = [];
+   html += `<div class="mini" style="margin-bottom:4px;">使うステータス（選んだものだけバレット詳細で候補になります）</div>`;
    html += `<div class="buttons" style="margin-bottom:8px;">` +
     STAT_TARGETS.map(s=>{
      const on = debuffAllowed.includes(s);
      return `<button type="button" class="filter ${on?"selected":""}" onclick="toggleDebuffAllowedStat('${prefix}', '${s}', ${on?"false":"true"})">${s}</button>`;
     }).join("") + `</div>`;
-  }
-  if (!isAttackLevel && debuffAllowed.length === 0) {
+  } else if (debuffAllowed.length === 0) {
    html += `<div class="mini" style="color:#666;margin-bottom:8px;">全体概要でつよさ低下のステータスを選ぶと、ここに候補が出ます。</div>`;
-  } else if (debuffAllowed.length === 0 && isAttackLevel) {
-   html += `<div class="mini" style="color:#666;margin-bottom:8px;">上でステータスを選んでから、確率・ランクを入力してください。</div>`;
   } else {
    const statOpts = debuffAllowed.length ? debuffAllowed : STAT_TARGETS;
    targetObj.debuffs.forEach((d, idx) => {
@@ -14698,7 +14696,35 @@ function isBulletSpecialOn(b, name){
 }
 
 /** 特殊弾がONなのに必要詳細が空 */
-function isBulletSpecialDetailBlank(b, name){
+function pickSpecialDetailValue(b, attack, prop, name){
+ const nonempty = (v)=> v != null && String(v).trim() !== "";
+ if(b){
+  if(nonempty(b[prop])) return b[prop];
+  try{
+   if(b.specials && typeof b.specials[name] === "object" && b.specials[name]){
+    const o = b.specials[name];
+    const cand = o[prop] ?? o.ratio ?? o.value ?? o.target ?? o.specialTarget ?? o.targets;
+    if(nonempty(cand)) return cand;
+    if(Array.isArray(o.targets) && o.targets.length) return o.targets.join("・");
+   }
+  }catch(e){}
+  if(Array.isArray(b.targets) && b.targets.length && prop === "specialTarget") return b.targets.join("・");
+ }
+ // ショット/スペカ全体概要にだけ詳細が入っているケース
+ if(attack){
+  if(nonempty(attack[prop])) return attack[prop];
+  try{
+   if(attack.specials && typeof attack.specials[name] === "object" && attack.specials[name]){
+    const o = attack.specials[name];
+    const cand = o[prop] ?? o.ratio ?? o.value ?? o.target ?? o.specialTarget;
+    if(nonempty(cand)) return cand;
+   }
+  }catch(e){}
+ }
+ return "";
+}
+
+function isBulletSpecialDetailBlank(b, name, attack){
  if(!b || !name) return false;
  if(!isBulletSpecialOn(b, name)) return false;
  const propMap = {
@@ -14706,14 +14732,7 @@ function isBulletSpecialDetailBlank(b, name){
   "吸収弾":"absorbRatio","反動弾":"recoilRatio","特攻弾":"specialTarget"
  };
  if(propMap[name]){
-  let v = b[propMap[name]];
-  // specials 内に詳細がある場合も見る
-  try{
-   if((v == null || String(v).trim() === "") && b.specials && typeof b.specials[name] === "object"){
-    const o = b.specials[name];
-    v = o[propMap[name]] ?? o.ratio ?? o.value ?? o.target ?? o.specialTarget;
-   }
-  }catch(e){}
+  const v = pickSpecialDetailValue(b, attack, propMap[name], name);
   return v == null || String(v).trim() === "";
  }
  // 焼夷弾系
@@ -14794,7 +14813,7 @@ function adminMatchIncompleteSpecialBullets(c){
    a.bullets.forEach((b, bi)=>{
     if(!b) return;
     uniq.forEach(name=>{
-     if(isBulletSpecialDetailBlank(b, name)){
+     if(isBulletSpecialDetailBlank(b, name, a)){
       found.push((a.name||ak) + "#B" + (bi+1) + ":" + name);
      }
     });
