@@ -3076,6 +3076,7 @@ body.theme-dark .bullet-size-btns button.active{
   <button type="button" id="adminRangeReport" class="sub" style="width:auto;">範囲の集計</button>
   <button type="button" id="adminSearchAllZentai" class="sub" style="width:auto;">全攻撃が全体</button>
   <button type="button" id="adminSearchIncompleteSkills" class="sub" style="width:auto;">特殊スキル詳細未記入</button>
+  <button type="button" id="adminSearchIncompleteSpBullets" class="sub" style="width:auto;">特殊弾詳細未記入</button>
 </div>
 <button id="searchBtn" class="main" type="button">🔍 検索する</button>
 </div>
@@ -14675,6 +14676,87 @@ function collectSpecialSkillBagsForAdmin(c){
  return bags;
 }
 
+
+/** 特殊弾がONなのに必要詳細が空 */
+function isBulletSpecialDetailBlank(b, name){
+ if(!b || !name) return false;
+ const on = !!(b.specials && b.specials[name]);
+ if(!on) return false;
+ const propMap = {
+  "硬質弾":"hardRatio","斬裂弾":"sharpRatio","粘着弾":"stickyRate","衝撃弾":"impactRate",
+  "吸収弾":"absorbRatio","反動弾":"recoilRatio","特攻弾":"specialTarget"
+ };
+ if(propMap[name]){
+  const v = b[propMap[name]];
+  return v == null || String(v).trim() === "";
+ }
+ // 焼夷弾系
+ if(typeof ABNORMAL_SPECIALS !== "undefined" && ABNORMAL_SPECIALS.includes(name)){
+  const entries = Array.isArray(b.abnormalEntries) ? b.abnormalEntries.filter(e => e && e.type === name) : [];
+  if(entries.length){
+   return entries.some(e => {
+    const rate = e.rate != null && String(e.rate).trim() !== "";
+    const stacks = e.stacks != null && String(e.stacks).trim() !== "";
+    return !rate || !stacks;
+   });
+  }
+  // legacy
+  const keys = (typeof ABNORMAL_LEGACY_KEYS !== "undefined") ? ABNORMAL_LEGACY_KEYS[name] : null;
+  if(keys){
+   const rate = b[keys[0]];
+   const stacks = b[keys[1]];
+   return rate == null || String(rate).trim() === "" || stacks == null || String(stacks).trim() === "";
+  }
+  return true;
+ }
+ // フラグのみ（必中・貫通など）は詳細不要
+ return false;
+}
+
+function adminMatchIncompleteSpecialBullets(c){
+ if(!c) return false;
+ const found = [];
+ const packs = [];
+ try{
+  if(typeof packFromCharacterSide === "function"){
+   packs.push(packFromCharacterSide(c, "before"));
+   if(typeof getCharRebirth === "function" && getCharRebirth(c).enabled){
+    packs.push(packFromCharacterSide(c, "after"));
+   }
+  }
+ }catch(e){}
+ if(!packs.length){
+  packs.push({ attacks: c.attacks });
+ }
+ const names = [];
+ try{
+  if(typeof SPECIAL_EFFECTS === "object") names.push(...Object.keys(SPECIAL_EFFECTS));
+ }catch(e){}
+ if(typeof ABNORMAL_SPECIALS !== "undefined") names.push(...ABNORMAL_SPECIALS);
+ const uniq = [...new Set(names)];
+
+ packs.forEach(pack=>{
+  const attacks = (pack && pack.attacks) || {};
+  Object.keys(attacks).forEach(ak=>{
+   const a = attacks[ak];
+   if(!a || !Array.isArray(a.bullets)) return;
+   a.bullets.forEach((b, bi)=>{
+    if(!b) return;
+    uniq.forEach(name=>{
+     if(isBulletSpecialDetailBlank(b, name)){
+      found.push((a.name||ak) + "#B" + (bi+1) + ":" + name);
+     }
+    });
+   });
+  });
+ });
+ if(found.length){
+  try{ c._adminIncompleteSpBullets = [...new Set(found)].slice(0, 20); }catch(e){}
+  return true;
+ }
+ return false;
+}
+
 function adminMatchIncompleteSpecialSkills(c){
  if(!c) return false;
  const bags = collectSpecialSkillBagsForAdmin(c);
@@ -14737,6 +14819,17 @@ function adminRunDebugSearch(predicate, label){
     }).join(" / ");
     rc.appendChild(more);
    }
+   if(label && label.indexOf("特殊弾詳細未記入") >= 0 && hits.length){
+    const more = document.createElement("div");
+    more.className = "mini";
+    more.style.marginTop = "2px";
+    more.textContent = "未記入例: " + hits.slice(0, 6).map(c=>{
+     const n = (c.character||"?");
+     const sk = (c._adminIncompleteSpBullets||[]).join(", ");
+     return sk ? (n+" → "+sk) : n;
+    }).join(" / ");
+    rc.appendChild(more);
+   }
   }
  }catch(e){}
 }
@@ -14751,6 +14844,11 @@ function updateAdminDebugSearchVisibility(){
  if(incSkillBtn && !incSkillBtn._bound){
   incSkillBtn._bound = true;
   incSkillBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialSkills, "特殊スキル詳細未記入");
+ }
+ const incSpBtn = document.getElementById("adminSearchIncompleteSpBullets");
+ if(incSpBtn && !incSpBtn._bound){
+  incSpBtn._bound = true;
+  incSpBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialBullets, "特殊弾詳細未記入");
  }
 }
 
@@ -17409,6 +17507,8 @@ if(tabOwnedEl){
   if(allZBtn) allZBtn.onclick = ()=> adminRunDebugSearch(adminMatchAllAttacksZentai, "全攻撃が全体");
   const incSkillBtn = document.getElementById("adminSearchIncompleteSkills");
   if(incSkillBtn) incSkillBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialSkills, "特殊スキル詳細未記入");
+  const incSpBtn = document.getElementById("adminSearchIncompleteSpBullets");
+  if(incSpBtn) incSpBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialBullets, "特殊弾詳細未記入");
   try{ updateAdminDebugSearchVisibility(); }catch(e){}
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 500);
   setTimeout(()=>{ try{ updateAdminDebugSearchVisibility(); }catch(e){} }, 1500);
