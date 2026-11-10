@@ -14678,35 +14678,69 @@ function collectSpecialSkillBagsForAdmin(c){
 
 
 /** 特殊弾がONなのに必要詳細が空 */
+/** 特殊弾が明示的にONか（falseや空はOFF） */
+function isBulletSpecialOn(b, name){
+ if(!b || !name) return false;
+ const map = b.specials;
+ if(!map || typeof map !== "object") return false;
+ const v = map[name];
+ if(v === true || v === 1 || v === "1" || v === "true" || v === "on") return true;
+ if(v === false || v == null || v === 0 || v === "0" || v === "false" || v === "off" || v === "") return false;
+ // 中身のあるオブジェクトのみON扱い
+ if(typeof v === "object"){
+  if(Array.isArray(v)) return v.length > 0;
+  return Object.keys(v).some(k => {
+   const x = v[k];
+   return x !== false && x != null && x !== "";
+  });
+ }
+ return false;
+}
+
+/** 特殊弾がONなのに必要詳細が空 */
 function isBulletSpecialDetailBlank(b, name){
  if(!b || !name) return false;
- const on = !!(b.specials && b.specials[name]);
- if(!on) return false;
+ if(!isBulletSpecialOn(b, name)) return false;
  const propMap = {
   "硬質弾":"hardRatio","斬裂弾":"sharpRatio","粘着弾":"stickyRate","衝撃弾":"impactRate",
   "吸収弾":"absorbRatio","反動弾":"recoilRatio","特攻弾":"specialTarget"
  };
  if(propMap[name]){
-  const v = b[propMap[name]];
+  let v = b[propMap[name]];
+  // specials 内に詳細がある場合も見る
+  try{
+   if((v == null || String(v).trim() === "") && b.specials && typeof b.specials[name] === "object"){
+    const o = b.specials[name];
+    v = o[propMap[name]] ?? o.ratio ?? o.value ?? o.target ?? o.specialTarget;
+   }
+  }catch(e){}
   return v == null || String(v).trim() === "";
  }
  // 焼夷弾系
  if(typeof ABNORMAL_SPECIALS !== "undefined" && ABNORMAL_SPECIALS.includes(name)){
-  const entries = Array.isArray(b.abnormalEntries) ? b.abnormalEntries.filter(e => e && e.type === name) : [];
+  const entries = Array.isArray(b.abnormalEntries)
+   ? b.abnormalEntries.filter(e => e && e.type === name)
+   : [];
   if(entries.length){
-   return entries.some(e => {
-    const rate = e.rate != null && String(e.rate).trim() !== "";
-    const stacks = e.stacks != null && String(e.stacks).trim() !== "";
-    return !rate || !stacks;
+   // 有効な1件でも埋まっていればOK（空行だけ残っている場合は無視）
+   const meaningful = entries.filter(e => {
+    const rateOk = e.rate != null && String(e.rate).trim() !== "";
+    const stacksOk = e.stacks != null && String(e.stacks).trim() !== "";
+    return rateOk && stacksOk;
    });
+   if(meaningful.length) return false;
+   // ONなのに有効行が無い
+   return true;
   }
-  // legacy
   const keys = (typeof ABNORMAL_LEGACY_KEYS !== "undefined") ? ABNORMAL_LEGACY_KEYS[name] : null;
   if(keys){
    const rate = b[keys[0]];
    const stacks = b[keys[1]];
-   return rate == null || String(rate).trim() === "" || stacks == null || String(stacks).trim() === "";
+   const rateOk = rate != null && String(rate).trim() !== "";
+   const stacksOk = stacks != null && String(stacks).trim() !== "";
+   return !(rateOk && stacksOk);
   }
+  // ONなのにエントリもlegacyも無い
   return true;
  }
  // フラグのみ（必中・貫通など）は詳細不要
@@ -14716,30 +14750,47 @@ function isBulletSpecialDetailBlank(b, name){
 function adminMatchIncompleteSpecialBullets(c){
  if(!c) return false;
  const found = [];
- const packs = [];
+ const attackBags = [];
+ const addAttacks = (attacks)=>{
+  if(attacks && typeof attacks === "object") attackBags.push(attacks);
+ };
  try{
+  addAttacks(c.attacks);
+  const d = c.details || {};
+  if(d.rebirth){
+   if(d.rebirth.before) addAttacks(d.rebirth.before.attacks);
+   if(d.rebirth.after) addAttacks(d.rebirth.after.attacks);
+  }
+  // pack は参照のみ（特殊弾フラグを書き換えない）
   if(typeof packFromCharacterSide === "function"){
-   packs.push(packFromCharacterSide(c, "before"));
-   if(typeof getCharRebirth === "function" && getCharRebirth(c).enabled){
-    packs.push(packFromCharacterSide(c, "after"));
-   }
+   try{ addAttacks(packFromCharacterSide(c, "before")?.attacks); }catch(e){}
+   try{
+    if(typeof getCharRebirth === "function" && getCharRebirth(c).enabled){
+     addAttacks(packFromCharacterSide(c, "after")?.attacks);
+    }
+   }catch(e){}
   }
  }catch(e){}
- if(!packs.length){
-  packs.push({ attacks: c.attacks });
- }
- const names = [];
- try{
-  if(typeof SPECIAL_EFFECTS === "object") names.push(...Object.keys(SPECIAL_EFFECTS));
- }catch(e){}
- if(typeof ABNORMAL_SPECIALS !== "undefined") names.push(...ABNORMAL_SPECIALS);
- const uniq = [...new Set(names)];
 
- packs.forEach(pack=>{
-  const attacks = (pack && pack.attacks) || {};
+ const names = [];
+ try{ if(typeof SPECIAL_EFFECTS === "object") names.push(...Object.keys(SPECIAL_EFFECTS)); }catch(e){}
+ if(typeof ABNORMAL_SPECIALS !== "undefined") names.push(...ABNORMAL_SPECIALS);
+ // 詳細が必要なものだけ（フラグのみは除外）
+ const needDetail = new Set([
+  "硬質弾","斬裂弾","粘着弾","衝撃弾","吸収弾","反動弾","特攻弾",
+  ...(typeof ABNORMAL_SPECIALS !== "undefined" ? ABNORMAL_SPECIALS : [])
+ ]);
+ const uniq = [...new Set(names)].filter(n => needDetail.has(n));
+
+ const seenAtk = new Set();
+ attackBags.forEach(attacks=>{
   Object.keys(attacks).forEach(ak=>{
    const a = attacks[ak];
    if(!a || !Array.isArray(a.bullets)) return;
+   // 同一参照の二重カウント防止
+   const sig = ak + ":" + a.bullets.length + ":" + (a.name||"");
+   if(seenAtk.has(a)) return;
+   try{ seenAtk.add(a); }catch(e){}
    a.bullets.forEach((b, bi)=>{
     if(!b) return;
     uniq.forEach(name=>{
