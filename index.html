@@ -6536,6 +6536,10 @@ function ensureDDSpecial(){
  delete specialData[DD_SKILL_LEGACY];
  if(!specialData[DD_SKILL]) specialData[DD_SKILL] = { enabled:false, list:[] };
  if(!Array.isArray(specialData[DD_SKILL].list)) specialData[DD_SKILL].list = [];
+ specialData[DD_SKILL].list.forEach(it=>{
+  if(!it || typeof it !== "object") return;
+  if(!it.source) it.source = "スキル";
+ });
  if(typeof _specialEditTarget !== "undefined" && _specialEditTarget && _specialEditSkill === DD_SKILL){
   if(!Array.isArray(_specialEditTarget.list)) _specialEditTarget.list = [];
   if(_specialEditTarget.enabled == null) _specialEditTarget.enabled = true;
@@ -7782,7 +7786,13 @@ function formatDamageDownLine(item){
  else if(item.kind === "属性特防") what = (item.target ? item.target + "属性" : "各属性");
  else if(item.kind === "弾特防") what = item.target || "各弾";
  else what = item.target || "各対象";
- return side + "の" + what + "から受けるダメージを" + n + "%ダウン";
+ const srcList = (typeof RANK2_SOURCES !== "undefined") ? RANK2_SOURCES : ["スキル","スペルカード1","スペルカード2","LASTWORD"];
+ let src = String(item.source || "").trim();
+ if(src === "ラストワード" || src === "ラスワ") src = "LASTWORD";
+ if(src === "スペカ1") src = "スペルカード1";
+ if(src === "スペカ2") src = "スペルカード2";
+ if(!srcList.includes(src)) src = "スキル";
+ return src + "：" + side + "の" + what + "から受けるダメージを" + n + "%ダウン";
 }
 function formatDamageDownHtml(ss){
  const list = getDamageDownList(ss);
@@ -9900,7 +9910,7 @@ function buildSpecialDetail(skill, e){
   case DD_SKILL_LEGACY:
    ensureDDSpecial();
    if(!specialData[DD_SKILL].list) specialData[DD_SKILL].list = [];
-   if(specialData[DD_SKILL].list.length === 0) specialData[DD_SKILL].list.push({ kind:"", target:"", ratio:"", side:"味方全体" });
+   if(specialData[DD_SKILL].list.length === 0) specialData[DD_SKILL].list.push({ source:"スキル", kind:"", target:"", ratio:"", side:"味方全体" });
    // レガシーキーは本体へ寄せる
    if(skill === DD_SKILL_LEGACY){
     specialData[skill].enabled = specialData[DD_SKILL].enabled;
@@ -10214,7 +10224,18 @@ function renderDamageDownList(container){
   html += `
    <div class="rank-item" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
     ${d.list.length > 0 ? `<button type="button" class="btn-del" onclick="removeDamageDownItem(${idx})">削除</button>` : ""}
-    <div class="mini">対象</div>
+    <div class="mini">発動箇所</div>
+    <select class="select" onchange="updateDamageDownItem(${idx}, 'source', this.value)">
+     ${((typeof RANK2_SOURCES!=="undefined")?RANK2_SOURCES:["スキル","スペルカード1","スペルカード2","LASTWORD"]).map(x=>{
+       let src = String(item.source||"スキル").trim();
+       if(src==="ラストワード"||src==="ラスワ") src="LASTWORD";
+       if(src==="スペカ1") src="スペルカード1";
+       if(src==="スペカ2") src="スペルカード2";
+       if(!((typeof RANK2_SOURCES!=="undefined")?RANK2_SOURCES:["スキル","スペルカード1","スペルカード2","LASTWORD"]).includes(src)) src="スキル";
+       return `<option value="${x}" ${src===x?"selected":""}>${x}</option>`;
+     }).join("")}
+    </select>
+    <div class="mini" style="margin-top:6px">対象</div>
     <select class="select" onchange="updateDamageDownItem(${idx}, 'side', this.value)">
      <option value="味方全体" ${side==="味方全体"?"selected":""}>味方全体</option>
      <option value="自身" ${side==="自身"?"selected":""}>自身</option>
@@ -10240,7 +10261,7 @@ function renderDamageDownList(container){
 }
 
 function addDamageDownItem(){
- ensureDDSpecial().list.push({ kind:"", target:"", ratio:"", side:"味方全体" });
+ ensureDDSpecial().list.push({ source:"スキル", kind:"", target:"", ratio:"", side:"味方全体" });
  const detail = document.getElementById(("sd-"+DD_SKILL));
  renderDamageDownList(detail);
 }
