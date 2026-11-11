@@ -3419,8 +3419,16 @@ body.theme-dark .bullet-size-btns button.active{
   <div class="title" style="font-size:16px;margin-bottom:8px;">管理者：ピックアップ登録</div>
   <div class="mini" style="margin-bottom:6px;">ガシャ名</div>
   <input id="puGachaName" class="input" placeholder="例：超フェスガチャ">
-  <div class="mini" style="margin:8px 0 4px;">開始日（表示は「日付 メンテ後」）</div>
+  <div class="mini" style="margin:8px 0 4px;">開始日</div>
   <input id="puStart" class="input" type="date">
+  <label style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;font-size:13px;cursor:pointer;">
+   <input type="checkbox" id="puStartMaint" checked>
+   <span>メンテ後（チェック時は開始時刻なし）</span>
+  </label>
+  <div id="puStartTimeWrap" class="hidden">
+   <div class="mini" style="margin:4px 0;">開始時刻</div>
+   <input id="puStartTime" class="input" type="time">
+  </div>
   <div class="mini" style="margin:8px 0 4px;">終了日時</div>
   <input id="puEnd" class="input" type="datetime-local">
   <div class="mini" style="margin:8px 0 4px;">ピックアップキャラ（登録済みから選択・複数可）</div>
@@ -3434,7 +3442,9 @@ body.theme-dark .bullet-size-btns button.active{
   <div id="pickupAllList" class="mini" style="margin-top:6px;"></div>
   <div class="mini" style="margin-top:10px;opacity:.85;line-height:1.5;">
    Supabase に <code>gacha_pickups</code> テーブルが必要です。終了時刻用に次も実行してください：
-   <code style="display:block;margin-top:4px;white-space:pre-wrap;">alter table gacha_pickups add column if not exists end_datetime text;</code>
+   <code style="display:block;margin-top:4px;white-space:pre-wrap;">alter table gacha_pickups add column if not exists end_datetime text;
+alter table gacha_pickups add column if not exists start_datetime text;
+alter table gacha_pickups add column if not exists start_after_maint boolean default true;</code>
   </div>
  </div>
 </div>
@@ -17103,7 +17113,18 @@ function getPickupStartEnd(p){
  const s = String(p.start_at || p.startAt || "").slice(0,10);
  const eRaw = (typeof getPickupEndRaw === "function") ? getPickupEndRaw(p) : String(p.end_at || "").trim();
  if(!s || !eRaw) return null;
- const start = new Date(s + "T00:00:00");
+ let start;
+ if(typeof isPickupStartAfterMaint === "function" && !isPickupStartAfterMaint(p)){
+  const raw = (typeof getPickupStartRaw === "function") ? getPickupStartRaw(p) : s;
+  if(raw.length <= 10){
+   start = new Date(s + "T00:00:00");
+  }else{
+   const norm = raw.includes("T") ? raw : raw.replace(" ", "T");
+   start = new Date(norm.length === 16 ? norm + ":00" : norm);
+  }
+ }else{
+  start = new Date(s + "T00:00:00");
+ }
  if(Number.isNaN(start.getTime())) return null;
  let end;
  if(eRaw.length <= 10){
@@ -17176,10 +17197,32 @@ function pickupStatusBadgeHtml(p){
  return "";
 }
 
+function isPickupStartAfterMaint(p){
+ if(!p) return true;
+ // 明示false / start_datetimeあり → 時刻指定
+ if(p.start_after_maint === false || p.start_after_maint === 0 || p.start_after_maint === "0" || p.start_after_maint === "false") return false;
+ const sd = String(p.start_datetime || p.start_at_full || "").trim();
+ if(sd && sd.length > 10) return false;
+ // 旧データはメンテ後
+ return true;
+}
+function getPickupStartRaw(p){
+ if(!p) return "";
+ if(!isPickupStartAfterMaint(p)){
+  const sd = String(p.start_datetime || p.start_at_full || p.start_at || "").trim();
+  return sd;
+ }
+ return String(p.start_at || p.startAt || "").slice(0,10);
+}
 function formatPickupStartLabel(p){
  const s = String(p.start_at || p.startAt || "").slice(0,10);
  if(!s) return "";
- return s + " メンテ後";
+ if(isPickupStartAfterMaint(p)) return s + " メンテ後";
+ const raw = getPickupStartRaw(p);
+ if(raw.length > 10){
+  return raw.replace("T", " ").slice(0,16);
+ }
+ return s;
 }
 
 function getPickupEndRaw(p){
@@ -17326,12 +17369,23 @@ function renderPickupActiveList(){
  }).join("");
 }
 
+
+function syncPuStartTimeWrap(){
+ const maint = document.getElementById("puStartMaint");
+ const wrap = document.getElementById("puStartTimeWrap");
+ if(!wrap) return;
+ const on = maint ? !!maint.checked : true;
+ wrap.classList.toggle("hidden", on);
+}
 function clearPickupForm(){
  puEditingId = null;
  puSelectedChars = [];
  const nEl = document.getElementById("puGachaName"); if(nEl) nEl.value = "";
  const sEl = document.getElementById("puStart"); if(sEl) sEl.value = "";
  const eEl = document.getElementById("puEnd"); if(eEl) eEl.value = "";
+ const mEl = document.getElementById("puStartMaint"); if(mEl) mEl.checked = true;
+ const tEl = document.getElementById("puStartTime"); if(tEl) tEl.value = "";
+ try{ syncPuStartTimeWrap(); }catch(e){}
  const msg = document.getElementById("puAdminMsg"); if(msg) msg.textContent = "";
  const saveBtn = document.getElementById("puSaveBtn");
  if(saveBtn) saveBtn.textContent = "登録する";
@@ -17357,6 +17411,20 @@ function beginEditGachaPickup(id){
  if(nEl) nEl.value = p.gacha_name || "";
  const sEl = document.getElementById("puStart");
  if(sEl) sEl.value = String(p.start_at || "").slice(0,10);
+ const mEl = document.getElementById("puStartMaint");
+ const tEl = document.getElementById("puStartTime");
+ const afterMaint = (typeof isPickupStartAfterMaint === "function") ? isPickupStartAfterMaint(p) : true;
+ if(mEl) mEl.checked = afterMaint;
+ if(tEl){
+  if(!afterMaint){
+   const raw = String(p.start_datetime || p.start_at_full || "").trim();
+   if(raw.length > 10){
+    const norm = raw.includes("T") ? raw : raw.replace(" ", "T");
+    tEl.value = norm.slice(11,16);
+   }else tEl.value = "";
+  }else tEl.value = "";
+ }
+ try{ syncPuStartTimeWrap(); }catch(e){}
  const eEl = document.getElementById("puEnd");
  if(eEl) eEl.value = toDatetimeLocalValue(p.end_datetime || p.end_at);
  let ids = p.character_ids;
@@ -17492,21 +17560,27 @@ async function saveGachaPickup(){
  if(!isAdmin()){ alert("管理者のみ"); return; }
  const msg = document.getElementById("puAdminMsg");
  const name = (document.getElementById("puGachaName")?.value || "").trim();
- const start = document.getElementById("puStart")?.value || "";
+ const startDate = document.getElementById("puStart")?.value || "";
  const end = document.getElementById("puEnd")?.value || "";
+ const startMaint = !!(document.getElementById("puStartMaint")?.checked);
+ const startTime = (document.getElementById("puStartTime")?.value || "").trim();
  if(!name){ if(msg) msg.textContent="ガシャ名を入力"; return; }
- if(!start || !end){ if(msg) msg.textContent="期間を入力"; return; }
+ if(!startDate || !end){ if(msg) msg.textContent="期間を入力"; return; }
+ if(!startMaint && !startTime){ if(msg) msg.textContent="開始時刻を入力するか、メンテ後にチェック"; return; }
  {
-  const startCmp = start;
+  const startCmp = startDate;
   const endCmp = end.length <= 10 ? end : end.slice(0,10);
   if(startCmp > endCmp){ if(msg) msg.textContent="開始日が終了日より後です"; return; }
  }
  if(!puSelectedChars.length){ if(msg) msg.textContent="キャラを選択"; return; }
  const endDate = end.length >= 10 ? end.slice(0,10) : end;
  const endDateTime = end.length > 10 ? end.replace(" ", "T").slice(0,16) : (endDate + "T23:59");
+ const startDateTime = startMaint ? null : (startDate + "T" + startTime.slice(0,5));
  const body = {
   gacha_name: name,
-  start_at: start,
+  start_at: startDate,
+  start_after_maint: startMaint,
+  start_datetime: startDateTime,
   end_at: endDate,
   end_datetime: endDateTime,
   character_ids: puSelectedChars.map(p=>p.id),
@@ -17588,6 +17662,12 @@ async function openPickupPage(){
    if(saveBtn && !saveBtn._bound){
     saveBtn._bound = true;
     saveBtn.addEventListener("click", (ev)=>{ ev.preventDefault(); saveGachaPickup(); });
+   }
+   const maintCb = document.getElementById("puStartMaint");
+   if(maintCb && !maintCb._bound){
+    maintCb._bound = true;
+    maintCb.addEventListener("change", ()=> syncPuStartTimeWrap());
+    syncPuStartTimeWrap();
    }
    const cancelBtn = document.getElementById("puCancelEditBtn");
    if(cancelBtn && !cancelBtn._bound){
