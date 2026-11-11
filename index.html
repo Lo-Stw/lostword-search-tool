@@ -3107,6 +3107,8 @@ body.theme-dark .bullet-size-btns button.active{
   <button type="button" id="adminSearchAllZentai" class="sub" style="width:auto;">全攻撃が全体</button>
   <button type="button" id="adminSearchIncompleteSkills" class="sub" style="width:auto;">特殊スキル詳細未記入</button>
   <button type="button" id="adminSearchIncompleteSpBullets" class="sub" style="width:auto;">特殊弾詳細未記入</button>
+  <button type="button" id="adminExportCharsJson" class="sub" style="width:auto;">キャラJSON書き出し</button>
+  <button type="button" id="adminReloadSupabase" class="sub" style="width:auto;">Supabaseから再読込</button>
 </div>
 <button id="searchBtn" class="main" type="button">🔍 検索する</button>
 </div>
@@ -3494,6 +3496,9 @@ alter table gacha_pickups add column if not exists start_after_maint boolean def
 const URL="https://tuzeswyyprzudnznalue.supabase.co";
 const KEY="sb_publishable_Zt-pb9JvdQC9lOUTAM6x0Q_fTq1hU-W";
 const TABLE="characters";
+/** 公開読み込み用（GitHub Pages に置く）。あれば Supabase より優先して Egress 節約 */
+const CHAR_STATIC_URL = "characters.json";
+
 const AUTH_STORAGE_KEY = "tlw_auth_session";
 
 let sb = null;
@@ -14981,6 +14986,16 @@ function updateAdminDebugSearchVisibility(){
   incSpBtn._bound = true;
   incSpBtn.onclick = ()=> adminRunDebugSearch(adminMatchIncompleteSpecialBullets, "特殊弾詳細未記入");
  }
+ const expBtn = document.getElementById("adminExportCharsJson");
+ if(expBtn && !expBtn._bound){
+  expBtn._bound = true;
+  expBtn.onclick = ()=> exportCharactersJson();
+ }
+ const reBtn = document.getElementById("adminReloadSupabase");
+ if(reBtn && !reBtn._bound){
+  reBtn._bound = true;
+  reBtn.onclick = ()=> adminReloadFromSupabase();
+ }
 }
 
 function search(skipHistory) {
@@ -16351,7 +16366,76 @@ function isStatementTimeoutError(e){
  return msg.includes("57014") || /statement timeout/i.test(msg) || /canceling statement/i.test(msg);
 }
 
-async function load(){
+async function loadFromStaticCharacters(){
+ const r = await fetch(CHAR_STATIC_URL, {
+  headers: { "Accept": "application/json" },
+  cache: "default"
+ });
+ if(!r.ok){
+  const err = new Error("static " + r.status);
+  err.status = r.status;
+  throw err;
+ }
+ const all = await r.json();
+ if(!Array.isArray(all)) throw new Error("characters.json が配列ではありません");
+ return all;
+}
+
+async function loadFromSupabaseCharacters(el){
+ let all = null;
+ try{
+  if(el) el.innerHTML = `<div class="loading">Supabaseから一括取得中…</div>`;
+  const headers = Object.assign({}, authHeaders(), { "Accept": "application/json" });
+  const r = await fetch(`${URL}/rest/v1/${TABLE}?select=*&order=id.asc`, {
+   headers,
+   cache: "no-cache"
+  });
+  const t = await r.text();
+  if(!r.ok){
+   const err = new Error(t || ("HTTP " + r.status));
+   err.body = t;
+   throw err;
+  }
+  all = t ? JSON.parse(t) : [];
+  if(!Array.isArray(all)) all = [];
+  return all;
+ }catch(e){
+  console.warn("一括取得失敗、分割取得に切替:", e && e.message);
+  if(el) el.innerHTML = `<div class="loading">分割で読み込み中…</div>`;
+  let pageSize = 100;
+  all = [];
+  let from = 0;
+  let total = null;
+  let guard = 0;
+  while(guard++ < 500){
+   const to = from + pageSize - 1;
+   try{
+    const { chunk, total: tot } = await loadPageChunk(from, to);
+    if(tot != null) total = tot;
+    all = all.concat(chunk);
+    if(el){
+     const denom = (total != null) ? ("/" + total) : "";
+     el.innerHTML = `<div class="loading">Supabase読み込み中… ${all.length}${denom}件</div>`;
+    }
+    if(chunk.length === 0) break;
+    if(chunk.length < pageSize) break;
+    if(total != null && all.length >= total) break;
+    from += pageSize;
+   }catch(e2){
+    if(isStatementTimeoutError(e2) && pageSize > 10){
+     pageSize = Math.max(10, Math.floor(pageSize / 2));
+     continue;
+    }
+    throw e2;
+   }
+  }
+  return all || [];
+ }
+}
+
+async function load(opts){
+ const options = opts || {};
+ const forceSupabase = !!options.forceSupabase;
  const el = document.getElementById("results");
  try{
   if(el && !(data && data.length)){
@@ -16359,59 +16443,23 @@ async function load(){
   }
 
   let all = null;
+  let source = "";
 
-  // 1) まず一括取得を試す（成功すれば最速）
-  try{
-   if(el) el.innerHTML = `<div class="loading">キャラデータを一括取得中…</div>`;
-   const headers = Object.assign({}, authHeaders(), {
-    "Accept": "application/json"
-   });
-   const r = await fetch(`${URL}/rest/v1/${TABLE}?select=*&order=id.asc`, {
-    headers,
-    cache: "no-cache"
-   });
-   const t = await r.text();
-   if(!r.ok){
-    const err = new Error(t || ("HTTP " + r.status));
-    err.body = t;
-    throw err;
+  // 1) 静的 JSON（Egress節約）※管理者の強制再取得時はスキップ
+  if(!forceSupabase){
+   try{
+    if(el) el.innerHTML = `<div class="loading">キャラデータ（静的JSON）を読み込み中…</div>`;
+    all = await loadFromStaticCharacters();
+    source = "static";
+   }catch(e){
+    console.warn("characters.json なし/失敗 → Supabaseへ:", e && e.message);
    }
-   all = t ? JSON.parse(t) : [];
-   if(!Array.isArray(all)) all = [];
-  }catch(e){
-   console.warn("一括取得失敗、分割取得に切替:", e && e.message);
-   if(el) el.innerHTML = `<div class="loading">一括取得ができなかったため分割で読み込み中…</div>`;
+  }
 
-   // 2) 分割取得（最初は大きめ、タイムアウト時だけ小さく）
-   let pageSize = 100;
-   all = [];
-   let from = 0;
-   let total = null;
-   let guard = 0;
-   while(guard++ < 500){
-    const to = from + pageSize - 1;
-    try{
-     const { chunk, total: tot } = await loadPageChunk(from, to);
-     if(tot != null) total = tot;
-     all = all.concat(chunk);
-     if(el){
-      const denom = (total != null) ? ("/" + total) : "";
-      el.innerHTML = `<div class="loading">キャラデータを読み込み中… ${all.length}${denom}件（${pageSize}件ずつ）</div>`;
-     }
-     if(chunk.length === 0) break;
-     if(chunk.length < pageSize) break;
-     if(total != null && all.length >= total) break;
-     from += pageSize;
-    }catch(e2){
-     if(isStatementTimeoutError(e2) && pageSize > 10){
-      pageSize = Math.max(10, Math.floor(pageSize / 2));
-      console.warn("load timeout, retry with pageSize", pageSize);
-      if(el) el.innerHTML = `<div class="loading">通信が重いため分割サイズを下げて再取得中…（${all.length}件取得済 → ${pageSize}件ずつ）</div>`;
-      continue;
-     }
-     throw e2;
-    }
-   }
+  // 2) Supabase
+  if(!all){
+   all = await loadFromSupabaseCharacters(el);
+   source = "supabase";
   }
 
   data = all || [];
@@ -16420,8 +16468,9 @@ async function load(){
   buildFilters();
   saveDataCache();
   if(el){
+   const srcLabel = source === "static" ? "静的JSON" : (source === "supabase" ? "Supabase" : "");
    el.innerHTML =
-    `<div class="loading">データを読み込みました（${data.length}件）。条件を選んで「検索する」を押してください</div>`;
+    `<div class="loading">データを読み込みました（${data.length}件${srcLabel ? "・" + srcLabel : ""}）。条件を選んで「検索する」を押してください</div>`;
   }
  }catch(e){
   if(data && data.length){
@@ -16430,6 +16479,41 @@ async function load(){
    el.innerHTML=`<div class="result"><b>データ読み込みエラー</b><br><small>${esc(e.message)}</small></div>`;
   }
  }
+}
+
+function exportCharactersJson(){
+ if(typeof isAdmin === "function" && !isAdmin()){
+  alert("管理者のみ");
+  return;
+ }
+ if(!Array.isArray(data) || !data.length){
+  alert("書き出すキャラデータがありません。先に読み込んでください。");
+  return;
+ }
+ try{
+  const blob = new Blob([JSON.stringify(data, null, 0)], { type: "application/json;charset=utf-8" });
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = "characters.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  alert("characters.json をダウンロードしました。\nGitHubリポジトリの index.html と同じ場所に置いて Pages に反映してください。");
+ }catch(e){
+  alert("書き出し失敗: " + (e.message||e));
+ }
+}
+
+async function adminReloadFromSupabase(){
+ if(typeof isAdmin === "function" && !isAdmin()){
+  alert("管理者のみ");
+  return;
+ }
+ if(!confirm("Supabaseから再取得しますか？\\n（静的JSONより優先して上書きします）")) return;
+ await load({ forceSupabase: true });
+ alert("Supabaseから再取得しました。必要なら「キャラJSON書き出し」で characters.json を更新してください。");
 }
 
 
