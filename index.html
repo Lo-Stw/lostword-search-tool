@@ -1701,6 +1701,36 @@ body.theme-dark .pickup-char-btn{background:#252a34;color:#e8ecf4}
  vertical-align:middle;
  animation: pickupPulse 1.6s ease-in-out infinite;
 }
+
+.pickup-status-badge{
+ display:inline-block;
+ margin-left:8px;
+ padding:4px 10px;
+ border-radius:999px;
+ font-size:12px;
+ font-weight:900;
+ vertical-align:middle;
+ letter-spacing:.02em;
+}
+.pickup-live{
+ color:#fff;
+ background:linear-gradient(90deg,#2e7d32,#66bb6a);
+}
+.pickup-upcoming{
+ color:#0d47a1;
+ background:linear-gradient(90deg,#e3f2fd,#90caf9);
+ border:1px solid #42a5f5;
+}
+.pickup-ending-soon{
+ color:#fff;
+ background:linear-gradient(90deg,#c62828,#ff8a00);
+ box-shadow:0 0 0 1px rgba(200,40,0,.35), 0 2px 10px rgba(255,80,0,.35);
+ animation: pickupPulse 1.4s ease-in-out infinite;
+}
+.pickup-card-head{
+ display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+ margin-bottom:4px;
+}
 @keyframes pickupPulse{
  0%,100%{ filter:brightness(1); transform:scale(1); }
  50%{ filter:brightness(1.08); transform:scale(1.03); }
@@ -17050,17 +17080,31 @@ function isCharacterInActivePickup(charId){
 }
 function pickupNowBadgeHtml(c){
  if(!c || !isCharacterInActivePickup(c.id)) return "";
+ // 終了近い場合は文言を変えて目立たせる
+ try{
+  const id = String(c.id);
+  const p = (gachaPickupsCache || []).find(x=>{
+   if(!isPickupActive(x)) return false;
+   let ids = x.character_ids;
+   if(typeof ids === "string"){ try{ ids = JSON.parse(ids); }catch(e){ ids = []; } }
+   if(!Array.isArray(ids)) return false;
+   return ids.some(v => String(v) === id);
+  });
+  const soon = p ? formatPickupEndingSoonLabel(p) : "";
+  if(soon){
+   return `<span class="pickup-now-badge pickup-ending-soon">ピックアップ中・${esc(soon)}</span>`;
+  }
+ }catch(e){}
  return `<span class="pickup-now-badge">現在ピックアップ中！</span>`;
 }
 
-function isPickupActive(p){
- if(!p) return false;
+function getPickupStartEnd(p){
+ if(!p) return null;
  const s = String(p.start_at || p.startAt || "").slice(0,10);
  const eRaw = (typeof getPickupEndRaw === "function") ? getPickupEndRaw(p) : String(p.end_at || "").trim();
- if(!s || !eRaw) return false;
- const now = new Date();
+ if(!s || !eRaw) return null;
  const start = new Date(s + "T00:00:00");
- if(Number.isNaN(start.getTime())) return false;
+ if(Number.isNaN(start.getTime())) return null;
  let end;
  if(eRaw.length <= 10){
   end = new Date(eRaw.slice(0,10) + "T23:59:59");
@@ -17068,8 +17112,68 @@ function isPickupActive(p){
   const norm = eRaw.includes("T") ? eRaw : eRaw.replace(" ", "T");
   end = new Date(norm.length === 16 ? norm + ":00" : norm);
  }
- if(Number.isNaN(end.getTime())) return false;
- return now >= start && now <= end;
+ if(Number.isNaN(end.getTime())) return null;
+ return { start, end, startStr: s };
+}
+
+function isPickupActive(p){
+ const se = getPickupStartEnd(p);
+ if(!se) return false;
+ const now = new Date();
+ return now >= se.start && now <= se.end;
+}
+
+/** 開始日の前日から開始直前まで → 開催予定 */
+function isPickupUpcoming(p){
+ const se = getPickupStartEnd(p);
+ if(!se) return false;
+ const now = new Date();
+ if(now >= se.start) return false; // すでに開始
+ const dayMs = 24 * 60 * 60 * 1000;
+ const prevDay = new Date(se.start.getTime() - dayMs);
+ // 前日0時以降〜開始前
+ return now >= prevDay && now < se.start;
+}
+
+/** 終了までの残り（日・時間）。終了後は null */
+function getPickupRemaining(p){
+ const se = getPickupStartEnd(p);
+ if(!se) return null;
+ const now = new Date();
+ if(now > se.end) return null;
+ if(now < se.start) return null; // 開催前は対象外
+ const ms = se.end.getTime() - now.getTime();
+ const hours = ms / (60 * 60 * 1000);
+ const daysCeil = Math.ceil(ms / (24 * 60 * 60 * 1000));
+ return { ms, hours, daysCeil, end: se.end };
+}
+
+function formatPickupEndingSoonLabel(p){
+ const r = getPickupRemaining(p);
+ if(!r) return "";
+ // 終了3日以内（残り72時間以内、または切り上げ日数が1〜3）
+ if(r.hours > 72 && r.daysCeil > 3) return "";
+ if(r.hours <= 24){
+  if(r.hours <= 0) return "まもなく終了";
+  if(r.hours < 1) return "まもなく終了";
+  return "本日終了・残り約" + Math.max(1, Math.ceil(r.hours)) + "時間";
+ }
+ const d = Math.min(3, Math.max(1, r.daysCeil));
+ return "あと" + d + "日で終了";
+}
+
+function pickupStatusBadgeHtml(p){
+ if(isPickupActive(p)){
+  const soon = formatPickupEndingSoonLabel(p);
+  if(soon){
+   return `<span class="pickup-status-badge pickup-ending-soon">${esc(soon)}</span>`;
+  }
+  return `<span class="pickup-status-badge pickup-live">開催中</span>`;
+ }
+ if(isPickupUpcoming(p)){
+  return `<span class="pickup-status-badge pickup-upcoming">明日から開催予定</span>`;
+ }
+ return "";
 }
 
 function formatPickupStartLabel(p){
@@ -17151,15 +17255,32 @@ function resolvePickupCharLabel(id, fallback){
 function renderPickupActiveList(){
  const box = document.getElementById("pickupActiveList");
  if(!box) return;
- const active = (gachaPickupsCache || []).filter(isPickupActive);
- if(!active.length){
-  box.innerHTML = `<div class="muted">現在表示中のピックアップはありません。</div>`;
+ const list = (gachaPickupsCache || []).filter(p => isPickupActive(p) || isPickupUpcoming(p));
+ // 開催中 → 開催予定、終了が近いものを上に
+ list.sort((a,b)=>{
+  const aLive = isPickupActive(a) ? 0 : 1;
+  const bLive = isPickupActive(b) ? 0 : 1;
+  if(aLive !== bLive) return aLive - bLive;
+  if(aLive === 0){
+   const ra = getPickupRemaining(a);
+   const rb = getPickupRemaining(b);
+   const sa = ra ? ra.ms : 1e15;
+   const sb = rb ? rb.ms : 1e15;
+   return sa - sb;
+  }
+  const sa = String(a.start_at||"");
+  const sb = String(b.start_at||"");
+  return sa.localeCompare(sb);
+ });
+ if(!list.length){
+  box.innerHTML = `<div class="muted">現在表示中・直前の開催予定のピックアップはありません。</div>`;
   return;
  }
- box.innerHTML = active.map(p=>{
+ box.innerHTML = list.map(p=>{
   const name = esc(p.gacha_name || p.name || "ガシャ");
   const s = esc(formatPickupStartLabel(p));
   const e = esc(formatPickupEndLabel(p));
+  const status = pickupStatusBadgeHtml(p);
   let ids = p.character_ids;
   if(typeof ids === "string"){
    try{ ids = JSON.parse(ids); }catch(err){ ids = []; }
@@ -17195,7 +17316,10 @@ function renderPickupActiveList(){
     + `</button>`;
   }).join("") || `<span class="mini">キャラ未設定</span>`;
   return `<div class="pickup-card">
-   <div style="font-weight:800;font-size:15px;margin-bottom:4px;">${name}</div>
+   <div class="pickup-card-head">
+    <div style="font-weight:800;font-size:15px;">${name}</div>
+    ${status}
+   </div>
    <div class="mini" style="margin-bottom:8px;">期間：${s} 〜 ${e}</div>
    <div class="pickup-char-grid">${btns}</div>
   </div>`;
