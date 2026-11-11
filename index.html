@@ -16367,16 +16367,36 @@ function isStatementTimeoutError(e){
 }
 
 async function loadFromStaticCharacters(){
- const r = await fetch(CHAR_STATIC_URL, {
-  headers: { "Accept": "application/json" },
-  cache: "default"
- });
- if(!r.ok){
-  const err = new Error("static " + r.status);
-  err.status = r.status;
-  throw err;
+ const tryFetchJson = async (url)=>{
+  const r = await fetch(url, {
+   headers: { "Accept": "application/json" },
+   cache: "default"
+  });
+  if(!r.ok){
+   const err = new Error("static " + r.status + " " + url);
+   err.status = r.status;
+   throw err;
+  }
+  return await r.json();
+ };
+
+ // 分割マニフェスト優先
+ try{
+  const man = await tryFetchJson("characters.manifest.json");
+  if(man && Array.isArray(man.parts) && man.parts.length){
+   const parts = [];
+   for(const p of man.parts){
+    const chunk = await tryFetchJson(String(p));
+    if(Array.isArray(chunk)) parts.push(...chunk);
+    else throw new Error(String(p) + " が配列ではありません");
+   }
+   return parts;
+  }
+ }catch(e){
+  if(!(e && e.status === 404)) console.warn("manifest:", e && e.message);
  }
- const all = await r.json();
+
+ const all = await tryFetchJson(CHAR_STATIC_URL);
  if(!Array.isArray(all)) throw new Error("characters.json が配列ではありません");
  return all;
 }
@@ -16481,6 +16501,58 @@ async function load(opts){
  }
 }
 
+function compactJsonValue(v){
+ if(v == null) return undefined;
+ if(typeof v === "string"){
+  return v === "" ? undefined : v;
+ }
+ if(typeof v === "boolean"){
+  // false も意味がある場合があるので残す
+  return v;
+ }
+ if(typeof v === "number"){
+  return Number.isFinite(v) ? v : undefined;
+ }
+ if(Array.isArray(v)){
+  const a = v.map(compactJsonValue).filter(x => x !== undefined);
+  return a.length ? a : undefined;
+ }
+ if(typeof v === "object"){
+  const out = {};
+  Object.keys(v).forEach(k=>{
+   // 巨大・内部用は除外
+   if(k === "_adminIncompleteSkills" || k === "_adminIncompleteSpBullets") return;
+   if(k.startsWith("_")) return;
+   const cv = compactJsonValue(v[k]);
+   if(cv !== undefined) out[k] = cv;
+  });
+  return Object.keys(out).length ? out : undefined;
+ }
+ return v;
+}
+
+function getDownloadObjectURL(){
+ const ObjURL = (typeof globalThis !== "undefined" && globalThis.URL) ? globalThis.URL
+  : (typeof window !== "undefined" && window.webkitURL) ? window.webkitURL : null;
+ if(!ObjURL || typeof ObjURL.createObjectURL !== "function"){
+  throw new Error("この環境ではファイルダウンロードに対応していません");
+ }
+ return ObjURL;
+}
+
+function downloadTextFile(filename, text, mime){
+ const blob = new Blob([text], { type: (mime || "application/json;charset=utf-8") });
+ const ObjURL = getDownloadObjectURL();
+ const objUrl = ObjURL.createObjectURL(blob);
+ const a = document.createElement("a");
+ a.href = objUrl;
+ a.download = filename;
+ document.body.appendChild(a);
+ a.click();
+ a.remove();
+ setTimeout(()=>{ try{ ObjURL.revokeObjectURL(objUrl); }catch(e){} }, 2500);
+}
+
 function exportCharactersJson(){
  if(typeof isAdmin === "function" && !isAdmin()){
   alert("管理者のみ");
@@ -16491,22 +16563,53 @@ function exportCharactersJson(){
   return;
  }
  try{
-  const blob = new Blob([JSON.stringify(data, null, 0)], { type: "application/json;charset=utf-8" });
-  const a = document.createElement("a");
-  // 注意: 定数 URL（Supabase）がグローバルURLを隠しているため globalThis.URL を使う
-  const ObjURL = (typeof globalThis !== "undefined" && globalThis.URL) ? globalThis.URL
-   : (typeof window !== "undefined" && window.webkitURL) ? window.webkitURL : null;
-  if(!ObjURL || typeof ObjURL.createObjectURL !== "function"){
-   throw new Error("この環境ではファイルダウンロードに対応していません");
+  const compact = data.map(c => compactJsonValue(c)).filter(c => c != null);
+  const MAX = 20 * 1024 * 1024; // GitHub Web UI 目安より余裕を持って 20MB
+  // まず1ファイルで試す
+  let text = JSON.stringify(compact);
+  const rawSize = new Blob([text]).size;
+  if(rawSize <= MAX){
+   downloadTextFile("characters.json", text);
+   alert("characters.json をダウンロードしました（約 " + (rawSize/1024/1024).toFixed(1) + "MB）。\nGitHub の index.html と同じ場所に置いてください。");
+   return;
   }
-  const objUrl = ObjURL.createObjectURL(blob);
-  a.href = objUrl;
-  a.download = "characters.json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>{ try{ ObjURL.revokeObjectURL(objUrl); }catch(e){} }, 2000);
-  alert("characters.json をダウンロードしました。\nGitHubリポジトリの index.html と同じ場所に置いて Pages に反映してください。");
+
+  // 大きいので分割
+  const parts = [];
+  let buf = [];
+  let bufSize = 2; // []
+  const flush = ()=>{
+   if(!buf.length) return;
+   const t = JSON.stringify(buf);
+   parts.push(t);
+   buf = [];
+   bufSize = 2;
+  };
+  compact.forEach(c=>{
+   const piece = JSON.stringify(c);
+   const add = piece.length + (buf.length ? 1 : 0);
+   if(buf.length && bufSize + add > MAX) flush();
+   buf.push(c);
+   bufSize += add;
+  });
+  flush();
+
+  const manifest = {
+   version: 1,
+   exportedAt: new Date().toISOString(),
+   count: compact.length,
+   parts: parts.map((_, i)=> "characters.part" + i + ".json")
+  };
+  // 連続ダウンロード
+  downloadTextFile("characters.manifest.json", JSON.stringify(manifest));
+  parts.forEach((t, i)=>{
+   setTimeout(()=>{
+    downloadTextFile("characters.part" + i + ".json", t);
+   }, 400 * (i + 1));
+  });
+  alert("ファイルが大きいため分割しました（" + parts.length + "個 + manifest）。\n" +
+   "characters.manifest.json と characters.part0.json … をすべて index.html と同じ場所に置いてください。\n" +
+   "（ブラウザが複数ダウンロードをブロックしたら許可してください）");
  }catch(e){
   alert("書き出し失敗: " + (e.message||e));
  }
