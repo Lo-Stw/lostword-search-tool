@@ -16493,13 +16493,19 @@ function exportCharactersJson(){
  try{
   const blob = new Blob([JSON.stringify(data, null, 0)], { type: "application/json;charset=utf-8" });
   const a = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  a.href = url;
+  // 注意: 定数 URL（Supabase）がグローバルURLを隠しているため globalThis.URL を使う
+  const ObjURL = (typeof globalThis !== "undefined" && globalThis.URL) ? globalThis.URL
+   : (typeof window !== "undefined" && window.webkitURL) ? window.webkitURL : null;
+  if(!ObjURL || typeof ObjURL.createObjectURL !== "function"){
+   throw new Error("この環境ではファイルダウンロードに対応していません");
+  }
+  const objUrl = ObjURL.createObjectURL(blob);
+  a.href = objUrl;
   a.download = "characters.json";
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  setTimeout(()=>{ try{ ObjURL.revokeObjectURL(objUrl); }catch(e){} }, 2000);
   alert("characters.json をダウンロードしました。\nGitHubリポジトリの index.html と同じ場所に置いて Pages に反映してください。");
  }catch(e){
   alert("書き出し失敗: " + (e.message||e));
