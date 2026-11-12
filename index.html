@@ -16878,7 +16878,7 @@ async function save(){
   const method = isUpdate ? "PATCH" : "POST";
 
   async function doSaveFetch(){
-   const prefer = isUpdate ? "return=minimal" : "return=representation";
+   const prefer = "return=representation";
    // 新規は sort_order 列があればルートにも送る
    const bodyObj = isUpdate ? record : { ...record, sort_order: keepSort };
    const r=await fetch(fetchUrl,{
@@ -16918,11 +16918,40 @@ async function save(){
   msg.className="msg ok";
   msg.textContent=isUpdate ? "データを更新しました！（編集内容はそのまま残しています）" : "新規登録しました！";
 
-  // 保存後にフォームを空にしない。再読込して同じキャラを開き直す
+  // 保存後は静的JSONの古いデータを読み直さない（Egress節約＆編集内容を保持）
+  // メモリ上の data を直接更新して JSON 書き出し可能にする
   const keepId = editingId;
   const keepVariant = editVariant;
   const keepRebirth = rebirthEnabled;
-  await load();
+
+  let savedRow = null;
+  try{
+   if(!isUpdate && t){
+    const parsed = JSON.parse(t);
+    const row = Array.isArray(parsed) ? parsed[0] : parsed;
+    if(row && row.id != null){
+     savedRow = Object.assign({}, record, row);
+    }
+   }
+  }catch(e){}
+  if(!savedRow){
+   savedRow = Object.assign({}, record);
+   if(isUpdate && keepId) savedRow.id = keepId;
+  }
+  try{ normalizeDetailsObj(savedRow); }catch(e){}
+
+  if(!Array.isArray(data)) data = [];
+  if(savedRow.id != null){
+   const ix = data.findIndex(x => String(x.id) === String(savedRow.id));
+   if(ix >= 0) data[ix] = savedRow;
+   else data.push(savedRow);
+  }else{
+   // id 不明の新規：末尾に仮追加（書き出し用）。次回Supabase再読込で正式化
+   data.push(savedRow);
+  }
+  try{ sortDataInPlace(); }catch(e){}
+  try{ saveDataCache(); }catch(e){}
+  try{ buildFilters(); }catch(e){}
 
   if(isUpdate && keepId){
    const again = data.find(x => String(x.id) === String(keepId));
