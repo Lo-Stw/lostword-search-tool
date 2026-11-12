@@ -7839,29 +7839,38 @@ function formatDamageDownLine(item){
  if(!srcList.includes(src)) src = "スキル";
  return src + "：" + side + "の" + what + "から受けるダメージを" + n + "%ダウン";
 }
-function formatDamageDownHtml(ss){
+function formatDamageDownHtml(ss, matched){
  const list = getDamageDownList(ss);
+ const name = (typeof DD_SKILL === "string") ? DD_SKILL : "ダメージ軽減";
+ const cls = "tag-debuff";
+ const mkLine = (line)=>{
+  if(!line) return "";
+  // 他の特殊スキルと同じ：タグ名 + 詳細テキスト
+  return `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(name, !!matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`;
+ };
  if(!list.length){
   if(ss && getDamageDownSkill(ss)?.enabled){
-   return `<span class="tag tag-debuff">ダメージ軽減</span>`;
+   return `<div class="skill-detail-line" style="margin:6px 0;">${tagWithHl(name, !!matched, cls)}</div>`;
   }
   return "";
  }
  const ddObj = (ss && (ss["ダメージ軽減"] || ss["ダメージダウン"])) || null;
- const tags = list.map(item => {
+ const parts = [];
+ list.forEach(item=>{
   let line = formatDamageDownLine(item);
   line = withXChangeOnlySuffix(line, ddObj);
-  if(!line) return "";
-  return `<span class="tag tag-debuff">${colorizeEffectText(line)}</span>`;
- }).filter(Boolean);
+  const htmlLine = mkLine(line);
+  if(htmlLine) parts.push(htmlLine);
+ });
  if(ddObj && ddObj.xcEnabled && ddObj.xc && Array.isArray(ddObj.xc.list)){
   ddObj.xc.list.forEach(item=>{
    let line = formatDamageDownLine(item);
    line = withXChangeOnlySuffix(line, { xChangeOnly:true });
-   if(line) tags.push(`<span class="tag tag-debuff">${colorizeEffectText(line)}</span>`);
+   const htmlLine = mkLine(line);
+   if(htmlLine) parts.push(htmlLine);
   });
  }
- return tags.join(" ");
+ return parts.join("");
 }
 
 /** 特殊スキル表示（ダメージ軽減は詳細付き） */
@@ -8598,7 +8607,10 @@ function formatSpecialSkillsHtml(ss, opts){
   || (selected.dd||[]).includes(DD_SKILL)
   || (selected.dd||[]).includes(DD_SKILL_LEGACY);
  if(showDd){
-  const dd = formatDamageDownHtml(ss);
+  const ddMatched = (typeof isFilterMatch === "function")
+   ? (isFilterMatch(DD_SKILL, selected.char) || isFilterMatch(DD_SKILL_LEGACY, selected.char) || isFilterMatch(DD_SKILL, selected.dd))
+   : false;
+  const dd = formatDamageDownHtml(ss, ddMatched);
   if(dd) parts.push(dd);
  }
  return parts.join("") || (options.emptyText || "");
