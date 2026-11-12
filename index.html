@@ -16564,52 +16564,71 @@ function exportCharactersJson(){
  }
  try{
   const compact = data.map(c => compactJsonValue(c)).filter(c => c != null);
-  const MAX = 20 * 1024 * 1024; // GitHub Web UI 目安より余裕を持って 20MB
-  // まず1ファイルで試す
-  let text = JSON.stringify(compact);
-  const rawSize = new Blob([text]).size;
+  // GitHub Web UI は 25MB 制限。UTF-8実バイトで測り、余裕を見て 12MB
+  const MAX = 12 * 1024 * 1024;
+  const byteSize = (s)=> (new Blob([s])).size;
+
+  const fullText = JSON.stringify(compact);
+  const rawSize = byteSize(fullText);
   if(rawSize <= MAX){
-   downloadTextFile("characters.json", text);
+   downloadTextFile("characters.json", fullText);
    alert("characters.json をダウンロードしました（約 " + (rawSize/1024/1024).toFixed(1) + "MB）。\nGitHub の index.html と同じ場所に置いてください。");
    return;
   }
 
-  // 大きいので分割
+  // 大きいので分割（実バイトで判定）
   const parts = [];
   let buf = [];
-  let bufSize = 2; // []
   const flush = ()=>{
    if(!buf.length) return;
-   const t = JSON.stringify(buf);
-   parts.push(t);
+   parts.push(JSON.stringify(buf));
    buf = [];
-   bufSize = 2;
   };
   compact.forEach(c=>{
-   const piece = JSON.stringify(c);
-   const add = piece.length + (buf.length ? 1 : 0);
-   if(buf.length && bufSize + add > MAX) flush();
-   buf.push(c);
-   bufSize += add;
+   const trial = buf.concat([c]);
+   const trialText = JSON.stringify(trial);
+   if(buf.length && byteSize(trialText) > MAX){
+    flush();
+    buf = [c];
+    // 1キャラだけで上限超過は稀だが、その場合でも1ファイルとして出す
+    if(byteSize(JSON.stringify(buf)) > MAX){
+     console.warn("単体キャラが大きすぎます", c && c.character);
+     parts.push(JSON.stringify(buf));
+     buf = [];
+    }
+   }else{
+    buf = trial;
+   }
   });
   flush();
+
+  // 念のため各パートを再確認し、まだ大きければ半分に割る
+  const safeParts = [];
+  const splitTextIfNeeded = (t)=>{
+   if(byteSize(t) <= MAX){ safeParts.push(t); return; }
+   let arr;
+   try{ arr = JSON.parse(t); }catch(e){ safeParts.push(t); return; }
+   if(!Array.isArray(arr) || arr.length <= 1){ safeParts.push(t); return; }
+   const mid = Math.ceil(arr.length / 2);
+   splitTextIfNeeded(JSON.stringify(arr.slice(0, mid)));
+   splitTextIfNeeded(JSON.stringify(arr.slice(mid)));
+  };
+  parts.forEach(splitTextIfNeeded);
 
   const manifest = {
    version: 1,
    exportedAt: new Date().toISOString(),
    count: compact.length,
-   parts: parts.map((_, i)=> "characters.part" + i + ".json")
+   parts: safeParts.map((_, i)=> "characters.part" + i + ".json")
   };
-  // 連続ダウンロード
   downloadTextFile("characters.manifest.json", JSON.stringify(manifest));
-  parts.forEach((t, i)=>{
+  safeParts.forEach((t, i)=>{
    setTimeout(()=>{
     downloadTextFile("characters.part" + i + ".json", t);
-   }, 400 * (i + 1));
+   }, 450 * (i + 1));
   });
-  alert("ファイルが大きいため分割しました（" + parts.length + "個 + manifest）。\n" +
-   "characters.manifest.json と characters.part0.json … をすべて index.html と同じ場所に置いてください。\n" +
-   "（ブラウザが複数ダウンロードをブロックしたら許可してください）");
+  const sizes = safeParts.map(t => (byteSize(t)/1024/1024).toFixed(1) + "MB");
+  alert("分割して書き出しました（" + safeParts.length + "個 + manifest）。\n各ファイル目安: " + sizes.join(", ") + "\ncharacters.manifest.json と part をすべて index.html と同じ場所へ。\n複数DLがブロックされたら許可してください。");
  }catch(e){
   alert("書き出し失敗: " + (e.message||e));
  }
