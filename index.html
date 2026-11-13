@@ -1687,6 +1687,26 @@ body.theme-dark .pickup-char-btn{background:#252a34;color:#e8ecf4}
 .pickup-char-card .impl-meta{
  font-size:12px;opacity:.9;margin:2px 0 4px;
 }
+.sort-stat-badge{
+ display:inline-block;
+ margin-left:6px;
+ padding:3px 8px;
+ border-radius:8px;
+ font-size:12px;
+ font-weight:700;
+ color:#1a237e;
+ background:linear-gradient(90deg,#e8eaf6,#c5cae9);
+ border:1px solid #9fa8da;
+ vertical-align:middle;
+ white-space:nowrap;
+}
+.sort-stat-badge b{color:#0d47a1;font-size:13px;font-weight:900;margin-left:2px}
+body.theme-dark .sort-stat-badge{
+ color:#e3f2fd;
+ background:linear-gradient(90deg,#1a237e,#283593);
+ border-color:#5c6bc0;
+}
+body.theme-dark .sort-stat-badge b{color:#90caf9}
 .pickup-now-badge{
  display:inline-block;
  margin-left:6px;
@@ -4954,6 +4974,26 @@ function getCharStatNumber(c, key){
  }
  return null;
 }
+
+function getActiveSortStatInfo(){
+ const mode = (document.getElementById("sortMode")?.value) || "";
+ const m = String(mode).match(/^stat_(.+)_(asc|desc)$/);
+ if(!m) return null;
+ const key = m[1];
+ const labels = {
+  power:"総合つよさ", hp:"体力", speed:"速力",
+  yangAtk:"陽攻", yinAtk:"陰攻", yangDef:"陽防", yinDef:"陰防"
+ };
+ return { key, label: labels[key] || key, dir: m[2] };
+}
+function formatSortStatBadgeHtml(c){
+ const info = getActiveSortStatInfo();
+ if(!info || !c) return "";
+ const v = (typeof getCharStatNumber === "function") ? getCharStatNumber(c, info.key) : null;
+ const text = (v == null) ? "—" : String(v);
+ return `<span class="sort-stat-badge" title="並び替え基準">${esc(info.label)} <b>${esc(text)}</b></span>`;
+}
+
 function applyResultSort(arr){
  const mode = (document.getElementById("sortMode")?.value) || "default";
  const list = (arr || []).slice();
@@ -15725,6 +15765,7 @@ function renderResults(arr){
           const rarS = c.rarity || (c.details||{}).rarity || "";
           return (rarS ? `<span class="char-rarity ${rarityClass(rarS)}">${esc(rarS)}</span>` : "")
             + (typeof pickupNowBadgeHtml==="function" ? pickupNowBadgeHtml(c) : "")
+            + (typeof formatSortStatBadgeHtml==="function" ? formatSortStatBadgeHtml(c) : "")
             + (epi ? `<div class="char-epithet">${highlightText(epi, hlTerms)}</div>` : "")
             + metaHtml;
         })()
@@ -15734,6 +15775,7 @@ function renderResults(arr){
        return `<div class="bento-meta-row">`
         + (rar ? `<span class="char-rarity ${rarityClass(rar)}">${esc(rar)}</span>` : "")
         + (typeof pickupNowBadgeHtml==="function" ? pickupNowBadgeHtml(c) : "")
+        + (typeof formatSortStatBadgeHtml==="function" ? formatSortStatBadgeHtml(c) : "")
         + (links.length ? links.map(x=>linkTagHtml(x)).join("") : "")
         + `</div>`
         + (epi ? `<div class="char-epithet">${highlightText(epi, hlTerms)}</div>` : "")
