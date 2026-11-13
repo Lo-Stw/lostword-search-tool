@@ -4412,7 +4412,7 @@ function loadPackToForm(pack){
   ensureDDSpecial();
  }
  else { resetSpecialData(); }
- if(p.abilities) abilityData = JSON.parse(JSON.stringify(p.abilities));
+ if(p.abilities) abilityData = normalizeAbilityData(JSON.parse(JSON.stringify(p.abilities)));
  else { resetAbilityData(); }
  if(p.attacks){
   attackData = JSON.parse(JSON.stringify(p.attacks));
@@ -6652,6 +6652,23 @@ function resetAbilityData(){
  };
 }
 resetAbilityData();
+
+function normalizeAbilityData(a){
+ if(!a || typeof a !== "object"){
+  resetAbilityData();
+  return abilityData;
+ }
+ if(!a.damageDown || typeof a.damageDown !== "object") a.damageDown = { good:"", bad:"" };
+ if(!a.damageTakenUp || typeof a.damageTakenUp !== "object") a.damageTakenUp = { good:"", bad:"" };
+ if(!a.damageUp || typeof a.damageUp !== "object") a.damageUp = { good:"", bad:"" };
+ if(a.damageUp.good == null) a.damageUp.good = "";
+ if(a.damageUp.bad == null) a.damageUp.bad = "";
+ if(!a.boost || typeof a.boost !== "object") a.boost = { enabled:false, target:"自身", stat:"" };
+ if(!a.graze || typeof a.graze !== "object") a.graze = { enabled:false, target:"自身", stat:"" };
+ if(!a.conversion || typeof a.conversion !== "object") a.conversion = {};
+ if(!a.immunity || typeof a.immunity !== "object") a.immunity = {};
+ return a;
+}
 
 /* =========================================================
    ユーティリティ
@@ -10683,16 +10700,35 @@ function bindAbilityUI(){
  const dtuBad = document.getElementById("damageTakenUpBad");
  if(dtuGood) dtuGood.oninput=e=>{ if(!abilityData.damageTakenUp) abilityData.damageTakenUp={good:"",bad:""}; abilityData.damageTakenUp.good=e.target.value; };
  if(dtuBad) dtuBad.oninput=e=>{ if(!abilityData.damageTakenUp) abilityData.damageTakenUp={good:"",bad:""}; abilityData.damageTakenUp.bad=e.target.value; };
- document.getElementById("powerGood").oninput=e=>{ abilityData.damageUp.good=e.target.value; };
- document.getElementById("powerBad").oninput=e=>{ abilityData.damageUp.bad=e.target.value; };
+ const ensureDamageUp = ()=>{
+  if(!abilityData.damageUp || typeof abilityData.damageUp !== "object") abilityData.damageUp = { good:"", bad:"" };
+  if(abilityData.damageUp.good == null) abilityData.damageUp.good = "";
+  if(abilityData.damageUp.bad == null) abilityData.damageUp.bad = "";
+ };
+ const powerGood = document.getElementById("powerGood");
+ const powerBad = document.getElementById("powerBad");
+ if(powerGood) powerGood.oninput=e=>{ ensureDamageUp(); abilityData.damageUp.good=e.target.value; };
+ if(powerBad) powerBad.oninput=e=>{ ensureDamageUp(); abilityData.damageUp.bad=e.target.value; };
 
- document.getElementById("boostTargetSelf").onclick=()=>{ abilityData.boost.target="自身"; setTargetButtons("boostTargetSelf","boostTargetAll"); };
- document.getElementById("boostTargetAll").onclick=()=>{ abilityData.boost.target="味方全体"; setTargetButtons("boostTargetAll","boostTargetSelf"); };
- document.getElementById("boostStat").onchange=e=>{ abilityData.boost.stat=e.target.value; };
+ const ensureBoost = ()=>{
+  if(!abilityData.boost || typeof abilityData.boost !== "object") abilityData.boost = { enabled:false, target:"味方全体", stat:"" };
+ };
+ const ensureGraze = ()=>{
+  if(!abilityData.graze || typeof abilityData.graze !== "object") abilityData.graze = { enabled:false, target:"味方全体", stat:"" };
+ };
+ const bts = document.getElementById("boostTargetSelf");
+ const bta = document.getElementById("boostTargetAll");
+ const bs = document.getElementById("boostStat");
+ if(bts) bts.onclick=()=>{ ensureBoost(); abilityData.boost.target="自身"; setTargetButtons("boostTargetSelf","boostTargetAll"); };
+ if(bta) bta.onclick=()=>{ ensureBoost(); abilityData.boost.target="味方全体"; setTargetButtons("boostTargetAll","boostTargetSelf"); };
+ if(bs) bs.onchange=e=>{ ensureBoost(); abilityData.boost.stat=e.target.value; };
 
- document.getElementById("grazeTargetSelf").onclick=()=>{ abilityData.graze.target="自身"; setTargetButtons("grazeTargetSelf","grazeTargetAll"); };
- document.getElementById("grazeTargetAll").onclick=()=>{ abilityData.graze.target="味方全体"; setTargetButtons("grazeTargetAll","grazeTargetSelf"); };
- document.getElementById("grazeStat").onchange=e=>{ abilityData.graze.stat=e.target.value; };
+ const gts = document.getElementById("grazeTargetSelf");
+ const gta = document.getElementById("grazeTargetAll");
+ const gs = document.getElementById("grazeStat");
+ if(gts) gts.onclick=()=>{ ensureGraze(); abilityData.graze.target="自身"; setTargetButtons("grazeTargetSelf","grazeTargetAll"); };
+ if(gta) gta.onclick=()=>{ ensureGraze(); abilityData.graze.target="味方全体"; setTargetButtons("grazeTargetAll","grazeTargetSelf"); };
+ if(gs) gs.onchange=e=>{ ensureGraze(); abilityData.graze.stat=e.target.value; };
 }
 
 function setTargetButtons(on,off){
