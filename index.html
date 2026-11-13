@@ -16456,10 +16456,24 @@ function isStatementTimeoutError(e){
  return msg.includes("57014") || /statement timeout/i.test(msg) || /canceling statement/i.test(msg);
 }
 
+async function loadJSZipLib(){
+ if(typeof window !== "undefined" && window.JSZip) return window.JSZip;
+ await new Promise((resolve, reject)=>{
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+  s.async = true;
+  s.onload = ()=> resolve();
+  s.onerror = ()=> reject(new Error("JSZipの読み込みに失敗しました"));
+  document.head.appendChild(s);
+ });
+ if(!window.JSZip) throw new Error("JSZipが利用できません");
+ return window.JSZip;
+}
+
 async function loadFromStaticCharacters(){
- const tryFetchJson = async (url)=>{
+ const tryFetch = async (url)=>{
   const r = await fetch(url, {
-   headers: { "Accept": "application/json" },
+   headers: { "Accept": "*/*" },
    cache: "default"
   });
   if(!r.ok){
@@ -16467,16 +16481,38 @@ async function loadFromStaticCharacters(){
    err.status = r.status;
    throw err;
   }
-  return await r.json();
+  return r;
  };
 
- // 分割マニフェスト優先
+ // 1) 1ファイルZIP（推奨）
  try{
-  const man = await tryFetchJson("characters.manifest.json");
+  const r = await tryFetch("characters.zip");
+  const buf = await r.arrayBuffer();
+  const JSZip = await loadJSZipLib();
+  const zip = await JSZip.loadAsync(buf);
+  let file = zip.file("characters.json");
+  if(!file){
+   const names = Object.keys(zip.files || {}).filter(n => /\.json$/i.test(n) && !zip.files[n].dir);
+   if(names.length) file = zip.file(names[0]);
+  }
+  if(!file) throw new Error("zip内にjsonがありません");
+  const text = await file.async("string");
+  const all = JSON.parse(text);
+  if(!Array.isArray(all)) throw new Error("characters.zip 内のJSONが配列ではありません");
+  return all;
+ }catch(e){
+  if(!(e && e.status === 404)) console.warn("characters.zip:", e && e.message);
+ }
+
+ // 2) 分割マニフェスト
+ try{
+  const r = await tryFetch("characters.manifest.json");
+  const man = await r.json();
   if(man && Array.isArray(man.parts) && man.parts.length){
    const parts = [];
    for(const p of man.parts){
-    const chunk = await tryFetchJson(String(p));
+    const rr = await tryFetch(String(p));
+    const chunk = await rr.json();
     if(Array.isArray(chunk)) parts.push(...chunk);
     else throw new Error(String(p) + " が配列ではありません");
    }
@@ -16486,7 +16522,9 @@ async function loadFromStaticCharacters(){
   if(!(e && e.status === 404)) console.warn("manifest:", e && e.message);
  }
 
- const all = await tryFetchJson(CHAR_STATIC_URL);
+ // 3) 単体JSON
+ const r3 = await tryFetch(CHAR_STATIC_URL);
+ const all = await r3.json();
  if(!Array.isArray(all)) throw new Error("characters.json が配列ではありません");
  return all;
 }
@@ -16578,7 +16616,7 @@ async function load(opts){
   buildFilters();
   saveDataCache();
   if(el){
-   const srcLabel = source === "static" ? "静的JSON" : (source === "supabase" ? "Supabase" : "");
+   const srcLabel = source === "static" ? "静的ファイル" : (source === "supabase" ? "Supabase" : "");
    el.innerHTML =
     `<div class="loading">データを読み込みました（${data.length}件${srcLabel ? "・" + srcLabel : ""}）。条件を選んで「検索する」を押してください</div>`;
   }
@@ -16667,22 +16705,53 @@ async function exportCharactersJson(){
   if(el) el.innerHTML = `<div class="loading">JSON書き出し準備中… 0/${data.length}</div>`;
   await new Promise(r=>setTimeout(r, 20));
 
-  const MAX = 10 * 1024 * 1024; // 10MB目安（25MB制限より十分小さく）
   const pieces = [];
   for(let i=0;i<data.length;i++){
    let c = data[i];
    try{ c = compactJsonValue(c); }catch(e){ c = data[i]; }
    if(c == null) continue;
-   let s;
-   try{ s = JSON.stringify(c); }catch(e){ continue; }
-   pieces.push(s);
-   if(i % 30 === 0){
+   try{ pieces.push(JSON.stringify(c)); }catch(e){}
+   if(i % 40 === 0){
     if(el) el.innerHTML = `<div class="loading">JSON書き出し準備中… ${i+1}/${data.length}</div>`;
     await new Promise(r=>setTimeout(r, 0));
    }
   }
+  const fullText = "[" + pieces.join(",") + "]";
+  const rawMB = (utf8SizeApprox(fullText)/1024/1024);
 
-  // パートに詰める（各キャラは1回だけstringify済み）
+  // 推奨: ZIP 1ファイル
+  try{
+   if(el) el.innerHTML = `<div class="loading">ZIPに圧縮中…（元データ約 ${rawMB.toFixed(1)}MB）</div>`;
+   await new Promise(r=>setTimeout(r, 0));
+   const JSZip = await loadJSZipLib();
+   const zip = new JSZip();
+   zip.file("characters.json", fullText);
+   const blob = await zip.generateAsync({
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 }
+   });
+   const ObjURL = getDownloadObjectURL();
+   const objUrl = ObjURL.createObjectURL(blob);
+   const a = document.createElement("a");
+   a.href = objUrl;
+   a.download = "characters.zip";
+   document.body.appendChild(a);
+   a.click();
+   a.remove();
+   setTimeout(()=>{ try{ ObjURL.revokeObjectURL(objUrl); }catch(e){} }, 3000);
+   if(el) el.innerHTML = prevHtml;
+   const zipMB = (blob.size/1024/1024).toFixed(1);
+   alert("characters.zip を1つダウンロードしました（約 " + zipMB + "MB）。\\n" +
+    "GitHub の index.html と同じ場所に characters.zip だけ置いてください。\\n" +
+    "（古い part / manifest は不要です）");
+   return;
+  }catch(zipErr){
+   console.warn("ZIP失敗、分割にフォールバック:", zipErr);
+  }
+
+  // フォールバック: 分割JSON（ZIPが使えない環境）
+  const MAX = 10 * 1024 * 1024;
   const partStrings = [];
   let buf = [];
   let bufBytes = 2;
@@ -16698,22 +16767,14 @@ async function exportCharactersJson(){
    if(buf.length && bufBytes + add > MAX) flush();
    buf.push(s);
    bufBytes += add;
-   // 単体がMAX超でも1ファイルとして出す
-   if(buf.length === 1 && bufBytes > MAX){
-    console.warn("大きなキャラを単独ファイルにします", i);
-    flush();
-   }
   }
   flush();
-
   if(partStrings.length <= 1){
-   const text = partStrings[0] || "[]";
-   downloadTextFile("characters.json", text);
+   downloadTextFile("characters.json", partStrings[0] || "[]");
    if(el) el.innerHTML = prevHtml;
-   alert("characters.json をダウンロードしました（約 " + (utf8SizeApprox(text)/1024/1024).toFixed(1) + "MB）。");
+   alert("characters.json をダウンロードしました。");
    return;
   }
-
   const manifest = {
    version: 1,
    exportedAt: new Date().toISOString(),
@@ -16723,12 +16784,11 @@ async function exportCharactersJson(){
   downloadTextFile("characters.manifest.json", JSON.stringify(manifest));
   for(let i=0;i<partStrings.length;i++){
    if(el) el.innerHTML = `<div class="loading">ダウンロード中… ${i+1}/${partStrings.length}</div>`;
-   await new Promise(r=>setTimeout(r, 500));
+   await new Promise(r=>setTimeout(r, 450));
    downloadTextFile("characters.part" + i + ".json", partStrings[i]);
   }
   if(el) el.innerHTML = prevHtml;
-  const sizes = partStrings.map(t => (utf8SizeApprox(t)/1024/1024).toFixed(1) + "MB");
-  alert("分割書き出し完了（" + partStrings.length + "個 + manifest）\n目安: " + sizes.join(", ") + "\nすべて index.html と同じ場所に置いてください。");
+  alert("ZIPに失敗したため分割JSONで書き出しました（" + partStrings.length + "個）。");
  }catch(e){
   if(el) el.innerHTML = prevHtml;
   alert("書き出し失敗: " + (e.message||e));
