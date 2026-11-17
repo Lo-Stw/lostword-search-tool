@@ -1034,6 +1034,16 @@ body.theme-dark .attack-acc-body{background:#12171f !important}
  box-shadow:0 0 0 3px rgba(255,200,50,.4);
 }
 
+.bullet-type-icon.hl-match{
+ outline: 2px solid #ff9800;
+ box-shadow: 0 0 0 3px rgba(255,152,0,.35);
+ border-radius: 8px;
+}
+.tag.bullet.hl-match, .tag.hl-match.bullet{
+ background: #fff3e0 !important;
+ color: #e65100 !important;
+ box-shadow: 0 0 0 2px rgba(255,152,0,.5);
+}
 .bullet-type-icon{
  width:72px;min-width:72px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
  padding:8px 6px;
@@ -2784,8 +2794,11 @@ body.theme-dark .bullet-size-btns button.active{
 <div id="fSpecial" class="buttons"></div>
 </div>
 <div class="hidden" id="specialTargetSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
-<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象種族・部分一致）</div>
-<input id="fSpecialTarget" class="input" placeholder="例：妖怪、妖精、人間">
+<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象）</div>
+<div class="mini" style="margin-bottom:4px;">候補（・で区切られた対象）</div>
+<div id="fSpecialTargetChips" class="buttons" style="margin-bottom:8px;"></div>
+<div class="mini" style="margin-bottom:4px;">フリー入力（部分一致・任意）</div>
+<input id="fSpecialTarget" class="input" placeholder="例：妖怪">
 </div>
 <div class="hidden" id="hardRatioSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
 <div class="mini" style="margin-bottom:6px;color:#666;">硬質弾の倍率（%）</div>
@@ -2796,6 +2809,12 @@ body.theme-dark .bullet-size-btns button.active{
 </select>
 <input id="fHardRatio" class="input" type="number" placeholder="例：50" style="flex:1;min-width:100px">
 </div>
+<div class="mini" style="margin:8px 0 4px;color:#666;">並び替え（キャラ内の最高倍率）</div>
+<select id="fHardRatioSort" class="select" style="width:auto;min-width:160px">
+<option value="">指定なし</option>
+<option value="desc">倍率が高い順</option>
+<option value="asc">倍率が低い順</option>
+</select>
 </div>
 <div class="hidden" id="sharpRatioSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
 <div class="mini" style="margin-bottom:6px;color:#666;">斬裂弾の倍率（%）</div>
@@ -2806,6 +2825,13 @@ body.theme-dark .bullet-size-btns button.active{
 </select>
 <input id="fSharpRatio" class="input" type="number" placeholder="例：50" style="flex:1;min-width:100px">
 </div>
+<div class="mini" style="margin:8px 0 4px;color:#666;">並び替え（キャラ内の最高倍率）</div>
+<select id="fSharpRatioSort" class="select" style="width:auto;min-width:160px">
+<option value="">指定なし</option>
+<option value="desc">倍率が高い順</option>
+<option value="asc">倍率が低い順</option>
+</select>
+</div>
 </div>
 </div>
 </div>
@@ -2815,7 +2841,17 @@ body.theme-dark .bullet-size-btns button.active{
 <div class="acc-body">
 <div id="fChar" class="buttons"></div>
 <div class="hidden" id="banReleaseSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
-<div class="mini" style="margin-bottom:6px;color:#666;">禁止解除の詳細（スキル／スペカそれぞれ）</div>
+<div class="mini" style="margin-bottom:6px;color:#666;font-weight:700;">禁止解除の詳細</div>
+<div class="mini" style="margin-bottom:4px;">種類（未選択なら両方）</div>
+<div class="row" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+    <input type="checkbox" id="fBanNormal"> 通常の禁止解除
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+    <input type="checkbox" id="fBanDuration"> 持続の禁止解除
+  </label>
+</div>
+<div class="mini" style="margin-bottom:6px;color:#666;">通常解除の箇所・個数（スキル／スペカ）</div>
 <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
   <div style="flex:1;min-width:140px">
     <label style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
@@ -3641,11 +3677,15 @@ function getBulletTypeIconUrl(type){
  return "";
 }
 function renderBulletTypeIconHtml(type){
+ const matched = (typeof isFilterMatch === "function")
+  ? isFilterMatch(type, (typeof selected !== "undefined" && selected) ? selected.bullet : [])
+  : false;
+ const hl = matched ? " hl-match" : "";
  const url = getBulletTypeIconUrl(type);
  if(!url){
-  return `<div class="bullet-type-icon bullet-type-icon-empty" title="${esc(type||"")}"></div>`;
+  return `<div class="bullet-type-icon bullet-type-icon-empty${hl}" title="${esc(type||"")}"></div>`;
  }
- return `<div class="bullet-type-icon" title="${esc(type||"")}"><img src="${url}" alt="${esc(type||"")}" loading="lazy"></div>`;
+ return `<div class="bullet-type-icon${hl}" title="${esc(type||"")}"><img src="${url}" alt="${esc(type||"")}" loading="lazy"></div>`;
 }
 
 
@@ -3657,6 +3697,21 @@ const ATTACKS=[
 ["spell2","スペルカード2"],
 ["lastWord","LASTWORD"]
 ];
+/** 検索用攻撃種（スペカ1・2は「スペルカード」に統一） */
+const SEARCH_ATTACK_LABELS=["拡散ショット","集中ショット","スペルカード","LASTWORD"];
+function expandAttackSearchLabels(labels){
+ const out = [];
+ (labels||[]).forEach(x=>{
+  if(x === "スペルカード"){ out.push("スペルカード1","スペルカード2","スペルカード"); }
+  else out.push(x);
+ });
+ return out;
+}
+function attackLabelMatchesSearch(attackLabel, selectedAttack, mode){
+ if(!(selectedAttack&&selectedAttack.length)) return true;
+ const expanded = expandAttackSearchLabels(selectedAttack);
+ return matchArray(expanded, [attackLabel], mode);
+}
 const BOOST_PATTERNS = [
  ["3-1-1", [3,1,1]],
  ["2-2-1", [2,2,1]],
@@ -4026,15 +4081,9 @@ const SPECIAL_SKILLS=[
 "全体耐性ダウン","持続","永続バフ","永続デバフ","ダメージ軽減"
 ];
 
-/** 検索用（編集リストに出さない追加項目） */
-const SEARCH_SPECIAL_EXTRA = ["持続(禁止解除)"];
-const SEARCH_SPECIAL_SKILLS = (function(){
-  const arr = SPECIAL_SKILLS.slice();
-  const i = arr.indexOf("禁止解除");
-  if(i >= 0) arr.splice(i + 1, 0, "持続(禁止解除)");
-  else arr.push("持続(禁止解除)");
-  return arr;
-})();
+/** 検索用（編集リストに出さない追加項目）※持続の禁止解除は「禁止解除」詳細から選択 */
+const SEARCH_SPECIAL_EXTRA = [];
+const SEARCH_SPECIAL_SKILLS = SPECIAL_SKILLS.slice();
 function hasDurationBanRelease(ss){
   const d = ss && ss["持続"];
   if(!d || !d.enabled) return false;
@@ -4089,6 +4138,7 @@ const AB_CONV_KINDS=["攻Rank上昇","防Rank上昇","速Rank上昇","霊力上�
 const AB_IMM_KINDS=["効果無効","無効（かからない）","反射"];
 const REBIRTH_FILTERS=["実装済","未実装"];
 const RARITIES=["恒常","恒常落ち","フェス限定","Aフェス限定","超フェス限定","レリック","ジェニック","エピック","EXフェス","白フェス","黒フェス","PHフェス","ゆっくり","文の特ダネ帖"];
+if(typeof selected!=="undefined"&&selected) selected.rarity=RARITIES.slice();
 /** キャラ区分の並び順 */
 const RARITY_ORDER=["恒常","恒常落ち","フェス限定","Aフェス限定","超フェス限定","レリック","ジェニック","エピック","EXフェス","白フェス","黒フェス","PHフェス","ゆっくり","文の特ダネ帖"];
 /** 原作登場作品順 */
@@ -4994,9 +5044,107 @@ function formatSortStatBadgeHtml(c){
  return `<span class="sort-stat-badge" title="並び替え基準">${esc(info.label)} <b>${esc(text)}</b></span>`;
 }
 
+
+function getCharMaxBulletRatio(c, kind){
+ if(!c) return null;
+ const specialName = kind === "sharp" ? "斬裂弾" : "硬質弾";
+ const prop = kind === "sharp" ? "sharpRatio" : "hardRatio";
+ let max = null;
+ const consider = (v)=>{
+  if(v === undefined || v === null || v === "") return;
+  const n = Number(v);
+  if(!Number.isFinite(n)) return;
+  if(max == null || n > max) max = n;
+ };
+ const scanBullet = (b)=>{
+  if(!b || typeof b !== "object") return;
+  consider(b[prop]);
+  const specs = b.specials;
+  if(!specs) return;
+  if(Array.isArray(specs)){
+   specs.forEach(sp=>{
+    if(!sp) return;
+    const nm = sp.name || sp;
+    if(nm === specialName) consider(sp.ratio != null ? sp.ratio : b[prop]);
+   });
+  }else if(typeof specs === "object"){
+   if(specs[specialName]){
+    const sp = specs[specialName];
+    if(sp && typeof sp === "object") consider(sp.ratio != null ? sp.ratio : b[prop]);
+    else consider(b[prop]);
+   }
+  }
+ };
+ const scanAttacks = (attacks)=>{
+  if(!attacks || typeof attacks !== "object") return;
+  Object.keys(attacks).forEach(k=>{
+   const a = attacks[k];
+   if(!a) return;
+   (Array.isArray(a.bullets) ? a.bullets : []).forEach(scanBullet);
+  });
+ };
+ scanAttacks(c.attacks);
+ const d = (c.details && typeof c.details === "object") ? c.details : {};
+ if(d.attacks) scanAttacks(d.attacks);
+ if(d.before && d.before.attacks) scanAttacks(d.before.attacks);
+ if(d.after && d.after.attacks) scanAttacks(d.after.attacks);
+ if(d.rebirth){
+  if(d.rebirth.before && d.rebirth.before.attacks) scanAttacks(d.rebirth.before.attacks);
+  if(d.rebirth.after && d.rebirth.after.attacks) scanAttacks(d.rebirth.after.attacks);
+ }
+ try{
+  if(typeof getViewModel === "function"){
+   const vm = getViewModel(c);
+   if(vm && vm.attacks) scanAttacks(vm.attacks);
+  }
+ }catch(e){}
+ return max;
+}
+
+function getActiveHardSharpRatioSort(){
+ const hardOn = (typeof selected !== "undefined" && selected.special && selected.special.includes("硬質弾"));
+ const sharpOn = (typeof selected !== "undefined" && selected.special && selected.special.includes("斬裂弾"));
+ const hardSort = (document.getElementById("fHardRatioSort")?.value || "").trim();
+ const sharpSort = (document.getElementById("fSharpRatioSort")?.value || "").trim();
+ const out = [];
+ if(hardOn && hardSort) out.push({ kind:"hard", dir: hardSort, label:"硬質" });
+ if(sharpOn && sharpSort) out.push({ kind:"sharp", dir: sharpSort, label:"斬裂" });
+ return out;
+}
+
+function formatHardSharpRatioBadgeHtml(c){
+ if(!c || typeof selected === "undefined" || !selected.special) return "";
+ const parts = [];
+ if(selected.special.includes("硬質弾")){
+  const v = getCharMaxBulletRatio(c, "hard");
+  parts.push(`硬質 <b>${v == null ? "—" : (v + "%")}</b>`);
+ }
+ if(selected.special.includes("斬裂弾")){
+  const v = getCharMaxBulletRatio(c, "sharp");
+  parts.push(`斬裂 <b>${v == null ? "—" : (v + "%")}</b>`);
+ }
+ if(!parts.length) return "";
+ return `<span class="sort-stat-badge hard-sharp-ratio-badge" title="このキャラの最高倍率">${parts.join(" / ")}</span>`;
+}
+
 function applyResultSort(arr){
- const mode = (document.getElementById("sortMode")?.value) || "default";
  const list = (arr || []).slice();
+ // 硬質・斬裂の倍率並び（特殊弾選択時）
+ const hsSorts = (typeof getActiveHardSharpRatioSort === "function") ? getActiveHardSharpRatioSort() : [];
+ if(hsSorts.length){
+  list.sort((a,b)=>{
+   for(const s of hsSorts){
+    const va = getCharMaxBulletRatio(a, s.kind);
+    const vb = getCharMaxBulletRatio(b, s.kind);
+    const aMiss = va == null, bMiss = vb == null;
+    if(aMiss !== bMiss) return aMiss ? 1 : -1;
+    if(va !== vb) return s.dir === "desc" ? (vb - va) : (va - vb);
+   }
+   try{ return getKanaSortKey(a).localeCompare(getKanaSortKey(b), "ja"); }catch(e){ return 0; }
+  });
+  return list;
+ }
+ const mode = (document.getElementById("sortMode")?.value) || "default";
  const defaultRank = (mode === "default" || mode === "origin")
   ? buildDefaultRankMap(data)
   : null;
@@ -6743,8 +6891,7 @@ function getSearchHighlightTerms(){
  const addArr = (arr)=>{ (arr||[]).forEach(x=>{ if(x) terms.push(String(x)); }); };
  if(typeof selected !== "undefined" && selected){
   addArr(selected.special);
-  addArr(selected.bullet);
-  addArr(selected.attr);
+  // 弾種・属性は名前への誤ハイライトを避けるためここでは入れない（表示箇所側で個別に光らせる）
   addArr(selected.char);
   addArr(selected.type);
   addArr(selected.range);
@@ -6754,6 +6901,12 @@ function getSearchHighlightTerms(){
   addArr(selected.link);
  }
  return [...new Set(terms)].sort((a,b)=>b.length-a.length);
+}
+function getBulletTypeHighlightTerms(){
+ return [...new Set((typeof selected !== "undefined" && selected && selected.bullet) ? selected.bullet.map(String) : [])];
+}
+function getAttrHighlightTerms(){
+ return [...new Set((typeof selected !== "undefined" && selected && selected.attr) ? selected.attr.map(String) : [])];
 }
 function isFilterMatch(value, list){
  if(value == null || value === "") return false;
@@ -7823,7 +7976,7 @@ function updateAbilityDetailVisibility(){
 
 function buildFilters(){
  chips("fType", TYPES, selected.type, (x,b)=>toggle(selected.type,x,b));
- chips("fAttack", ATTACKS.map(x=>x[1]), selected.attack, (x,b)=>toggle(selected.attack,x,b));
+ chips("fAttack", (typeof SEARCH_ATTACK_LABELS!=="undefined"?SEARCH_ATTACK_LABELS:ATTACKS.map(x=>x[1])), selected.attack, (x,b)=>toggle(selected.attack,x,b));
  chips("fRange", RANGES, selected.range, (x,b)=>toggle(selected.range,x,b));
  chips("fAttr", ATTR, selected.attr, (x,b)=>toggle(selected.attr,x,b), { attrColor:true });
  chips("fBullet", BULLETS, selected.bullet, (x,b)=>toggle(selected.bullet,x,b), { bulletIcon:true });
@@ -14221,7 +14374,7 @@ function matchArray(sel, vals, currentMode) {
 }
 
 function checkAttackMatch(a, attackLabel, attackKey) {
- if (selected.attack.length && !matchArray(selected.attack, [attackLabel], mode)) return false;
+ if (selected.attack.length && !(typeof attackLabelMatchesSearch==="function" ? attackLabelMatchesSearch(attackLabel, selected.attack, mode) : matchArray(selected.attack, [attackLabel], mode))) return false;
  if (selected.range.length && !matchArray(selected.range, [a.range], mode)) return false;
  if (selected.attr.length) {
   let allAttrs = [...(a.attributes || [])];
@@ -14247,13 +14400,39 @@ function checkAttackMatch(a, attackLabel, attackKey) {
 
  // 特攻弾の対象種族
  const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim().toLowerCase();
- if (spTarget) {
+ const spTargetChips = (selected.specialTargets || []).map(x => String(x).trim()).filter(Boolean);
+ if (spTarget || spTargetChips.length) {
+  const bulletTargetText = (b)=>{
+   if(!b) return "";
+   let t = String(b.specialTarget || "");
+   const specs = b.specials;
+   if(Array.isArray(specs)){
+    specs.forEach(sp=>{
+     if(sp && (sp.name === "特攻弾") && sp.detail) t += "・" + sp.detail;
+     if(sp && (sp.name === "特攻弾") && sp.target) t += "・" + sp.target;
+    });
+   }
+   return t;
+  };
+  const matchOne = (text)=>{
+   const raw = String(text || "");
+   const low = raw.toLowerCase();
+   if(spTarget && !low.includes(spTarget)) return false;
+   if(spTargetChips.length){
+    // 候補はトークン一致（・区切り単位）または部分一致
+    const tokens = (typeof splitSpecialTargetTokens === "function")
+     ? splitSpecialTargetTokens(raw)
+     : raw.split(/[・、,，]+/).map(x=>x.trim()).filter(Boolean);
+    const ok = spTargetChips.some(ch => tokens.includes(ch) || raw.includes(ch));
+    if(!ok) return false;
+   }
+   return true;
+  };
   const hit = (a.bullets || []).some(b =>
-   b && b.specials && b.specials["特攻弾"] &&
-   b.specialTarget && String(b.specialTarget).toLowerCase().includes(spTarget)
+   b && b.specials && (b.specials["特攻弾"] || (Array.isArray(b.specials) && b.specials.some(s=>s&&s.name==="特攻弾"))) &&
+   matchOne(bulletTargetText(b))
   );
-  const hitAtt = !!(a.specials && a.specials["特攻弾"] && a.specialTarget &&
-   String(a.specialTarget).toLowerCase().includes(spTarget));
+  const hitAtt = !!(a.specials && a.specials["特攻弾"] && matchOne(a.specialTarget || ""));
   if (!hit && !hitAtt) return false;
  }
 
@@ -14375,6 +14554,82 @@ function isStatSearchActive(){
 
 
 
+
+function splitSpecialTargetTokens(str){
+ const s = String(str || "").trim();
+ if(!s) return [];
+ return s.split(/[・、,，/／\n]+/).map(t => t.trim()).filter(t => t && t !== "・");
+}
+function collectSpecialTargetCandidates(){
+ const set = new Set();
+ const add = (t)=>{ t = String(t||"").trim(); if(t && t !== "・") set.add(t); };
+ const scanBullet = (b)=>{
+  if(!b) return;
+  if(b.specialTarget) splitSpecialTargetTokens(b.specialTarget).forEach(add);
+  const specs = b.specials;
+  if(Array.isArray(specs)){
+   specs.forEach(sp=>{
+    if(!sp) return;
+    if((sp.name || sp) !== "特攻弾") return;
+    if(Array.isArray(sp.targets)) sp.targets.forEach(add);
+    if(sp.target) splitSpecialTargetTokens(sp.target).forEach(add);
+    if(sp.detail) splitSpecialTargetTokens(sp.detail).forEach(add);
+   });
+  }else if(specs && typeof specs === "object" && specs["特攻弾"]){
+   const sp = specs["特攻弾"];
+   if(typeof sp === "string") splitSpecialTargetTokens(sp).forEach(add);
+   else if(sp && typeof sp === "object"){
+    if(sp.detail) splitSpecialTargetTokens(sp.detail).forEach(add);
+    if(sp.target) splitSpecialTargetTokens(sp.target).forEach(add);
+   }
+  }
+ };
+ const scanAttacks = (attacks)=>{
+  if(!attacks || typeof attacks !== "object") return;
+  Object.keys(attacks).forEach(k=>{
+   const a = attacks[k];
+   (a && Array.isArray(a.bullets) ? a.bullets : []).forEach(scanBullet);
+  });
+ };
+ (data || []).forEach(c=>{
+  if(!c) return;
+  scanAttacks(c.attacks);
+  const d = c.details || {};
+  scanAttacks(d.attacks);
+  if(d.before) scanAttacks(d.before.attacks);
+  if(d.after) scanAttacks(d.after.attacks);
+  if(d.rebirth){
+   if(d.rebirth.before) scanAttacks(d.rebirth.before.attacks);
+   if(d.rebirth.after) scanAttacks(d.rebirth.after.attacks);
+  }
+ });
+ return [...set].sort((a,b)=> a.localeCompare(b, "ja"));
+}
+function renderSpecialTargetChips(){
+ const box = document.getElementById("fSpecialTargetChips");
+ if(!box) return;
+ if(!Array.isArray(selected.specialTargets)) selected.specialTargets = [];
+ const cands = collectSpecialTargetCandidates();
+ if(!cands.length){
+  box.innerHTML = `<span class="mini" style="opacity:.7">候補なし</span>`;
+  return;
+ }
+ box.innerHTML = cands.map(t=>{
+  const on = selected.specialTargets.indexOf(t) >= 0;
+  return `<button type="button" class="filter${on?" on":""}" data-st-target="${esc(t)}">${esc(t)}</button>`;
+ }).join("");
+ box.querySelectorAll("[data-st-target]").forEach(btn=>{
+  btn.onclick = ()=>{
+   const t = btn.getAttribute("data-st-target") || "";
+   if(!t) return;
+   const i = selected.specialTargets.indexOf(t);
+   if(i >= 0) selected.specialTargets.splice(i, 1);
+   else selected.specialTargets.push(t);
+   renderSpecialTargetChips();
+  };
+ });
+}
+
 function updateSpecialTargetVisibility(){
  const sec = document.getElementById("specialTargetSection");
  if(sec){
@@ -14383,6 +14638,9 @@ function updateSpecialTargetVisibility(){
   if(!show){
    const el = document.getElementById("fSpecialTarget");
    if(el) el.value = "";
+   if(selected.specialTargets) selected.specialTargets.splice(0);
+  }else if(typeof renderSpecialTargetChips === "function"){
+   renderSpecialTargetChips();
   }
  }
  const hardSec = document.getElementById("hardRatioSection");
@@ -14401,6 +14659,8 @@ function updateSpecialTargetVisibility(){
   if(!showS){
    const el = document.getElementById("fSharpRatio");
    if(el) el.value = "";
+   const es = document.getElementById("fSharpRatioSort");
+   if(es) es.value = "";
   }
  }
 }
@@ -14499,12 +14759,26 @@ function analyzeSearchMatchSides(c){
    const ss = pack.specialSkills || {};
    collectActiveSpecialLabels(ss).forEach(x=>{ if(!activeChars.includes(x)) activeChars.push(x); });
    if(!matchArray(selected.char, activeChars, mode)) return false;
-   if(selected.char.includes("禁止解除")){
+   if(selected.char.includes("禁止解除") || selected.char.includes("持続(禁止解除)")){
+    const wantNormal = !!document.getElementById("fBanNormal")?.checked;
+    const wantDur = !!document.getElementById("fBanDuration")?.checked;
+    const hasNormal = !!(ss && ss["禁止解除"] && ss["禁止解除"].enabled);
+    const hasDur = (typeof hasDurationBanRelease === "function") && hasDurationBanRelease(ss);
+    if(wantNormal && !wantDur && !hasNormal) return false;
+    if(wantDur && !wantNormal && !hasDur) return false;
+    if(wantNormal && wantDur && !hasNormal && !hasDur) return false;
+    // 旧「持続(禁止解除)」単独選択
+    if(selected.char.includes("持続(禁止解除)") && !selected.char.includes("禁止解除") && !hasDur) return false;
     const hasDetail = document.getElementById("fBanSkill")?.checked
      || document.getElementById("fBanSpell")?.checked
      || (document.getElementById("fBanSkillCount")?.value||"").trim()
      || (document.getElementById("fBanSpellCount")?.value||"").trim();
-    if(hasDetail && !matchBanReleaseDetail(ss)) return false;
+    // 個数指定は通常の禁止解除に対して判定
+    if(hasDetail){
+     if(wantDur && !wantNormal){
+      // 持続のみ指定時は個数条件を無視
+     }else if(!matchBanReleaseDetail(ss)) return false;
+    }
    }
    if(typeof matchSkillDetailFilters === "function"){
     const mergedSs = (typeof mergeSpecialSkillsForMatch === "function")
@@ -15326,8 +15600,9 @@ function search(skipHistory) {
   }
 
   if (selected.rarity.length) {
+   // レアリティはAND/OR切替の影響を受けない（選択中のものだけ表示＝OR）
    const r = c.rarity || (c.details||{}).rarity || "";
-   if (!matchArray(selected.rarity, r ? [r] : [], mode)) return false;
+   if (!r || selected.rarity.indexOf(r) < 0) return false;
   }
 
   if (selected.link.length) {
@@ -15749,7 +16024,7 @@ function renderSearchAttackCard(characterId, attackKey, attack, label){
   const extra = lean ? "" : `
     ${getBuffDebuffHtml(attack)}
     ${isSupport ? "" : (attack.attributes||[]).map(x=>`<span class="tag attr">属性：${esc(x)}</span>`).join("")}
-    ${isSupport ? "" : (attack.bulletTypes||[]).map(x=>`<span class="tag bullet">${esc(x)}</span>`).join("")}
+    ${isSupport ? "" : (attack.bulletTypes||[]).map(x=>`<span class="tag bullet${isFilterMatch(x, selected.bullet)?" hl-match":""}">${esc(x)}</span>`).join("")}
     ${isSupport ? "" : Object.keys(attack.specials||{}).filter(x=>attack.specials[x]).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}
   `;
   return `
@@ -15802,6 +16077,7 @@ function renderResults(arr){
           return (rarS ? `<span class="char-rarity ${rarityClass(rarS)}">${esc(rarS)}</span>` : "")
             + (typeof pickupNowBadgeHtml==="function" ? pickupNowBadgeHtml(c) : "")
             + (typeof formatSortStatBadgeHtml==="function" ? formatSortStatBadgeHtml(c) : "")
+            + (typeof formatHardSharpRatioBadgeHtml==="function" ? formatHardSharpRatioBadgeHtml(c) : "")
             + (epi ? `<div class="char-epithet">${highlightText(epi, hlTerms)}</div>` : "")
             + metaHtml;
         })()
@@ -15812,6 +16088,7 @@ function renderResults(arr){
         + (rar ? `<span class="char-rarity ${rarityClass(rar)}">${esc(rar)}</span>` : "")
         + (typeof pickupNowBadgeHtml==="function" ? pickupNowBadgeHtml(c) : "")
         + (typeof formatSortStatBadgeHtml==="function" ? formatSortStatBadgeHtml(c) : "")
+        + (typeof formatHardSharpRatioBadgeHtml==="function" ? formatHardSharpRatioBadgeHtml(c) : "")
         + (links.length ? links.map(x=>linkTagHtml(x)).join("") : "")
         + `</div>`
         + (epi ? `<div class="char-epithet">${highlightText(epi, hlTerms)}</div>` : "")
@@ -16135,7 +16412,9 @@ function renderAttackDetailHtml(k, a, opts){
   opts = opts || {};
   const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
   const isSupport = a.range === "補助";
-  const hitAtk = isFilterMatch(label, selected.attack);
+  const hitAtk = (typeof attackLabelMatchesSearch==="function"
+    ? attackLabelMatchesSearch(label, selected.attack, "OR")
+    : isFilterMatch(label, selected.attack));
   const hitRange = isFilterMatch(a.range, selected.range);
   const bullets = (!isSupport && Array.isArray(a.bullets)) ? a.bullets.filter(b => b && (b.name || b.attr || b.bulletType || Object.keys(b.specials||{}).length)) : [];
   const bulletCount = bullets.length || (isSupport ? 0 : (a.bullets||[]).length);
@@ -18281,6 +18560,8 @@ document.getElementById("reset").onclick=()=>{
    if(Array.isArray(a)) a.splice(0);
    else if(typeof a === "string" || typeof a === "number") selected[k] = "";
   });
+  if(typeof RARITIES!=="undefined") selected.rarity = RARITIES.slice();
+  if(selected.specialTargets) selected.specialTargets.splice(0);
   ["fFavRatio","fUnfavRatio","fPersistBuffStage","fPersistDebuffStage","fResistStageInput"].forEach(id=>{
    const el=document.getElementById(id);
    if(el) el.value="";
