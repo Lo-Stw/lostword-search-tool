@@ -55,13 +55,21 @@
 }
 body{
  margin:0;
+ /* デフォルトはライト（和紙寄りの明るい背景） */
+ background:
+  radial-gradient(ellipse at 15% 0%, rgba(201,162,74,.12), transparent 45%),
+  radial-gradient(ellipse at 85% 10%, rgba(120,80,60,.08), transparent 40%),
+  linear-gradient(180deg, #f3ebe0 0%, #e8dfd0 55%, #e2d8c8 100%);
+ color:var(--lw-ink);
+ font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+ min-height:100vh
+}
+body.theme-dark{
  background:
   radial-gradient(ellipse at 20% 0%, rgba(120,60,90,.18), transparent 50%),
   radial-gradient(ellipse at 80% 20%, rgba(60,80,140,.15), transparent 45%),
   linear-gradient(180deg, #121826 0%, #0b101a 100%);
- color:var(--lw-ink);
- font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
- min-height:100vh
+ color:#e8e4dc
 }
 body::before{
  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.07;
@@ -1255,7 +1263,8 @@ body.theme-dark .attack-acc-body{background:#12171f !important}
 .msg{margin-top:10px;padding:10px;border-radius:10px;font-size:13px;white-space:pre-wrap;border:1px solid var(--lw-border)}
 .ok{background:#e4f6e7;color:#1b5e20}
 .err{background:#ffe5e5;color:#7f1010}
-.loading{text-align:center;padding:30px;color:#c8bba8;letter-spacing:.06em}
+.loading{text-align:center;padding:30px;color:#6b6258;letter-spacing:.06em}
+body.theme-dark .loading{color:#c8bba8}
 
 /* モーダル表示スタイル */
 .modal-overlay{
@@ -1276,11 +1285,16 @@ body.theme-dark .attack-acc-body{background:#12171f !important}
 
 footer{
  margin-top:30px;padding:22px 14px;text-align:center;
- font-size:11px;color:#b8ad9a;border-top:1px solid rgba(201,162,74,.25);
- background:linear-gradient(180deg, rgba(18,20,30,.9), rgba(10,12,18,.98));
+ font-size:11px;color:#6b6258;border-top:1px solid rgba(160,130,70,.35);
+ background:linear-gradient(180deg, rgba(247,241,228,.95), rgba(232,223,208,.98));
  line-height:1.7;position:relative;z-index:1
 }
-footer a{color:#e8d5a3;text-decoration:underline}
+footer a{color:#8a6914;text-decoration:underline}
+body.theme-dark footer{
+ color:#b8ad9a;border-top:1px solid rgba(201,162,74,.25);
+ background:linear-gradient(180deg, rgba(18,20,30,.9), rgba(10,12,18,.98));
+}
+body.theme-dark footer a{color:#e8d5a3}
 
 @media(max-width:600px){
  .row,.row3{grid-template-columns:1fr}
@@ -4118,7 +4132,7 @@ let beforePack=null;
 let afterPack=null;
 
 const selected={
- type:[], attack:[], range:[], attr:[], bullet:[], special:[], char:[], dd:[], ability:[], rarity:[], link:[], rebirth:[],
+ type:[], attack:[], range:[], attr:[], bullet:[], special:[], char:[], dd:[], ability:[], rarity:[], link:[], rebirth:[], specialTargets:[],
  ddKind:[], ddAttr:[], ddBullet:[],
  r2Source:[], r2Stat:[],
  abConvKind:[], abConvAbnormal:[], abImmKind:[], abImmAbnormal:[],
@@ -14400,38 +14414,20 @@ function checkAttackMatch(a, attackLabel, attackKey) {
 
  // 特攻弾の対象種族
  const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim().toLowerCase();
- const spTargetChips = (selected.specialTargets || []).map(x => String(x).trim()).filter(Boolean);
+ const spTargetChips = (Array.isArray(selected.specialTargets) ? selected.specialTargets : []).map(x => String(x).trim()).filter(Boolean);
  if (spTarget || spTargetChips.length) {
-  const bulletTargetText = (b)=>{
-   if(!b) return "";
-   let t = String(b.specialTarget || "");
-   const specs = b.specials;
-   if(Array.isArray(specs)){
-    specs.forEach(sp=>{
-     if(sp && (sp.name === "特攻弾") && sp.detail) t += "・" + sp.detail;
-     if(sp && (sp.name === "特攻弾") && sp.target) t += "・" + sp.target;
-    });
-   }
-   return t;
-  };
   const matchOne = (text)=>{
    const raw = String(text || "");
    const low = raw.toLowerCase();
    if(spTarget && !low.includes(spTarget)) return false;
    if(spTargetChips.length){
-    // 候補はトークン一致（・区切り単位）または部分一致
-    const tokens = (typeof splitSpecialTargetTokens === "function")
-     ? splitSpecialTargetTokens(raw)
-     : raw.split(/[・、,，]+/).map(x=>x.trim()).filter(Boolean);
+    const tokens = splitSpecialTargetTokens(raw);
     const ok = spTargetChips.some(ch => tokens.includes(ch) || raw.includes(ch));
     if(!ok) return false;
    }
    return true;
   };
-  const hit = (a.bullets || []).some(b =>
-   b && b.specials && (b.specials["特攻弾"] || (Array.isArray(b.specials) && b.specials.some(s=>s&&s.name==="特攻弾"))) &&
-   matchOne(bulletTargetText(b))
-  );
+  const hit = (a.bullets || []).some(b => bulletHasTokkou(b) && matchOne(bulletSpecialTargetText(b)));
   const hitAtt = !!(a.specials && a.specials["特攻弾"] && matchOne(a.specialTarget || ""));
   if (!hit && !hitAtt) return false;
  }
@@ -14558,31 +14554,44 @@ function isStatSearchActive(){
 function splitSpecialTargetTokens(str){
  const s = String(str || "").trim();
  if(!s) return [];
- return s.split(/[・、,，/／\n]+/).map(t => t.trim()).filter(t => t && t !== "・");
+ // 「・」と読点などで分割。区切り文字自体は候補にしない
+ return s
+  .replace(/に効く[。．\.]?.*$/u, "")
+  .replace(/\(確定CRI\)/g, "")
+  .replace(/（確定CRI）/g, "")
+  .split(/[・、,，/／\n]+/)
+  .map(t => t.trim())
+  .filter(t => t && t !== "・" && t.length <= 40);
+}
+function bulletSpecialTargetText(b){
+ if(!b) return "";
+ const parts = [];
+ if(b.specialTarget) parts.push(String(b.specialTarget));
+ const specs = b.specials;
+ if(Array.isArray(specs)){
+  specs.forEach(sp=>{
+   if(!sp || (sp.name && sp.name !== "特攻弾")) return;
+   if(!sp.name && sp !== "特攻弾") return;
+   if(sp.detail) parts.push(String(sp.detail));
+   if(sp.target) parts.push(String(sp.target));
+   if(Array.isArray(sp.targets)) parts.push(sp.targets.join("・"));
+  });
+ }
+ return parts.join("・");
+}
+function bulletHasTokkou(b){
+ if(!b) return false;
+ if(b.specialTarget) return true;
+ const specs = b.specials;
+ if(!specs) return false;
+ if(Array.isArray(specs)) return specs.some(sp => sp && (sp.name === "特攻弾" || sp === "特攻弾"));
+ return !!(specs["特攻弾"]);
 }
 function collectSpecialTargetCandidates(){
  const set = new Set();
- const add = (t)=>{ t = String(t||"").trim(); if(t && t !== "・") set.add(t); };
  const scanBullet = (b)=>{
-  if(!b) return;
-  if(b.specialTarget) splitSpecialTargetTokens(b.specialTarget).forEach(add);
-  const specs = b.specials;
-  if(Array.isArray(specs)){
-   specs.forEach(sp=>{
-    if(!sp) return;
-    if((sp.name || sp) !== "特攻弾") return;
-    if(Array.isArray(sp.targets)) sp.targets.forEach(add);
-    if(sp.target) splitSpecialTargetTokens(sp.target).forEach(add);
-    if(sp.detail) splitSpecialTargetTokens(sp.detail).forEach(add);
-   });
-  }else if(specs && typeof specs === "object" && specs["特攻弾"]){
-   const sp = specs["特攻弾"];
-   if(typeof sp === "string") splitSpecialTargetTokens(sp).forEach(add);
-   else if(sp && typeof sp === "object"){
-    if(sp.detail) splitSpecialTargetTokens(sp.detail).forEach(add);
-    if(sp.target) splitSpecialTargetTokens(sp.target).forEach(add);
-   }
-  }
+  if(!b || !bulletHasTokkou(b)) return;
+  splitSpecialTargetTokens(bulletSpecialTargetText(b)).forEach(t => set.add(t));
  };
  const scanAttacks = (attacks)=>{
   if(!attacks || typeof attacks !== "object") return;
@@ -14591,7 +14600,7 @@ function collectSpecialTargetCandidates(){
    (a && Array.isArray(a.bullets) ? a.bullets : []).forEach(scanBullet);
   });
  };
- (data || []).forEach(c=>{
+ (Array.isArray(data) ? data : []).forEach(c=>{
   if(!c) return;
   scanAttacks(c.attacks);
   const d = c.details || {};
@@ -14609,9 +14618,10 @@ function renderSpecialTargetChips(){
  const box = document.getElementById("fSpecialTargetChips");
  if(!box) return;
  if(!Array.isArray(selected.specialTargets)) selected.specialTargets = [];
- const cands = collectSpecialTargetCandidates();
+ let cands = [];
+ try{ cands = collectSpecialTargetCandidates(); }catch(e){ console.warn(e); cands = []; }
  if(!cands.length){
-  box.innerHTML = `<span class="mini" style="opacity:.7">候補なし</span>`;
+  box.innerHTML = `<span class="mini" style="opacity:.7">候補なし（データ読込後に表示）</span>`;
   return;
  }
  box.innerHTML = cands.map(t=>{
@@ -14619,28 +14629,33 @@ function renderSpecialTargetChips(){
   return `<button type="button" class="filter${on?" on":""}" data-st-target="${esc(t)}">${esc(t)}</button>`;
  }).join("");
  box.querySelectorAll("[data-st-target]").forEach(btn=>{
-  btn.onclick = ()=>{
-   const t = btn.getAttribute("data-st-target") || "";
-   if(!t) return;
-   const i = selected.specialTargets.indexOf(t);
-   if(i >= 0) selected.specialTargets.splice(i, 1);
-   else selected.specialTargets.push(t);
-   renderSpecialTargetChips();
+  btn.onclick = (ev)=>{
+   try{
+    if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+    const t = btn.getAttribute("data-st-target") || "";
+    if(!t) return;
+    if(!Array.isArray(selected.specialTargets)) selected.specialTargets = [];
+    const i = selected.specialTargets.indexOf(t);
+    if(i >= 0) selected.specialTargets.splice(i, 1);
+    else selected.specialTargets.push(t);
+    renderSpecialTargetChips();
+   }catch(err){ console.warn(err); }
   };
  });
 }
-
 function updateSpecialTargetVisibility(){
  const sec = document.getElementById("specialTargetSection");
  if(sec){
-  const show = selected.special.includes("特攻弾");
+  const show = !!(selected.special && selected.special.includes("特攻弾"));
   sec.classList.toggle("hidden", !show);
   if(!show){
    const el = document.getElementById("fSpecialTarget");
    if(el) el.value = "";
-   if(selected.specialTargets) selected.specialTargets.splice(0);
-  }else if(typeof renderSpecialTargetChips === "function"){
-   renderSpecialTargetChips();
+   if(Array.isArray(selected.specialTargets)) selected.specialTargets.splice(0);
+   const box = document.getElementById("fSpecialTargetChips");
+   if(box) box.innerHTML = "";
+  }else{
+   try{ renderSpecialTargetChips(); }catch(e){ console.warn(e); }
   }
  }
  const hardSec = document.getElementById("hardRatioSection");
@@ -16893,6 +16908,7 @@ async function load(opts){
   (data||[]).forEach(c => normalizeDetailsObj(c));
   sortDataInPlace();
   buildFilters();
+  try{ if(typeof updateSpecialTargetVisibility==="function") updateSpecialTargetVisibility(); }catch(e){}
   saveDataCache();
   if(el){
    const srcLabel = source === "static" ? "静的ファイル" : (source === "supabase" ? "Supabase" : "");
