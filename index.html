@@ -2654,6 +2654,103 @@ body.theme-dark .bullet-size-btns button.active{
  background:linear-gradient(180deg,#6b4f96,#4a356c);color:#f8f0ff
 }
 
+
+/* ===== マイクロインタラクション ===== */
+button,.filter,.tag,.acc-head,.btn-edit,.btn-delete,.btn-add,.btn-del,.result,.bento-tile,.acc-icon{
+ transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,filter .15s ease,background-color .2s ease,border-color .2s ease,color .2s ease,opacity .2s ease;
+}
+@media (hover:hover){
+ .filter:hover,.btn-add:hover,.btn-edit:hover,.btn-delete:hover{filter:brightness(1.06);transform:translateY(-1px)}
+ .result:hover{box-shadow:0 6px 18px rgba(0,0,0,.12)}
+ .bento-tile:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1)}
+}
+button:active:not(.acc-head):not(.mini-acc-head):not(.form-acc-head):not(.attack-acc-head),.filter:active,.btn-add:active,.btn-edit:active,.btn-delete:active,.btn-del:active,.tag:active{transform:scale(.96);filter:brightness(.96)}
+/* 横幅いっぱいの見出しは縮ませない（枠の背景が透けて内側に四角が見えるため） */
+.acc-head:active,.mini-acc-head:active,.form-acc-head:active,.attack-acc-head:active{transform:none;filter:brightness(.97)}
+.acc-head,.mini-acc-head,.form-acc-head,.attack-acc-head{-webkit-tap-highlight-color:transparent;outline:none}
+.acc-head:focus,.acc-head:focus-visible{outline:none}
+.acc-icon{display:inline-block}
+.acc-section.open .acc-icon{transform:rotate(180deg)}
+.acc-section.open .acc-body{animation:accFade .24s ease}
+@keyframes accFade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.results-bento > *{animation:fadeInUp .28s ease both}
+.results-bento > *:nth-child(2){animation-delay:.03s}
+.results-bento > *:nth-child(3){animation-delay:.06s}
+.results-bento > *:nth-child(4){animation-delay:.09s}
+.results-bento > *:nth-child(n+5){animation-delay:.12s}
+
+/* ===== 検索結果 Bento Grid ===== */
+.results-bento{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+@media (min-width:760px){.results-bento{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}}
+.results-bento > .result{margin:0;min-width:0}
+.bento-tiles{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
+.bento-tiles.two{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.bento-tile{border-radius:12px;padding:8px 10px;min-width:0;background:rgba(255,255,255,.55);border:1px solid rgba(0,0,0,.08)}
+.bento-tile .tile-label{font-size:11px;font-weight:700;opacity:.65;margin-bottom:4px;letter-spacing:.04em}
+
+/* ===== 固定フッターメニュー ===== */
+.bottom-nav.tabs{
+ position:fixed;left:0;right:0;bottom:0;z-index:999;margin:0;
+ display:flex;justify-content:center;align-items:stretch;gap:4px;
+ padding:8px 6px calc(8px + env(safe-area-inset-bottom,0px));
+ background:linear-gradient(180deg,rgba(250,244,232,.97),rgba(240,230,212,.98));
+ border-top:1px solid var(--lw-border);
+ box-shadow:0 -6px 20px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.75);
+ -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+}
+/* 金のアクセントライン（ヘッダー/見出しの意匠に合わせる） */
+.bottom-nav.tabs::before{
+ content:"";position:absolute;left:0;right:0;top:-1px;height:2px;
+ background:linear-gradient(90deg,transparent,var(--lw-gold),transparent);opacity:.8;pointer-events:none;
+}
+.bottom-nav .tab{
+ flex:1 1 0;max-width:200px;min-width:0;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+ padding:7px 2px 6px;border:1px solid transparent;border-radius:14px;
+ background:transparent;box-shadow:none;
+ color:var(--lw-muted);font-size:10px;font-weight:700;line-height:1.2;letter-spacing:0;
+ -webkit-tap-highlight-color:transparent;
+}
+.bottom-nav .tab .nav-ico{font-size:20px;line-height:1;transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.bottom-nav .tab .nav-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bottom-nav .tab.active{
+ background:linear-gradient(180deg,#b53a32,#7a1f1f);color:#fff8e7;border-color:#8a3030;
+ box-shadow:0 2px 10px rgba(140,40,40,.35), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.bottom-nav .tab.active .nav-ico{transform:translateY(-1px) scale(1.12)}
+@media (hover:hover){
+ .bottom-nav .tab:not(.active):hover{background:rgba(92,74,122,.10);color:var(--lw-ink)}
+}
+.bottom-nav .tab:not(.active):active{background:rgba(92,74,122,.16);transform:none;filter:none}
+/* フッターが出ている間だけ、本文が隠れないよう余白を確保 */
+body:has(.bottom-nav:not(.hidden)){padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+/* ダーク */
+body.theme-dark .bottom-nav.tabs{
+ background:linear-gradient(180deg,rgba(28,35,48,.97),rgba(18,23,33,.98)) !important;
+ border:0 !important;border-top:1px solid rgba(160,180,210,.28) !important;gap:6px !important;
+ box-shadow:0 -6px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+body.theme-dark .bottom-nav .tab,
+body.theme-dark .bottom-nav .tab:not(.active){
+ background:transparent !important;color:#aab4c4 !important;border:1px solid transparent !important;box-shadow:none !important;
+}
+body.theme-dark .bottom-nav .tab:not(.active):hover{background:rgba(120,140,170,.14) !important;color:#fff !important}
+body.theme-dark .bottom-nav .tab.active{
+ background:linear-gradient(180deg,#d45545,#9c2b2b) !important;color:#fff8e7 !important;border-color:#c45a4a !important;
+ box-shadow:0 2px 10px rgba(0,0,0,.4) !important;
+}
+/* 検索結果欄(#results)は検索画面の外にあるため、他の画面（所持登録・キャラ登録・コメント・ピックアップ）では隠す */
+body:has(#searchPage.hidden) #results,
+body:has(#pickupPage:not(.hidden)) #results{display:none !important}
+
+.menu-credit{font-size:12px;color:#6b6258;text-align:center;padding-bottom:4px}
+.menu-credit a{color:var(--lw-purple);font-weight:700;text-decoration:underline}
+body.theme-dark .menu-credit{color:#9da7b4}
+body.theme-dark .menu-credit a{color:#e8d5a3}
+@media (prefers-reduced-motion:reduce){
+ *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
 </style>
 </head>
 
@@ -2662,10 +2759,6 @@ body.theme-dark .bullet-size-btns button.active{
 <button type="button" class="menu-fab" id="menuFab" aria-label="メニューを開く" title="メニュー">
   <span></span><span></span><span></span>
 </button>
-<button type="button" class="comments-fab" id="commentsFab" aria-label="コメント" title="コメント" onclick="openCommentsPage()">💬</button>
-<div class="pickup-fab-wrap" id="pickupFabWrap">
-<button type="button" class="pickup-fab" id="pickupFab" aria-label="ピックアップ中" title="ピックアップ中" onclick="dismissFeatureTip('pickup');openPickupPage()">PU</button>
-</div>
 <div class="menu-overlay" id="menuOverlay"></div>
 <aside class="menu-panel" id="menuPanel" aria-hidden="true">
   <div class="menu-panel-head">
@@ -2707,25 +2800,26 @@ body.theme-dark .bullet-size-btns button.active{
   <div id="bgGuestNote" class="menu-guest-note hidden">
     ページ背景の変更はサインイン後に利用できます。
   </div>
+  <div class="menu-divider"></div>
+  <div class="menu-credit">製作者X：<a href="https://x.com/SuZ334_t" target="_blank" rel="noopener noreferrer">@SuZ334_t</a></div>
 </aside>
+
+<!-- 固定フッターメニュー：検索・ピックアップ・コメント（全員） / 所持登録（ログイン者・管理者） / キャラ登録（管理者のみ）。表示切替は既存の権限処理(.tabs/.hidden)が行う -->
+<nav class="bottom-nav tabs" id="bottomNav" aria-label="メインメニュー">
+  <button id="tabSearch" class="tab active" type="button"><span class="nav-ico" aria-hidden="true">🔍</span><span class="nav-label">検索</span></button>
+  <button id="tabOwned" class="tab hidden" type="button"><span class="nav-ico" aria-hidden="true">📦</span><span class="nav-label">所持登録</span></button>
+  <button id="tabPickup" class="tab" type="button" onclick="dismissFeatureTip('pickup');openPickupPage()"><span class="nav-ico" aria-hidden="true">✨</span><span class="nav-label">ピックアップ</span></button>
+  <button id="tabComments" class="tab" type="button" onclick="openCommentsPage()"><span class="nav-ico" aria-hidden="true">💬</span><span class="nav-label">コメント</span></button>
+  <button id="tabAdd" class="tab hidden" type="button"><span class="nav-ico" aria-hidden="true">➕</span><span class="nav-label">キャラ登録</span></button>
+</nav>
 
 <header>
 <h1>東方LostWord</h1>
 <p class="subtitle">いろいろ検索ツール（非公式）</p>
 <p class="hero-lead">キャラ・スペカ・LASTWORD・ショット・弾幕・能力・特殊スキルなどから探せます。</p>
-<p class="notice">
-データ入力や検証を手伝ってくださる方がいましたら、サイト内の「コメント」からご連絡ください。<br>
-製作者X：<a href="https://x.com/SuZ334_t" target="_blank" rel="noopener noreferrer">@SuZ334_t</a>
-</p>
 </header>
 
 <div class="container">
-
-<div class="tabs">
-<button id="tabSearch" class="tab active">🔍 検索</button>
-<button id="tabOwned" class="tab hidden">📦 所持済登録</button>
-<button id="tabAdd" class="tab">➕ キャラ追加・編集</button>
-</div>
 
 <!-- ================= 検索 ================= -->
 
@@ -2806,10 +2900,7 @@ body.theme-dark .bullet-size-btns button.active{
 <div id="fSpecial" class="buttons"></div>
 </div>
 <div class="hidden" id="specialTargetSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
-<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象）</div>
-<div class="mini" style="margin-bottom:4px;">候補（・で区切られた対象）</div>
-<div id="fSpecialTargetChips" class="buttons" style="margin-bottom:8px;"></div>
-<div class="mini" style="margin-bottom:4px;">フリー入力（部分一致・任意）</div>
+<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象種族・部分一致）</div>
 <input id="fSpecialTarget" class="input" placeholder="例：妖怪">
 </div>
 <div class="hidden" id="hardRatioSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
@@ -2843,7 +2934,6 @@ body.theme-dark .bullet-size-btns button.active{
 <option value="desc">倍率が高い順</option>
 <option value="asc">倍率が低い順</option>
 </select>
-</div>
 </div>
 </div>
 </div>
@@ -3081,6 +3171,7 @@ body.theme-dark .bullet-size-btns button.active{
 <div class="range" style="margin-top:8px">
 <button id="statMin">以上</button>
 <button id="statMax">以下</button>
+</div>
 </div>
 </div>
 </div>
@@ -3479,7 +3570,7 @@ body.theme-dark .bullet-size-btns button.active{
 <div class="box">
  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
   <div class="title" style="margin:0;">ピックアップ中</div>
-  <button type="button" id="pickupBackToSearch" class="btn-sm" style="padding:8px 14px;font-weight:700;border-radius:999px;" onclick="closePickupPage()">← 検索に戻る</button>
+  <button type="button" id="pickupBackToSearch" class="btn-sm" style="padding:8px 14px;font-weight:700;border-radius:999px;" onclick="showPage('search');try{window.scrollTo(0,0)}catch(e){}">← 検索に戻る</button>
  </div>
  <div class="mini" style="margin-bottom:12px;">現在ガシャでピックアップ中のキャラです。名前を押すと詳細が開きます。</div>
  <div id="pickupActiveList"><div class="muted">読み込み中…</div></div>
@@ -4130,7 +4221,7 @@ let beforePack=null;
 let afterPack=null;
 
 const selected={
- type:[], attack:[], range:[], attr:[], bullet:[], special:[], char:[], dd:[], ability:[], rarity:[], link:[], rebirth:[], specialTargets:[],
+ type:[], attack:[], range:[], attr:[], bullet:[], special:[], char:[], dd:[], ability:[], rarity:[], link:[], rebirth:[],
  ddKind:[], ddAttr:[], ddBullet:[],
  r2Source:[], r2Stat:[],
  abConvKind:[], abConvAbnormal:[], abImmKind:[], abImmAbnormal:[],
@@ -5707,7 +5798,7 @@ function updateAdminUI(){
    }
   }
  }catch(e){}
- // 管理者：検索＋所持＋編集 / ログイン一般：検索＋所持 / 未ログイン：タブ非表示
+ // 全員：検索・ピックアップ・コメント / ログイン者：＋所持登録 / 管理者：＋キャラ登録
  const tabAdd = document.getElementById("tabAdd");
  const tabSearch = document.getElementById("tabSearch");
  const tabOwned = document.getElementById("tabOwned");
@@ -5729,9 +5820,9 @@ function updateAdminUI(){
   }
  }else{
   if(tabAdd) tabAdd.classList.add("hidden");
-  if(tabSearch) tabSearch.classList.add("hidden");
+  if(tabSearch) tabSearch.classList.remove("hidden");
   if(tabOwned) tabOwned.classList.add("hidden");
-  if(tabsWrap) tabsWrap.classList.add("hidden");
+  if(tabsWrap) tabsWrap.classList.remove("hidden");
   const addPage = document.getElementById("addPage");
   const ownedPage = document.getElementById("ownedPage");
   if(addPage && !addPage.classList.contains("hidden")){
@@ -5846,6 +5937,7 @@ function getSearchState(){
   ddAttr: [...selected.ddAttr],
   ddBullet: [...selected.ddBullet],
   ddRace: (document.getElementById("fDdRace")?.value || "").trim(),
+  specialTarget: (document.getElementById("fSpecialTarget")?.value || "").trim(),
   mode: mode,
   statName: document.getElementById("statName").value,
   statValue: document.getElementById("statValue").value,
@@ -14384,26 +14476,11 @@ function checkAttackMatch(a, attackLabel, attackKey) {
   if (!attackMatchesHardSharpRatio(a)) return false;
  }
 
- // 特攻弾の対象種族
+ // 特攻弾の対象種族（入力欄の部分一致）
  const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim().toLowerCase();
- const spTargetChips = (Array.isArray(selected.specialTargets) ? selected.specialTargets : []).map(x => String(x).trim()).filter(Boolean);
- if (spTarget || spTargetChips.length) {
-  const matchOne = (text)=>{
-   const raw = String(text || "");
-   const low = raw.toLowerCase();
-   if(spTarget && !low.includes(spTarget)) return false;
-   if(spTargetChips.length){
-    const ok = spTargetChips.some(ch =>
-     (typeof tokkouChipMatchesText === "function")
-      ? tokkouChipMatchesText(ch, raw)
-      : (raw.includes(ch) || splitSpecialTargetTokens(raw).includes(ch))
-    );
-    if(!ok) return false;
-   }
-   return true;
-  };
-  const hit = (a.bullets || []).some(b => bulletHasTokkou(b) && matchOne(bulletSpecialTargetText(b)));
-  const hitAtt = !!(a.specials && a.specials["特攻弾"] && matchOne(a.specialTarget || ""));
+ if (spTarget) {
+  const hit = (a.bullets || []).some(b => bulletHasTokkou(b) && String(bulletSpecialTargetText(b) || "").toLowerCase().includes(spTarget));
+  const hitAtt = !!(a.specials && a.specials["特攻弾"] && String(a.specialTarget || "").toLowerCase().includes(spTarget));
   if (!hit && !hitAtt) return false;
  }
 
@@ -14484,12 +14561,11 @@ function isDetailSearchActive(){
  const qSpell = (document.getElementById("qSpell")?.value || "").trim();
  const qShot = (document.getElementById("qShot")?.value || "").trim();
  const qBullet = (document.getElementById("qBullet")?.value || "").trim();
- const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim();
  const r2Stage = (document.getElementById("fR2Stage")?.value || "").trim();
+ const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim();
  if(qSpell || qShot || qBullet || spTarget) return true;
  if(selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length) return true;
  if(selected.special.length) return true;
- if(selected.specialTargets && selected.specialTargets.length) return true;
  if((document.getElementById("fHardRatio")?.value || "").trim()) return true;
  if((document.getElementById("fSharpRatio")?.value || "").trim()) return true;
  if((document.getElementById("fHardRatioSort")?.value || "").trim()) return true;
@@ -14625,61 +14701,14 @@ function tokkouChipMatchesText(chip, text){
  if(tokens.includes(ch)) return true;
  return tokens.some(tok => tok === ch || tok.includes(ch) || ch.includes(tok));
 }
-function renderSpecialTargetChips(){
- const box = document.getElementById("fSpecialTargetChips");
- if(!box) return;
- if(!Array.isArray(selected.specialTargets)) selected.specialTargets = [];
- let cands = [];
- try{ cands = collectSpecialTargetCandidates(); }catch(e){ console.warn(e); cands = []; }
- if(!cands.length){
-  box.innerHTML = `<span class="mini" style="opacity:.7">候補なし（データ読込後に表示）</span>`;
-  return;
- }
- box.innerHTML = cands.map((t, idx)=>{
-  const on = selected.specialTargets.indexOf(t) >= 0;
-  return `<button type="button" class="filter${on?" on":""}" data-st-idx="${idx}">${esc(t)}</button>`;
- }).join("");
- // 候補文字列は配列インデックスで参照（属性エンコード問題を避ける）
- box.querySelectorAll("[data-st-idx]").forEach(btn=>{
-  btn.addEventListener("click", (ev)=>{
-   try{
-    if(ev){ ev.preventDefault(); ev.stopPropagation(); }
-    const idx = Number(btn.getAttribute("data-st-idx"));
-    const t = cands[idx];
-    if(!t) return;
-    if(!Array.isArray(selected.specialTargets)) selected.specialTargets = [];
-    const i = selected.specialTargets.indexOf(t);
-    if(i >= 0) selected.specialTargets.splice(i, 1);
-    else selected.specialTargets.push(t);
-    // 特攻弾フィルタも自動オン
-    if(selected.specialTargets.length && !(selected.special||[]).includes("特攻弾")){
-     selected.special.push("特攻弾");
-     try{
-      document.querySelectorAll("#fSpecial .filter").forEach(b=>{
-       if((b.textContent||"").trim() === "特攻弾") b.classList.toggle("on", true);
-      });
-     }catch(e){}
-    }
-    renderSpecialTargetChips();
-    try{ if(typeof search === "function") search(true); }catch(e){}
-   }catch(err){ console.warn(err); }
-  });
- });
-}
-
 function updateSpecialTargetVisibility(){
- const sec = document.getElementById("specialTargetSection");
- if(sec){
-  const show = !!(selected.special && selected.special.includes("特攻弾"));
-  sec.classList.toggle("hidden", !show);
-  if(!show){
-   const el = document.getElementById("fSpecialTarget");
-   if(el) el.value = "";
-   if(Array.isArray(selected.specialTargets)) selected.specialTargets.splice(0);
-   const box = document.getElementById("fSpecialTargetChips");
-   if(box) box.innerHTML = "";
-  }else{
-   try{ renderSpecialTargetChips(); }catch(e){ console.warn(e); }
+ const stSec = document.getElementById("specialTargetSection");
+ if(stSec){
+  const showSt = !!(selected.special && selected.special.includes("特攻弾"));
+  stSec.classList.toggle("hidden", !showSt);
+  if(!showSt){
+   const stEl = document.getElementById("fSpecialTarget");
+   if(stEl) stEl.value = "";
   }
  }
  const hardSec = document.getElementById("hardRatioSection");
@@ -18360,6 +18389,9 @@ async function openPickupPage(){
   // hide main search container pages similar to comments
   const commentsPage = document.getElementById("commentsPage");
   if(commentsPage) commentsPage.classList.add("hidden");
+  // 所持登録・キャラ登録は検索の枠(.container)の外にあるため、個別に隠す
+  document.getElementById("ownedPage")?.classList.add("hidden");
+  document.getElementById("addPage")?.classList.add("hidden");
   // hide typical main content
   const container = document.querySelector(".container");
   if(container) container.classList.add("hidden");
@@ -18367,6 +18399,7 @@ async function openPickupPage(){
   // show pickup
   const page = document.getElementById("pickupPage");
   if(page) page.classList.remove("hidden");
+  try{ syncBottomNavActive(); }catch(e){}
   const adminBox = document.getElementById("pickupAdminBox");
   if(adminBox) adminBox.classList.toggle("hidden", !(typeof isAdmin==="function" && isAdmin()));
   await fetchGachaPickups();
@@ -18405,11 +18438,21 @@ async function openPickupPage(){
  }catch(e){ console.warn(e); }
 }
 
+function syncBottomNavActive(){
+ const pu = document.getElementById("pickupPage");
+ const puOpen = !!(pu && !pu.classList.contains("hidden"));
+ document.getElementById("tabPickup")?.classList.toggle("active", puOpen);
+ [["searchPage","tabSearch"],["ownedPage","tabOwned"],["addPage","tabAdd"],["commentsPage","tabComments"]].forEach(([pg,tb])=>{
+  const el = document.getElementById(pg);
+  document.getElementById(tb)?.classList.toggle("active", !puOpen && !!el && !el.classList.contains("hidden"));
+ });
+}
 function closePickupPage(){
  const page = document.getElementById("pickupPage");
  if(page) page.classList.add("hidden");
  const container = document.querySelector(".container");
  if(container) container.classList.remove("hidden");
+ try{ syncBottomNavActive(); }catch(e){}
 }
 
 function openCommentsPage(){
@@ -18463,6 +18506,7 @@ function bindCommentsUI(){
 }
 
 function showPage(name){
+ try{ closePickupPage(); }catch(e){}
  const searchPage = document.getElementById("searchPage");
  const addPage = document.getElementById("addPage");
  const ownedPage = document.getElementById("ownedPage");
@@ -18480,6 +18524,7 @@ function showPage(name){
  if(tabOwned) tabOwned.classList.toggle("active", name === "owned");
  if(tabComments) tabComments.classList.toggle("active", name === "comments");
  if(name === "comments") loadComments();
+ try{ syncBottomNavActive(); }catch(e){}
 }
 
 document.getElementById("tabSearch").onclick=()=>{
@@ -18509,6 +18554,11 @@ if(tabOwnedEl){
   renderOwnedManager();
  };
 }
+
+// フッター切替時は画面上部へ戻す
+document.querySelectorAll("#bottomNav .tab").forEach(b=>{
+ b.addEventListener("click", ()=>{ try{ window.scrollTo({top:0,behavior:"auto"}); }catch(e){ window.scrollTo(0,0); } });
+});
 
 // 条件変更だけでは検索しない（「検索する」ボタンで実行）
 (function(){
@@ -18601,7 +18651,6 @@ document.getElementById("reset").onclick=()=>{
    else if(typeof a === "string" || typeof a === "number") selected[k] = "";
   });
   if(typeof RARITIES!=="undefined") selected.rarity = RARITIES.slice();
-  if(selected.specialTargets) selected.specialTargets.splice(0);
   ["fFavRatio","fUnfavRatio","fPersistBuffStage","fPersistDebuffStage","fResistStageInput"].forEach(id=>{
    const el=document.getElementById(id);
    if(el) el.value="";
