@@ -310,7 +310,10 @@ header .notice .tagline{display:block;margin-bottom:4px;font-weight:700;color:#f
 }
 
 .hidden{display:none !important}
-.result-count{font-weight:700;margin:14px 0 8px;color:#e8dcc8;letter-spacing:.06em}
+.result-count{font-weight:700;margin:14px 0 8px;color:#4a4035;letter-spacing:.06em}
+body.theme-dark .result-count{color:#e8dcc8}
+.simple-detail-toggle{color:#4a4035 !important;font-weight:600}
+body.theme-dark .simple-detail-toggle{color:#e8dcc8 !important}
 
 
 .eff-stat{color:#e6c200;font-weight:800}
@@ -1884,16 +1887,13 @@ body.theme-dark .comments-fab{
  backdrop-filter:blur(6px);
  -webkit-backdrop-filter:blur(6px)
 }
-.detail-filters-wrap{
- margin-top:8px;border:1px dashed var(--lw-border);border-radius:12px;padding:4px;
- background:rgba(255,252,245,.45)
-}
+.detail-filters-wrap{display:contents}
 .detail-filters-toggle{
  width:100%;padding:11px 14px;border:none;background:transparent;cursor:pointer;
  font-family:inherit;font-weight:700;font-size:14px;color:var(--lw-ink);
  display:flex;justify-content:space-between;align-items:center
 }
-.detail-filters-body{display:block;padding:4px 6px 10px}
+.detail-filters-body{display:contents}
 .acc-section.box{
  margin:0 0 10px;padding:0;overflow:hidden
 }
@@ -2798,9 +2798,7 @@ body.theme-dark .bullet-size-btns button.active{
 <div class="acc-body"><div id="fBullet" class="buttons"></div></div>
 </div>
 
-<div class="detail-filters-wrap open" id="detailFiltersWrap">
-<div class="mini" style="padding:8px 10px 4px;font-weight:700;color:#666;">詳細条件（特殊弾・スキル・能力など）</div>
-<div class="detail-filters-body">
+<!-- 詳細条件枠は廃止。式などと同じ acc-section として並べる -->
 <div class="acc-section" data-acc>
 <button type="button" class="acc-head">特殊弾・効果 <span class="acc-icon">▼</span></button>
 <div class="acc-body">
@@ -3087,8 +3085,6 @@ body.theme-dark .bullet-size-btns button.active{
 </div>
 </div>
 
-</div><!-- /.detail-filters-body -->
-</div><!-- /.detail-filters-wrap -->
 
 <!-- 検索履歴・お気に入り（詳細条件の外・開閉式） -->
 <div class="acc-section box" id="prefsBox" data-acc style="margin-bottom:10px">
@@ -14397,8 +14393,11 @@ function checkAttackMatch(a, attackLabel, attackKey) {
    const low = raw.toLowerCase();
    if(spTarget && !low.includes(spTarget)) return false;
    if(spTargetChips.length){
-    const tokens = splitSpecialTargetTokens(raw);
-    const ok = spTargetChips.some(ch => tokens.includes(ch) || raw.includes(ch));
+    const ok = spTargetChips.some(ch =>
+     (typeof tokkouChipMatchesText === "function")
+      ? tokkouChipMatchesText(ch, raw)
+      : (raw.includes(ch) || splitSpecialTargetTokens(raw).includes(ch))
+    );
     if(!ok) return false;
    }
    return true;
@@ -14530,17 +14529,33 @@ function isStatSearchActive(){
 
 
 
+function cleanTokkouToken(t){
+ let s = String(t || "").trim();
+ if(!s) return "";
+ s = s
+  .replace(/[（(]\s*確定\s*CRI\s*[）)]/gi, "")
+  .replace(/確定\s*CRI/gi, "")
+  .replace(/に効く.*$/u, "")
+  .replace(/に確定.*$/u, "")
+  .replace(/に効く/g, "")
+  .replace(/[。．.]+$/g, "")
+  .trim();
+ // 末尾の助詞っぽいゴミ
+ s = s.replace(/(に|へ|を|が|は)$/u, "").trim();
+ return s;
+}
 function splitSpecialTargetTokens(str){
  const s = String(str || "").trim();
  if(!s) return [];
- // 「・」と読点などで分割。区切り文字自体は候補にしない
- return s
-  .replace(/に効く[。．\.]?.*$/u, "")
-  .replace(/\(確定CRI\)/g, "")
-  .replace(/（確定CRI）/g, "")
+ // 先に全文の定型句を落としてから分割
+ const cleaned = s
+  .replace(/[（(]\s*確定\s*CRI\s*[）)]/gi, "")
+  .replace(/確定\s*CRI/gi, "")
+  .replace(/に効く[。．.]?/gu, "・");
+ return cleaned
   .split(/[・、,，/／\n]+/)
-  .map(t => t.trim())
-  .filter(t => t && t !== "・" && t.length <= 40);
+  .map(cleanTokkouToken)
+  .filter(t => t && t !== "・" && t.length >= 1 && t.length <= 40);
 }
 function bulletSpecialTargetText(b){
  if(!b) return "";
@@ -14549,12 +14564,20 @@ function bulletSpecialTargetText(b){
  const specs = b.specials;
  if(Array.isArray(specs)){
   specs.forEach(sp=>{
-   if(!sp || (sp.name && sp.name !== "特攻弾")) return;
-   if(!sp.name && sp !== "特攻弾") return;
+   if(!sp) return;
+   const nm = sp.name || sp;
+   if(nm !== "特攻弾") return;
    if(sp.detail) parts.push(String(sp.detail));
    if(sp.target) parts.push(String(sp.target));
    if(Array.isArray(sp.targets)) parts.push(sp.targets.join("・"));
   });
+ }else if(specs && typeof specs === "object" && specs["特攻弾"]){
+  const sp = specs["特攻弾"];
+  if(typeof sp === "string") parts.push(sp);
+  else if(sp && typeof sp === "object"){
+   if(sp.detail) parts.push(String(sp.detail));
+   if(sp.target) parts.push(String(sp.target));
+  }
  }
  return parts.join("・");
 }
@@ -14593,6 +14616,15 @@ function collectSpecialTargetCandidates(){
  });
  return [...set].sort((a,b)=> a.localeCompare(b, "ja"));
 }
+function tokkouChipMatchesText(chip, text){
+ const ch = cleanTokkouToken(chip);
+ if(!ch) return false;
+ const raw = String(text || "");
+ if(raw.includes(ch)) return true;
+ const tokens = splitSpecialTargetTokens(raw);
+ if(tokens.includes(ch)) return true;
+ return tokens.some(tok => tok === ch || tok.includes(ch) || ch.includes(tok));
+}
 function renderSpecialTargetChips(){
  const box = document.getElementById("fSpecialTargetChips");
  if(!box) return;
@@ -14603,25 +14635,38 @@ function renderSpecialTargetChips(){
   box.innerHTML = `<span class="mini" style="opacity:.7">候補なし（データ読込後に表示）</span>`;
   return;
  }
- box.innerHTML = cands.map(t=>{
+ box.innerHTML = cands.map((t, idx)=>{
   const on = selected.specialTargets.indexOf(t) >= 0;
-  return `<button type="button" class="filter${on?" on":""}" data-st-target="${esc(t)}">${esc(t)}</button>`;
+  return `<button type="button" class="filter${on?" on":""}" data-st-idx="${idx}">${esc(t)}</button>`;
  }).join("");
- box.querySelectorAll("[data-st-target]").forEach(btn=>{
-  btn.onclick = (ev)=>{
+ // 候補文字列は配列インデックスで参照（属性エンコード問題を避ける）
+ box.querySelectorAll("[data-st-idx]").forEach(btn=>{
+  btn.addEventListener("click", (ev)=>{
    try{
     if(ev){ ev.preventDefault(); ev.stopPropagation(); }
-    const t = btn.getAttribute("data-st-target") || "";
+    const idx = Number(btn.getAttribute("data-st-idx"));
+    const t = cands[idx];
     if(!t) return;
     if(!Array.isArray(selected.specialTargets)) selected.specialTargets = [];
     const i = selected.specialTargets.indexOf(t);
     if(i >= 0) selected.specialTargets.splice(i, 1);
     else selected.specialTargets.push(t);
+    // 特攻弾フィルタも自動オン
+    if(selected.specialTargets.length && !(selected.special||[]).includes("特攻弾")){
+     selected.special.push("特攻弾");
+     try{
+      document.querySelectorAll("#fSpecial .filter").forEach(b=>{
+       if((b.textContent||"").trim() === "特攻弾") b.classList.toggle("on", true);
+      });
+     }catch(e){}
+    }
     renderSpecialTargetChips();
+    try{ if(typeof search === "function") search(true); }catch(e){}
    }catch(err){ console.warn(err); }
-  };
+  });
  });
 }
+
 function updateSpecialTargetVisibility(){
  const sec = document.getElementById("specialTargetSection");
  if(sec){
