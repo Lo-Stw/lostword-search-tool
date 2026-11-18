@@ -1893,7 +1893,7 @@ body.theme-dark .comments-fab{
  font-family:inherit;font-weight:700;font-size:14px;color:var(--lw-ink);
  display:flex;justify-content:space-between;align-items:center
 }
-.detail-filters-body{display:none;padding:4px 6px 10px}
+.detail-filters-body{display:block;padding:4px 6px 10px}
 .acc-section.box{
  margin:0 0 10px;padding:0;overflow:hidden
 }
@@ -2798,8 +2798,8 @@ body.theme-dark .bullet-size-btns button.active{
 <div class="acc-body"><div id="fBullet" class="buttons"></div></div>
 </div>
 
-<div class="detail-filters-wrap" id="detailFiltersWrap">
-<button type="button" class="detail-filters-toggle" id="detailFiltersToggle" aria-expanded="false"><span>詳細条件（特殊弾・スキル・能力など）</span><span class="acc-icon">▼</span></button>
+<div class="detail-filters-wrap open" id="detailFiltersWrap">
+<div class="mini" style="padding:8px 10px 4px;font-weight:700;color:#666;">詳細条件（特殊弾・スキル・能力など）</div>
 <div class="detail-filters-body">
 <div class="acc-section" data-acc>
 <button type="button" class="acc-head">特殊弾・効果 <span class="acc-icon">▼</span></button>
@@ -3713,18 +3713,20 @@ const ATTACKS=[
 ];
 /** 検索用攻撃種（スペカ1・2は「スペルカード」に統一） */
 const SEARCH_ATTACK_LABELS=["拡散ショット","集中ショット","スペルカード","LASTWORD"];
-function expandAttackSearchLabels(labels){
- const out = [];
- (labels||[]).forEach(x=>{
-  if(x === "スペルカード"){ out.push("スペルカード1","スペルカード2","スペルカード"); }
-  else out.push(x);
- });
- return out;
+function attackMatchesFilterLabel(attackLabel, sel){
+ const lab = String(attackLabel || "");
+ const s = String(sel || "");
+ if(s === "スペルカード") return lab === "スペルカード1" || lab === "スペルカード2" || lab === "スペルカード";
+ if(s === "スペルカード1" || s === "スペルカード2") return lab === s || lab === "スペルカード";
+ return lab === s;
 }
 function attackLabelMatchesSearch(attackLabel, selectedAttack, mode){
- if(!(selectedAttack&&selectedAttack.length)) return true;
- const expanded = expandAttackSearchLabels(selectedAttack);
- return matchArray(expanded, [attackLabel], mode);
+ if(!(selectedAttack && selectedAttack.length)) return true;
+ const m = String(mode || "OR").toUpperCase();
+ if(m === "AND"){
+  return selectedAttack.every(sel => attackMatchesFilterLabel(attackLabel, sel));
+ }
+ return selectedAttack.some(sel => attackMatchesFilterLabel(attackLabel, sel));
 }
 const BOOST_PATTERNS = [
  ["3-1-1", [3,1,1]],
@@ -13582,32 +13584,6 @@ function gamerchApplySpecialToBullet(b, sp){
  }
 }
 
-function gamerchApplySpecialToBullet(b, sp){
- if(!sp || !b) return;
- if(sp.kind === "buff"){
-  if(!Array.isArray(b.buffs)) b.buffs = [];
-  b.buffs.push({ target: sp.target||"自身", stat: sp.stat||"", rate: sp.rate||"100", rank: sp.rank||"1", turn: sp.turn||"" });
-  return;
- }
- if(sp.kind === "debuff"){
-  if(!Array.isArray(b.debuffs)) b.debuffs = [];
-  b.debuffs.push({ target: sp.target||"対象", stat: sp.stat||"", rate: sp.rate||"100", rank: sp.rank||"1", turn: sp.turn||"" });
-  return;
- }
- const name = sp.name;
- if(!name) return;
- if(!b.specials) b.specials = {};
- b.specials[name] = true;
- if(name === "斬裂弾" && sp.ratio) b.sharpRatio = String(sp.ratio);
- if(name === "硬質弾" && sp.ratio) b.hardRatio = String(sp.ratio);
- if(name === "粘着弾" && sp.ratio) b.stickyRate = String(sp.ratio);
- if(name === "衝撃弾" && sp.ratio) b.impactRate = String(sp.ratio);
- if(name === "吸収弾" && sp.ratio) b.absorbRatio = String(sp.ratio);
- if(name === "反動弾" && sp.ratio) b.recoilRatio = String(sp.ratio);
- if(name === "特攻弾" && Array.isArray(sp.targets) && sp.targets.length){
-  b.specialTarget = sp.targets.join("・").replace(/[&＆]/g,"・").replace(/・+/g,"・");
- }
-}
 
 function gamerchIsDetailLine(line){
  const t = String(line||"").trim();
@@ -14514,8 +14490,11 @@ function isDetailSearchActive(){
  if(qSpell || qShot || qBullet || spTarget) return true;
  if(selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length) return true;
  if(selected.special.length) return true;
+ if(selected.specialTargets && selected.specialTargets.length) return true;
  if((document.getElementById("fHardRatio")?.value || "").trim()) return true;
  if((document.getElementById("fSharpRatio")?.value || "").trim()) return true;
+ if((document.getElementById("fHardRatioSort")?.value || "").trim()) return true;
+ if((document.getElementById("fSharpRatioSort")?.value || "").trim()) return true;
  if(selected.r2Source.length || selected.r2Stat.length || r2Stage) return true;
  if((selected.char||[]).length) return true;
  // 特殊スキル詳細の選択
@@ -18621,14 +18600,9 @@ document.getElementById("statValue").onkeydown=(e)=>{ if(e.key==="Enter") search
 
 /* UX: 詳細条件トグル・テーマ・検索フィードバック */
 function bindDetailFiltersToggle(){
+ // 詳細条件は常時表示（開閉トグル廃止）
  const wrap = document.getElementById("detailFiltersWrap");
- const btn = document.getElementById("detailFiltersToggle");
- if(!wrap || !btn || btn.dataset.bound) return;
- btn.dataset.bound = "1";
- btn.onclick = ()=>{
-  const open = wrap.classList.toggle("open");
-  btn.setAttribute("aria-expanded", open ? "true" : "false");
- };
+ if(wrap) wrap.classList.add("open");
 }
 function applyTheme(mode){
  const dark = mode === "dark";
