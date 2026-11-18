@@ -4208,7 +4208,42 @@ function collectActiveSpecialLabels(ss){
   return active;
 }
 
-let data=[];
+let data=[];      // 閲覧者に見せるキャラ一覧（管理者以外は実装日が先のキャラを除外）
+let dataAll=[];   // 全キャラ（実装日が先のキャラを含む）。管理者のときは data と同じ配列
+let _viewerAdminState=null;
+
+/** 実装日が今日より先のキャラは未公開扱い。実装日が未入力のキャラは公開扱い */
+function isCharReleased(c){
+ try{
+  const v = getImplDateValue(c);
+  if(!v) return true;
+  const t = new Date();
+  const today = t.getFullYear()*10000 + (t.getMonth()+1)*100 + t.getDate();
+  return v <= today;
+ }catch(e){ return true; }
+}
+/** 管理者＝全件 / それ以外＝実装済みのみ */
+function refreshVisibleData(){
+ let adm = false;
+ try{ adm = isAdmin(); }catch(e){}
+ _viewerAdminState = adm;
+ const all = Array.isArray(dataAll) ? dataAll : [];
+ data = adm ? all : all.filter(isCharReleased);
+}
+/** ログイン／ログアウトで管理者かどうかが変わった時に一覧を切り替える */
+function syncViewerData(){
+ let adm = false;
+ try{ adm = isAdmin(); }catch(e){}
+ if(_viewerAdminState === adm) return;
+ if(!(Array.isArray(dataAll) && dataAll.length)){ _viewerAdminState = adm; return; }
+ refreshVisibleData();
+ try{ buildFilters(); }catch(e){}
+ try{
+  const before = (lastResults||[]).length;
+  lastResults = (lastResults||[]).filter(c => adm || isCharReleased(c));
+  if(before > 0) renderResults(lastResults);
+ }catch(e){}
+}
 let mode="AND";
 let editingId=null;
 let rebirthEnabled=false;
@@ -5529,6 +5564,7 @@ function setAuthButtonsDisabled(disabled){
 
 let authMode = "login"; // login | setPassword
 function renderAuthBar(msg, msgType){
+ try{ syncViewerData(); }catch(e){}
  const bar=document.getElementById("authBar");
  if(!bar) return;
 
@@ -16480,7 +16516,8 @@ function renderAttackDetailHtml(k, a, opts){
   opts = opts || {};
   const label = ATTACKS.find(x => x[0] === k)?.[1] || k;
   const isSupport = a.range === "補助";
-  const hitAtk = (typeof attackLabelMatchesSearch==="function"
+  // 攻撃種別を条件指定した時だけ強調（未指定時は attackLabelMatchesSearch が常に true を返すため除外）
+  const hitAtk = !!(selected.attack && selected.attack.length) && (typeof attackLabelMatchesSearch==="function"
     ? attackLabelMatchesSearch(label, selected.attack, "OR")
     : isFilterMatch(label, selected.attack));
   const hitRange = isFilterMatch(a.range, selected.range);
@@ -16747,7 +16784,7 @@ function saveDataCache(){
  try{
   if(!Array.isArray(data) || !data.length) return;
   // localStorage容量対策：直近のまま全文保存（失敗したら無視）
-  localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(data));
+  localStorage.setItem(DATA_CACHE_KEY, JSON.stringify((Array.isArray(dataAll) && dataAll.length) ? dataAll : data));
  }catch(e){ /* quota等 */ }
 }
 
@@ -16758,9 +16795,10 @@ function hydrateFromCache(){
   if(!raw) return false;
   const parsed = JSON.parse(raw);
   if(!Array.isArray(parsed) || !parsed.length) return false;
-  data = parsed;
+  dataAll = parsed; data = dataAll;
   (data||[]).forEach(c => normalizeDetailsObj(c));
   sortDataInPlace();
+  refreshVisibleData();
   try{ buildFilters(); }catch(e){}
   const el = document.getElementById("results");
   if(el){
@@ -16957,9 +16995,10 @@ async function load(opts){
    source = "supabase";
   }
 
-  data = all || [];
+  dataAll = all || []; data = dataAll;
   (data||[]).forEach(c => normalizeDetailsObj(c));
   sortDataInPlace();
+  refreshVisibleData();
   buildFilters();
   try{ if(typeof updateSpecialTargetVisibility==="function") updateSpecialTargetVisibility(); }catch(e){}
   saveDataCache();
