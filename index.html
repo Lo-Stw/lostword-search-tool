@@ -2900,9 +2900,12 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
 <div id="fSpecial" class="buttons"></div>
 </div>
 <div class="hidden" id="specialTargetSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
-<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象種族） <span style="font-weight:400;opacity:.85;">※管理者のみ</span></div>
-<div id="fSpecialTargetChips" class="buttons" style="margin-bottom:8px;"></div>
-<input id="fSpecialTarget" class="input" placeholder="自由入力（部分一致） 例：妖怪・妖精">
+<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象種族・部分一致）</div>
+<div id="fSpecialTargetChipsWrap" class="hidden" style="margin-bottom:8px;">
+<div class="mini" style="margin-bottom:4px;color:#888;font-size:11px;">候補から選ぶ（管理者のみ）</div>
+<div id="fSpecialTargetChips" class="buttons"></div>
+</div>
+<input id="fSpecialTarget" class="input" placeholder="例：妖怪・妖精">
 </div>
 <div class="hidden" id="hardRatioSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
 <div class="mini" style="margin-bottom:6px;color:#666;">硬質弾の倍率（%）</div>
@@ -3193,6 +3196,14 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
         <div class="mini" style="font-weight:700;margin-bottom:6px">🕘 検索履歴（直近）</div>
         <div id="historyList" class="history-list"></div>
         <button type="button" id="clearHistoryBtn" class="sub" style="margin-top:8px;font-size:12px;padding:8px">履歴をすべて削除</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px dashed rgba(160,130,70,.35)">
+      <div class="mini" style="font-weight:700;margin-bottom:6px">該当バレット数フィルタ</div>
+      <div class="mini" style="margin-bottom:6px;color:#666;">該当するバレットがこの数<strong>以下</strong>のキャラは結果に出さない（空欄＝制限なし）</div>
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="fMinMatchBullets" class="input" type="number" min="0" step="1" placeholder="例：2" style="flex:1;min-width:120px">
+        <span class="mini" style="color:#666;">個以下を非表示</span>
       </div>
     </div>
 </div>
@@ -5979,6 +5990,7 @@ function getSearchState(){
   ddRace: (document.getElementById("fDdRace")?.value || "").trim(),
   specialTarget: (document.getElementById("fSpecialTarget")?.value || "").trim(),
   tokkouTargets: Array.isArray(selected.tokkouTargets) ? [...selected.tokkouTargets] : [],
+  minMatchBullets: (document.getElementById("fMinMatchBullets")?.value || "").trim(),
   mode: mode,
   statName: document.getElementById("statName").value,
   statValue: document.getElementById("statValue").value,
@@ -6051,6 +6063,8 @@ function applySearchState(state, skipHistory){
  const spTargetEl = document.getElementById("fSpecialTarget");
  if(spTargetEl) spTargetEl.value = state.specialTarget || "";
  selected.tokkouTargets = Array.isArray(state.tokkouTargets) ? [...state.tokkouTargets] : [];
+ const minBulEl = document.getElementById("fMinMatchBullets");
+ if(minBulEl) minBulEl.value = state.minMatchBullets || "";
  // 詳細条件がある場合はダメージ軽減を自動選択
  if((selected.ddKind.length || selected.ddAttr.length || selected.ddBullet.length || (state.ddRace||"").trim())
     && !selected.char.includes(DD_SKILL)){
@@ -7028,16 +7042,12 @@ function colorizeEffectText(plain){
 
 
 function getSearchHighlightTerms(){
- const ids = ["qChar","qSpell","qShot","qBullet","qSymbol"];
+ // 汎用（能力・特殊スキル等）。キャラ名/スペカ/ショット/バレット名には使わない
  const terms = [];
- ids.forEach(id=>{
-  const v = (document.getElementById(id)?.value || "").trim();
-  if(v) terms.push(v);
- });
  const addArr = (arr)=>{ (arr||[]).forEach(x=>{ if(x) terms.push(String(x)); }); };
  if(typeof selected !== "undefined" && selected){
   addArr(selected.special);
-  // 弾種・属性は名前への誤ハイライトを避けるためここでは入れない（表示箇所側で個別に光らせる）
+  // 弾種・属性はカード側で個別に光らせる（名前文字列には入れない）
   addArr(selected.char);
   addArr(selected.type);
   addArr(selected.range);
@@ -7046,7 +7056,28 @@ function getSearchHighlightTerms(){
   addArr(selected.rarity);
   addArr(selected.link);
  }
+ const qSym = (document.getElementById("qSymbol")?.value || "").trim();
+ if(qSym) terms.push(qSym);
  return [...new Set(terms)].sort((a,b)=>b.length-a.length);
+}
+/** キャラ名検索用（名前・よみがなのみ） */
+function getCharNameHighlightTerms(){
+ const v = (document.getElementById("qChar")?.value || "").trim();
+ return v ? [v] : [];
+}
+/** スペカ名検索用 */
+function getSpellHighlightTerms(){
+ const v = (document.getElementById("qSpell")?.value || "").trim();
+ return v ? [v] : [];
+}
+/** ショット名検索用 */
+function getShotHighlightTerms(){
+ const v = (document.getElementById("qShot")?.value || "").trim();
+ return v ? [v] : [];
+}
+/** バレット名はハイライトしない（空配列） */
+function getBulletNameHighlightTerms(){
+ return [];
 }
 function getBulletTypeHighlightTerms(){
  return [...new Set((typeof selected !== "undefined" && selected && selected.bullet) ? selected.bullet.map(String) : [])];
@@ -7090,7 +7121,8 @@ function highlightText(text, terms){
 }
 function highlightCharName(c, terms){
  const name = c.character || "";
- const list = (terms && terms.length) ? terms : getSearchHighlightTerms();
+ // キャラ名は qChar のみ対象（他条件の文字列で誤って光らせない）
+ const list = (terms && terms.length) ? terms : getCharNameHighlightTerms();
  if(!list.length) return esc(name);
  const direct = highlightText(name, list);
  // 直接一致があればそれ
@@ -14575,6 +14607,79 @@ function hasAttackRelatedFilter(){
   || selected.bullet.length || selected.special.length || qSpell || qShot || qBullet || spTarget || hasTokkou);
 }
 
+/** 検索条件に該当するバレット数を数える（該当バレット数フィルタ用） */
+function countMatchingBulletsForChar(c){
+ if(!c) return 0;
+ const qBullet = (document.getElementById("qBullet")?.value || "").trim().toLowerCase();
+ const spTargetRaw = (document.getElementById("fSpecialTarget")?.value || "").trim();
+ const spTarget = spTargetRaw.toLowerCase();
+ const tokkouChips = Array.isArray(selected.tokkouTargets) ? selected.tokkouTargets.filter(Boolean) : [];
+ const needAttr = !!(selected.attr && selected.attr.length);
+ const needBullet = !!(selected.bullet && selected.bullet.length);
+ const needSpecial = !!(selected.special && selected.special.length);
+ const needTokkou = !!(spTarget || tokkouChips.length);
+ const needQBullet = !!qBullet;
+ const needAttack = !!(selected.attack && selected.attack.length);
+ const needRange = !!(selected.range && selected.range.length);
+ const hasAnyBulletCond = needAttr || needBullet || needSpecial || needTokkou || needQBullet;
+
+ const sides = getCharRebirth(c).enabled
+  ? [packFromCharacterSide(c,"before"), packFromCharacterSide(c,"after")]
+  : [packFromCharacterSide(c,"before")];
+
+ let count = 0;
+ const seen = new Set(); // 転生前後で同一弾を二重に数えない（簡易：name+attr+type）
+ sides.forEach(p=>{
+  Object.entries(p.attacks || {}).forEach(([k, a])=>{
+   if(!a) return;
+   const label = (typeof ATTACKS !== "undefined" && Array.isArray(ATTACKS))
+    ? (ATTACKS.find(x => x[0] === k)?.[1] || k) : k;
+   if(needAttack || needRange){
+    if(typeof checkAttackMatch === "function"){
+     // 攻撃種・範囲だけ先に緩く見る（attr等は弾単位で数える）
+     if(needAttack && !(typeof attackLabelMatchesSearch==="function"
+       ? attackLabelMatchesSearch(label, selected.attack, mode)
+       : matchArray(selected.attack, [label], mode))) return;
+     if(needRange && !matchArray(selected.range, [a.range], mode)) return;
+    }
+   }
+   (a.bullets || []).forEach(b=>{
+    if(!b || !(b.name || b.attr || b.bulletType || Object.keys(b.specials||{}).length)) return;
+    if(needAttr && !isFilterMatch(b.attr, selected.attr)) return;
+    if(needBullet && !isFilterMatch(b.bulletType, selected.bullet)) return;
+    if(needSpecial){
+     const bKeys = Object.keys(b.specials || {}).filter(x => b.specials[x]);
+     const aKeys = Object.keys(a.specials || {}).filter(x => a.specials[x]);
+     if(!matchArray(selected.special, bKeys.concat(aKeys), mode)) return;
+    }
+    if(needTokkou){
+     if(typeof bulletHasTokkou === "function" && !bulletHasTokkou(b)) return;
+     const raw = (typeof bulletSpecialTargetText === "function")
+      ? bulletSpecialTargetText(b)
+      : String(b.specialTarget || "");
+     let ok = false;
+     if(spTarget && raw.toLowerCase().includes(spTarget)) ok = true;
+     if(!ok && tokkouChips.length){
+      ok = tokkouChips.some(ch => (typeof tokkouChipMatchesText === "function")
+       ? tokkouChipMatchesText(ch, raw) : raw.includes(ch));
+     }
+     if(!ok) return;
+    }
+    if(needQBullet && !(b.name && String(b.name).toLowerCase().includes(qBullet))) return;
+    // 条件が何もないときは全バレットをカウント
+    if(!hasAnyBulletCond && !needAttack && !needRange){
+      // fall through
+    }
+    const key = [k, b.name||"", b.attr||"", b.bulletType||""].join("|");
+    if(seen.has(key)) return;
+    seen.add(key);
+    count++;
+   });
+  });
+ });
+ return count;
+}
+
 function hasSpecial(c, x) {
  const d = c.details || {};
  const s = d.specialSkills || d.skills || {};
@@ -14624,7 +14729,8 @@ function isDetailSearchActive(){
  const r2Stage = (document.getElementById("fR2Stage")?.value || "").trim();
  const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim();
  const hasTokkou = Array.isArray(selected.tokkouTargets) && selected.tokkouTargets.length > 0;
- if(qSpell || qShot || qBullet || spTarget || hasTokkou) return true;
+ const minMatchBullets = (document.getElementById("fMinMatchBullets")?.value || "").trim();
+ if(qSpell || qShot || qBullet || spTarget || hasTokkou || minMatchBullets !== "") return true;
  if(selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length) return true;
  if(selected.special.length) return true;
  if((document.getElementById("fHardRatio")?.value || "").trim()) return true;
@@ -14763,12 +14869,17 @@ function tokkouChipMatchesText(chip, text){
  return tokens.some(tok => tok === ch || tok.includes(ch) || ch.includes(tok));
 }
 function renderSpecialTargetChips(){
+ const wrap = document.getElementById("fSpecialTargetChipsWrap");
  const box = document.getElementById("fSpecialTargetChips");
  if(!box) return;
- if(typeof isAdmin !== "function" || !isAdmin()){
+ const isAdm = (typeof isAdmin === "function" && isAdmin());
+ if(!isAdm){
+  if(wrap) wrap.classList.add("hidden");
   box.innerHTML = "";
+  if(Array.isArray(selected.tokkouTargets)) selected.tokkouTargets.splice(0);
   return;
  }
+ if(wrap) wrap.classList.remove("hidden");
  const cands = (typeof collectSpecialTargetCandidates === "function") ? collectSpecialTargetCandidates() : [];
  if(!Array.isArray(selected.tokkouTargets)) selected.tokkouTargets = [];
  if(!cands.length){
@@ -14790,9 +14901,8 @@ function renderSpecialTargetChips(){
 function updateSpecialTargetVisibility(){
  const stSec = document.getElementById("specialTargetSection");
  if(stSec){
-  // 管理者のみ特攻弾の候補・詳細入力を表示
-  const isAdm = (typeof isAdmin === "function" && isAdmin());
-  const showSt = !!(isAdm && selected.special && selected.special.includes("特攻弾"));
+  // 自由入力は全員表示。候補チップだけ管理者限定
+  const showSt = !!(selected.special && selected.special.includes("特攻弾"));
   stSec.classList.toggle("hidden", !showSt);
   if(!showSt){
    const stEl = document.getElementById("fSpecialTarget");
@@ -14800,6 +14910,8 @@ function updateSpecialTargetVisibility(){
    if(Array.isArray(selected.tokkouTargets)) selected.tokkouTargets.splice(0);
    const chips = document.getElementById("fSpecialTargetChips");
    if(chips) chips.innerHTML = "";
+   const wrap = document.getElementById("fSpecialTargetChipsWrap");
+   if(wrap) wrap.classList.add("hidden");
   } else {
    try{ renderSpecialTargetChips(); }catch(e){ console.warn(e); }
   }
@@ -15835,6 +15947,14 @@ function search(skipHistory) {
    if (!ok) return false;
   }
 
+  // 該当バレット数が N 以下のキャラは表示しない
+  const minMatchRaw = (document.getElementById("fMinMatchBullets")?.value || "").trim();
+  if (minMatchRaw !== "" && Number.isFinite(Number(minMatchRaw))) {
+   const n = Number(minMatchRaw);
+   const matchCount = countMatchingBulletsForChar(c);
+   if (matchCount <= n) return false;
+  }
+
   return true;
  });
 
@@ -16019,12 +16139,10 @@ function renderBulletCardHtml(b, bIdx) {
  const hitSpecial = activeSpecials.some(sp => isFilterMatch(sp, selected.special));
  const hitBullet = isFilterMatch(b.bulletType, selected.bullet);
  const hitAttr = isFilterMatch(attr, selected.attr);
- const hitName = (()=>{
-  const terms = getSearchHighlightTerms();
-  const n = String(b.name||"");
-  return terms.some(t => t && n.toLowerCase().includes(String(t).toLowerCase()));
- })();
- const cardHl = (hitSpecial || hitBullet || hitAttr || hitName) ? "hl-card" : "";
+ // バレット名テキストはハイライトしない。qBullet 一致時のみカードを光らせる
+ const qBullet = (document.getElementById("qBullet")?.value || "").trim().toLowerCase();
+ const hitQBullet = !!(qBullet && String(b.name||"").toLowerCase().includes(qBullet));
+ const cardHl = (hitSpecial || hitBullet || hitAttr || hitQBullet) ? "hl-card" : "";
 
  // special tags with per-item highlight + 長押し用データ
  const specialTagsHtml = activeSpecials.map((sp, i)=>{
@@ -16040,7 +16158,7 @@ function renderBulletCardHtml(b, bIdx) {
    ${renderBulletTypeIconHtml(b.bulletType)}
    <div class="bullet-card-main">
     <div class="bullet-card-top">
-     <div class="bullet-card-title">${highlightText(b.name || `バレット ${bIdx+1}`)}</div>
+     <div class="bullet-card-title">${esc(b.name || `バレット ${bIdx+1}`)}</div>
      <div class="bullet-card-count">${b.count ? `×${esc(b.count)}` : ''}</div>
     </div>
     <div class="bullet-card-tags">
@@ -16256,8 +16374,8 @@ function renderResults(arr){
         + metaHtml;
      })()}
      <div class="char-name-row">
-      <div class="char" onclick="openModal('${esc(c.id)}')">${highlightCharName(c, hlTerms)}</div>
-      <span class="symbol-badge"><span class="sym-label">汎異</span>${highlightText(vm.symbol||"未登録", hlTerms)}</span>
+      <div class="char" onclick="openModal('${esc(c.id)}')">${highlightCharName(c)}</div>
+      <span class="symbol-badge"><span class="sym-label">汎異</span>${highlightText(vm.symbol||"未登録", (document.getElementById("qSymbol")?.value || "").trim() ? [(document.getElementById("qSymbol").value || "").trim()] : [])}</span>
       ${(!nameOnly && vm.rebirth) ? `<span class="tag tag-rank2">${esc(sideLabel)}表示中</span>` : ""}
       ${(searchMatchSideMap[String(c.id)]||{}).onlyAfter ? `<span class="tag tag-only-after">転生後のみ該当</span>` : ""}
      </div>
@@ -16580,12 +16698,16 @@ function renderAttackDetailHtml(k, a, opts){
   const hitRange = isFilterMatch(a.range, selected.range);
   const bullets = (!isSupport && Array.isArray(a.bullets)) ? a.bullets.filter(b => b && (b.name || b.attr || b.bulletType || Object.keys(b.specials||{}).length)) : [];
   const bulletCount = bullets.length || (isSupport ? 0 : (a.bullets||[]).length);
+  // スペカ/ショット名は対応する検索欄の語だけハイライト（キャラ名検索では光らせない）
+  const spellNameTerms = (k === "spread" || k === "focus")
+    ? getShotHighlightTerms()
+    : getSpellHighlightTerms();
   let h = `
    <div class="attack-accordion" data-attack-acc>
     <button type="button" class="attack-acc-head" aria-expanded="false">
      <span class="attack-acc-head-text">
       <span class="attack-acc-kind">${hitAtk?`<mark class="hl">${esc(label)}</mark>`:esc(label)} ${tagWithHl(a.range||"", hitRange, "")}</span>
-      <span class="spell-name attack-acc-spell">${highlightText(a.name || "名称未設定")}</span>
+      <span class="spell-name attack-acc-spell">${highlightText(a.name || "名称未設定", spellNameTerms)}</span>
      </span>
      <span class="attack-acc-icon">▼</span>
     </button>
@@ -18747,7 +18869,7 @@ document.getElementById("reset").onclick=()=>{
    else if(typeof a === "string" || typeof a === "number") selected[k] = "";
   });
   if(typeof RARITIES!=="undefined") selected.rarity = RARITIES.slice();
-  ["fFavRatio","fUnfavRatio","fPersistBuffStage","fPersistDebuffStage","fResistStageInput"].forEach(id=>{
+  ["fFavRatio","fUnfavRatio","fPersistBuffStage","fPersistDebuffStage","fResistStageInput","fMinMatchBullets"].forEach(id=>{
    const el=document.getElementById(id);
    if(el) el.value="";
   });
@@ -18782,6 +18904,8 @@ document.getElementById("reset").onclick=()=>{
 const fDdRaceEl=document.getElementById("fDdRace");
 if(fDdRaceEl) fDdRaceEl.onkeydown=(e)=>{ if(e.key==="Enter") search(); };
 document.getElementById("statValue").onkeydown=(e)=>{ if(e.key==="Enter") search(); };
+const fMinMatchEl=document.getElementById("fMinMatchBullets");
+if(fMinMatchEl) fMinMatchEl.onkeydown=(e)=>{ if(e.key==="Enter") search(); };
 
 /* =========================================================
    初期起動（セッション復元 → データ読み込み）
