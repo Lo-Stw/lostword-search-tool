@@ -2900,8 +2900,9 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
 <div id="fSpecial" class="buttons"></div>
 </div>
 <div class="hidden" id="specialTargetSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
-<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象種族・部分一致）</div>
-<input id="fSpecialTarget" class="input" placeholder="例：妖怪">
+<div class="mini" style="margin-bottom:6px;color:#666;">特攻弾の詳細（対象種族） <span style="font-weight:400;opacity:.85;">※管理者のみ</span></div>
+<div id="fSpecialTargetChips" class="buttons" style="margin-bottom:8px;"></div>
+<input id="fSpecialTarget" class="input" placeholder="自由入力（部分一致） 例：妖怪・妖精">
 </div>
 <div class="hidden" id="hardRatioSection" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(160,130,70,.4)">
 <div class="mini" style="margin-bottom:6px;color:#666;">硬質弾の倍率（%）</div>
@@ -4262,6 +4263,7 @@ const selected={
  abConvKind:[], abConvAbnormal:[], abImmKind:[], abImmAbnormal:[],
  abBoostTarget:[], abBoostStat:[], abGrazeTarget:[], abGrazeStat:[],
  owned:[],
+ tokkouTargets:[],
  sealStat:[], barrierUpStat:[], barrierDownStat:[],
  resonanceStat:[], attrBoostAttr:[], bulletBoostType:[],
  accumSource:[], accumFromStat:[], accumToStat:[], durationEffect:[],
@@ -5708,6 +5710,7 @@ async function doSignIn(){
   }
   renderAuthBar("サインインしました。","ok");
   await loadUserPrefs();
+  try{ updateSpecialTargetVisibility(); }catch(e){}
   search(true);
  }catch(e){
   const msg = "サインイン失敗：" + (e.message || e);
@@ -5781,6 +5784,7 @@ async function doLogout(){
  updatePrefsUI();
  updateBgSettingsUI();
  updateOwnedTabUI();
+ try{ updateSpecialTargetVisibility(); }catch(e){}
  if(!document.getElementById("addPage").classList.contains("hidden")){
   // 編集ページにいる場合はガード再表示
  }
@@ -5974,6 +5978,7 @@ function getSearchState(){
   ddBullet: [...selected.ddBullet],
   ddRace: (document.getElementById("fDdRace")?.value || "").trim(),
   specialTarget: (document.getElementById("fSpecialTarget")?.value || "").trim(),
+  tokkouTargets: Array.isArray(selected.tokkouTargets) ? [...selected.tokkouTargets] : [],
   mode: mode,
   statName: document.getElementById("statName").value,
   statValue: document.getElementById("statValue").value,
@@ -6045,12 +6050,13 @@ function applySearchState(state, skipHistory){
  if(raceEl) raceEl.value = state.ddRace || "";
  const spTargetEl = document.getElementById("fSpecialTarget");
  if(spTargetEl) spTargetEl.value = state.specialTarget || "";
+ selected.tokkouTargets = Array.isArray(state.tokkouTargets) ? [...state.tokkouTargets] : [];
  // 詳細条件がある場合はダメージ軽減を自動選択
  if((selected.ddKind.length || selected.ddAttr.length || selected.ddBullet.length || (state.ddRace||"").trim())
     && !selected.char.includes(DD_SKILL)){
   selected.char.push(DD_SKILL);
  }
- if((state.specialTarget||"").trim() && !selected.special.includes("特攻弾")){
+ if(((state.specialTarget||"").trim() || selected.tokkouTargets.length) && !selected.special.includes("特攻弾")){
   selected.special.push("特攻弾");
  }
  mode = state.mode === "OR" ? "OR" : "AND";
@@ -14512,11 +14518,28 @@ function checkAttackMatch(a, attackLabel, attackKey) {
   if (!attackMatchesHardSharpRatio(a)) return false;
  }
 
- // 特攻弾の対象種族（入力欄の部分一致）
- const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim().toLowerCase();
- if (spTarget) {
-  const hit = (a.bullets || []).some(b => bulletHasTokkou(b) && String(bulletSpecialTargetText(b) || "").toLowerCase().includes(spTarget));
-  const hitAtt = !!(a.specials && a.specials["特攻弾"] && String(a.specialTarget || "").toLowerCase().includes(spTarget));
+ // 特攻弾の対象種族（管理者のみ：チップ選択 OR 自由入力の部分一致）
+ const spTargetRaw = (document.getElementById("fSpecialTarget")?.value || "").trim();
+ const spTarget = spTargetRaw.toLowerCase();
+ const tokkouChips = Array.isArray(selected.tokkouTargets) ? selected.tokkouTargets.filter(Boolean) : [];
+ if (spTarget || tokkouChips.length) {
+  const textOf = (obj)=>{
+   if(!obj) return "";
+   if(obj.specialTarget) return String(obj.specialTarget);
+   return (typeof bulletSpecialTargetText === "function") ? bulletSpecialTargetText(obj) : "";
+  };
+  const matchesAny = (txt)=>{
+   const raw = String(txt || "");
+   if(spTarget && raw.toLowerCase().includes(spTarget)) return true;
+   if(tokkouChips.length){
+    return tokkouChips.some(ch => (typeof tokkouChipMatchesText === "function")
+     ? tokkouChipMatchesText(ch, raw)
+     : raw.includes(ch));
+   }
+   return false;
+  };
+  const hit = (a.bullets || []).some(b => bulletHasTokkou(b) && matchesAny(textOf(b)));
+  const hitAtt = !!(a.specials && a.specials["特攻弾"] && matchesAny(a.specialTarget || textOf(a)));
   if (!hit && !hitAtt) return false;
  }
 
@@ -14547,8 +14570,9 @@ function hasAttackRelatedFilter(){
  const qShot = (document.getElementById("qShot")?.value || "").trim();
  const qBullet = (document.getElementById("qBullet")?.value || "").trim();
  const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim();
+ const hasTokkou = Array.isArray(selected.tokkouTargets) && selected.tokkouTargets.length > 0;
  return !!(selected.attack.length || selected.range.length || selected.attr.length
-  || selected.bullet.length || selected.special.length || qSpell || qShot || qBullet || spTarget);
+  || selected.bullet.length || selected.special.length || qSpell || qShot || qBullet || spTarget || hasTokkou);
 }
 
 function hasSpecial(c, x) {
@@ -14599,7 +14623,8 @@ function isDetailSearchActive(){
  const qBullet = (document.getElementById("qBullet")?.value || "").trim();
  const r2Stage = (document.getElementById("fR2Stage")?.value || "").trim();
  const spTarget = (document.getElementById("fSpecialTarget")?.value || "").trim();
- if(qSpell || qShot || qBullet || spTarget) return true;
+ const hasTokkou = Array.isArray(selected.tokkouTargets) && selected.tokkouTargets.length > 0;
+ if(qSpell || qShot || qBullet || spTarget || hasTokkou) return true;
  if(selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length) return true;
  if(selected.special.length) return true;
  if((document.getElementById("fHardRatio")?.value || "").trim()) return true;
@@ -14737,14 +14762,46 @@ function tokkouChipMatchesText(chip, text){
  if(tokens.includes(ch)) return true;
  return tokens.some(tok => tok === ch || tok.includes(ch) || ch.includes(tok));
 }
+function renderSpecialTargetChips(){
+ const box = document.getElementById("fSpecialTargetChips");
+ if(!box) return;
+ if(typeof isAdmin !== "function" || !isAdmin()){
+  box.innerHTML = "";
+  return;
+ }
+ const cands = (typeof collectSpecialTargetCandidates === "function") ? collectSpecialTargetCandidates() : [];
+ if(!Array.isArray(selected.tokkouTargets)) selected.tokkouTargets = [];
+ if(!cands.length){
+  box.innerHTML = `<div class="mini" style="color:#888;">候補がありません（データ読込後に表示）</div>`;
+  return;
+ }
+ box.innerHTML = cands.map(t=>{
+  const on = selected.tokkouTargets.includes(t);
+  return `<button type="button" class="filter${on?" selected":""}" data-tokkou="${esc(t)}">${esc(t)}</button>`;
+ }).join("");
+ box.querySelectorAll("[data-tokkou]").forEach(btn=>{
+  btn.onclick = ()=>{
+   const v = btn.getAttribute("data-tokkou") || "";
+   toggle(selected.tokkouTargets, v, btn);
+  };
+ });
+}
+
 function updateSpecialTargetVisibility(){
  const stSec = document.getElementById("specialTargetSection");
  if(stSec){
-  const showSt = !!(selected.special && selected.special.includes("特攻弾"));
+  // 管理者のみ特攻弾の候補・詳細入力を表示
+  const isAdm = (typeof isAdmin === "function" && isAdmin());
+  const showSt = !!(isAdm && selected.special && selected.special.includes("特攻弾"));
   stSec.classList.toggle("hidden", !showSt);
   if(!showSt){
    const stEl = document.getElementById("fSpecialTarget");
    if(stEl) stEl.value = "";
+   if(Array.isArray(selected.tokkouTargets)) selected.tokkouTargets.splice(0);
+   const chips = document.getElementById("fSpecialTargetChips");
+   if(chips) chips.innerHTML = "";
+  } else {
+   try{ renderSpecialTargetChips(); }catch(e){ console.warn(e); }
   }
  }
  const hardSec = document.getElementById("hardRatioSection");
@@ -18826,6 +18883,7 @@ async function init(){
      prefsLoaded = false;
      updatePrefsUI();
     }
+    try{ updateSpecialTargetVisibility(); }catch(e){}
     renderResults(lastResults||[]);
     updateEditGuard();
    });
