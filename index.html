@@ -3511,7 +3511,7 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
 </div>
 
 <!-- BGM・スキル・特性（管理者WIP） -->
-<div class="box form-acc admin-wip-only hidden" id="bgmSkillsTraitsEditorBox">
+<div class="box form-acc open admin-wip-only hidden" id="bgmSkillsTraitsEditorBox">
 <button type="button" class="form-acc-head" data-form-acc>
   <span>BGM・スキル・特性（管理者・作業中）</span>
   <span class="form-acc-icon">▼</span>
@@ -3521,12 +3521,20 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
 
   <div class="mini" style="font-weight:700;margin-bottom:6px;">BGM</div>
   <input id="aBgmTitle" class="input" placeholder="BGMタイトル" style="margin-bottom:6px;">
-  <input id="aBgmOriginal" class="input" placeholder="原曲名" style="margin-bottom:6px;">
+  <div class="mini" style="margin:4px 0;">サークル</div>
+  <input id="aBgmCircle" class="input" placeholder="サークル名" style="margin-bottom:6px;">
+  <div class="mini" style="margin:4px 0;">編曲者</div>
+  <input id="aBgmArranger" class="input" placeholder="編曲者名" style="margin-bottom:6px;">
+  <div class="mini" style="margin:4px 0;">原曲名（複数登録できます）</div>
+  <div id="bgmOriginalsEditor"></div>
+  <button type="button" class="btn-add" id="addBgmOriginalBtn" style="margin-bottom:8px;">＋ 原曲名を追加</button>
   <div class="mini" style="margin:6px 0 4px;">リンク（YouTube / Spotify / その他）</div>
   <div id="bgmLinksEditor"></div>
   <button type="button" class="btn-add" id="addBgmLinkBtn" style="margin-bottom:12px;">＋ リンクを追加</button>
 
-  <div class="mini" style="font-weight:700;margin:10px 0 6px;">スキル（1〜3）</div>
+  <div class="mini" style="font-weight:700;margin:10px 0 6px;">スキル（1〜3）—手動入力</div>
+  <div id="charSkillsEditor"></div>
+  <div class="mini" style="font-weight:700;margin:14px 0 6px;">Wiki取込（任意）</div>
   <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
    <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（スキル）</div>
    <div class="mini" style="margin-bottom:6px;color:#666;">スキル名〜効果をまとめて貼り付け。Lv.10以降の効果と再使用ターンを採用します。</div>
@@ -3536,9 +3544,13 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
     <span class="mini" id="wikiSkillsImportStatus" style="color:#666;"></span>
    </div>
   </div>
-  <div id="charSkillsEditor"></div>
-
-  <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性</div>
+  <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性—手動入力（追加・削除可）</div>
+  <datalist id="traitTriggerList">
+   <option value="攻撃された時"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
+   <option value="ターン終了時"></option><option value="戦闘開始時"></option><option value="スペルカード発動時"></option>
+  </datalist>
+  <div id="charTraitsEditor"></div>
+  <div class="mini" style="font-weight:700;margin:14px 0 6px;">Wiki取込（任意）</div>
   <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
    <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（特性）</div>
    <div class="mini" style="margin-bottom:6px;color:#666;">特性名の行と「・」で始まる効果行を貼り付け。発動条件・対象（陽気/陰気/弾種/種族）・倍率・発動確率を自動で振り分けます（最大3件）。</div>
@@ -3548,11 +3560,6 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
     <span class="mini" id="wikiTraitsImportStatus" style="color:#666;"></span>
    </div>
   </div>
-  <datalist id="traitTriggerList">
-   <option value="攻撃された時"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
-   <option value="ターン終了時"></option><option value="戦闘開始時"></option><option value="スペルカード発動時"></option>
-  </datalist>
-  <div id="charTraitsEditor"></div>
 </div>
 </div>
 
@@ -4622,13 +4629,13 @@ function snapshotFormToPack(){
   specialSkills: JSON.parse(JSON.stringify(specialData)),
   abilities: JSON.parse(JSON.stringify(abilityData)),
   attacks: JSON.parse(JSON.stringify(attackData)),
-  bgm: (beforePack && beforePack.bgm) ? JSON.parse(JSON.stringify(beforePack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", original:(document.getElementById("aBgmOriginal")||{}).value||"", links:[] },
-  skills: (beforePack && beforePack.skills) ? JSON.parse(JSON.stringify(beforePack.skills)) : [
+   bgm: (activeCharExtraPack && activeCharExtraPack.bgm) ? JSON.parse(JSON.stringify(activeCharExtraPack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", circle:(document.getElementById("aBgmCircle")||{}).value||"", arranger:(document.getElementById("aBgmArranger")||{}).value||"", original:"", originals:[""], links:[] },
+   skills: (activeCharExtraPack && activeCharExtraPack.skills) ? JSON.parse(JSON.stringify(activeCharExtraPack.skills)) : [
    { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
    { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
    { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
   ],
-  traits: (beforePack && beforePack.traits) ? JSON.parse(JSON.stringify(beforePack.traits)) : []
+   traits: (activeCharExtraPack && activeCharExtraPack.traits) ? JSON.parse(JSON.stringify(activeCharExtraPack.traits)) : []
  };
 }
 
@@ -4733,10 +4740,9 @@ function loadPackToForm(pack){
  initEditors();
  initSpecialSkills();
  try{ updateLinkHelp(); }catch(e){}
- initAbilities();
-}
-
- try{ ensureCharExtra(p); if(beforePack){ beforePack.bgm=p.bgm; beforePack.skills=p.skills; beforePack.traits=p.traits; } fillBgmSkillsTraitsForm(p); bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
+  initAbilities();
+  try{ ensureCharExtra(p); fillBgmSkillsTraitsForm(p); bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
+ }
 
 function isPackEmpty(pack){
  if(!pack) return true;
@@ -19387,6 +19393,12 @@ document.getElementById("tabAdd").onclick=()=>{
   initEditors();
   initSpecialSkills();
   initAbilities();
+  if(!beforePack) beforePack = emptyPack();
+  ensureCharExtra(beforePack);
+  fillBgmSkillsTraitsForm(beforePack);
+  bindBgmSkillsTraitsForm();
+  syncAdminWipVisibility();
+  document.getElementById("bgmSkillsTraitsEditorBox")?.classList.add("open");
  }
  updateEditGuard();
 };
@@ -19581,6 +19593,7 @@ function initTheme(){
 
 
 /* ===== 管理者WIP: BGM / スキル / 特性 ===== */
+let activeCharExtraPack = null;
 function createEmptySkill(){
  return { name:"", cooldown:"", cooldownInit:"", specialSlot:"", text:"", effects: createEmptyEffectBag() };
 }
@@ -19589,7 +19602,15 @@ function createEmptyTrait(){
 }
 function ensureCharExtra(pack){
  if(!pack) return;
- if(!pack.bgm || typeof pack.bgm !== "object") pack.bgm = { title:"", original:"", links:[] };
+ if(!pack.bgm || typeof pack.bgm !== "object") pack.bgm = { title:"", circle:"", arranger:"", original:"", originals:[""], links:[] };
+ pack.bgm.title = String(pack.bgm.title || "");
+ pack.bgm.circle = String(pack.bgm.circle || "");
+ pack.bgm.arranger = String(pack.bgm.arranger || "");
+ const legacyOriginal = Array.isArray(pack.bgm.original) ? "" : String(pack.bgm.original || "");
+ let originals = Array.isArray(pack.bgm.originals) ? pack.bgm.originals.map(v=>String(v == null ? "" : v)) : [];
+ if(!originals.length) originals = [legacyOriginal];
+ pack.bgm.originals = originals;
+ pack.bgm.original = originals.find(v=>v.trim()) || "";
  if(!Array.isArray(pack.bgm.links)) pack.bgm.links = [];
  if(!Array.isArray(pack.skills)) pack.skills = [createEmptySkill(), createEmptySkill(), createEmptySkill()];
  while(pack.skills.length < 3) pack.skills.push(createEmptySkill());
@@ -19610,9 +19631,37 @@ function syncAdminWipVisibility(){
   el.classList.toggle("hidden", !show);
  });
 }
-function renderBgmLinksEditor(links){
+function renderBgmOriginalsEditor(pack){
+ const box = document.getElementById("bgmOriginalsEditor");
+ if(!box || !pack) return;
+ ensureCharExtra(pack);
+ const originals = pack.bgm.originals.length ? pack.bgm.originals : [""];
+ box.innerHTML = originals.map((name, i)=>`
+  <div class="row" style="gap:6px;margin-bottom:6px;align-items:center;">
+   <input class="input" style="flex:1" data-bgm-original="${i}" placeholder="原曲名 ${i+1}" value="${esc(name)}">
+   <button type="button" class="btn-del" data-bgm-original-del="${i}">削除</button>
+  </div>`).join("");
+ box.querySelectorAll("[data-bgm-original]").forEach(inp=>{
+  inp.oninput = ()=>{
+   const i = Number(inp.getAttribute("data-bgm-original"));
+   pack.bgm.originals[i] = inp.value;
+   pack.bgm.original = pack.bgm.originals.find(v=>String(v||"").trim()) || "";
+  };
+ });
+ box.querySelectorAll("[data-bgm-original-del]").forEach(btn=>{
+  btn.onclick = ()=>{
+   const i = Number(btn.getAttribute("data-bgm-original-del"));
+   pack.bgm.originals.splice(i, 1);
+   if(!pack.bgm.originals.length) pack.bgm.originals.push("");
+   pack.bgm.original = pack.bgm.originals.find(v=>String(v||"").trim()) || "";
+   renderBgmOriginalsEditor(pack);
+  };
+ });
+}
+function renderBgmLinksEditor(links, pack){
  const box = document.getElementById("bgmLinksEditor");
  if(!box) return;
+ const targetPack = pack || activeCharExtraPack || beforePack;
  if(!Array.isArray(links)) links = [];
  box.innerHTML = links.map((lk, i)=>`
   <div class="row" style="gap:6px;margin-bottom:6px;align-items:center;">
@@ -19627,35 +19676,33 @@ function renderBgmLinksEditor(links){
  box.querySelectorAll("[data-bgm-link-type]").forEach(sel=>{
   sel.onchange = ()=>{
    const i = Number(sel.getAttribute("data-bgm-link-type"));
-   if(beforePack && beforePack.bgm) { ensureCharExtra(beforePack); beforePack.bgm.links[i].type = sel.value; }
+   if(targetPack && targetPack.bgm) { ensureCharExtra(targetPack); targetPack.bgm.links[i].type = sel.value; }
   };
  });
  box.querySelectorAll("[data-bgm-link-url]").forEach(inp=>{
   inp.oninput = ()=>{
    const i = Number(inp.getAttribute("data-bgm-link-url"));
-   if(beforePack && beforePack.bgm){ ensureCharExtra(beforePack); beforePack.bgm.links[i].url = inp.value; }
+    if(targetPack && targetPack.bgm){ ensureCharExtra(targetPack); targetPack.bgm.links[i].url = inp.value; }
   };
  });
  box.querySelectorAll("[data-bgm-link-del]").forEach(btn=>{
   btn.onclick = ()=>{
    const i = Number(btn.getAttribute("data-bgm-link-del"));
-   if(beforePack && beforePack.bgm){ ensureCharExtra(beforePack); beforePack.bgm.links.splice(i,1); renderBgmLinksEditor(beforePack.bgm.links); }
+    if(targetPack && targetPack.bgm){ ensureCharExtra(targetPack); targetPack.bgm.links.splice(i,1); renderBgmLinksEditor(targetPack.bgm.links, targetPack); }
   };
  });
 }
 function fillBgmSkillsTraitsForm(pack){
  ensureCharExtra(pack);
- // 編集中パックと同期
- if(typeof beforePack !== "undefined" && beforePack){
-  beforePack.bgm = pack.bgm;
-  beforePack.skills = pack.skills;
-  beforePack.traits = pack.traits;
- }
+ activeCharExtraPack = pack;
  const t = document.getElementById("aBgmTitle");
- const o = document.getElementById("aBgmOriginal");
+ const c = document.getElementById("aBgmCircle");
+ const a = document.getElementById("aBgmArranger");
  if(t) t.value = pack.bgm.title || "";
- if(o) o.value = pack.bgm.original || "";
- renderBgmLinksEditor(pack.bgm.links);
+ if(c) c.value = pack.bgm.circle || "";
+ if(a) a.value = pack.bgm.arranger || "";
+ renderBgmOriginalsEditor(pack);
+ renderBgmLinksEditor(pack.bgm.links, pack);
  const skBox = document.getElementById("charSkillsEditor");
  if(skBox){
   skBox.innerHTML = pack.skills.map((sk, i)=>{
@@ -19865,20 +19912,22 @@ function skillWikiLines(sk){
 }
 function updateSkillPreviews(){
  const box = document.getElementById("charSkillsEditor");
- if(!box || typeof beforePack === "undefined" || !beforePack) return;
+ const pack = activeCharExtraPack || beforePack;
+ if(!box || !pack) return;
  box.querySelectorAll("[data-skill-preview]").forEach(el=>{
   const i = Number(el.getAttribute("data-skill-preview"));
-  const sk = (beforePack.skills || [])[i];
+  const sk = (pack.skills || [])[i];
   const lines = sk ? [skillWikiHead(sk)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean) : [];
   el.textContent = lines.join("\n") || "（Wiki表記のプレビュー）";
  });
 }
 function updateTraitPreviews(){
  const box = document.getElementById("charTraitsEditor");
- if(!box || typeof beforePack === "undefined" || !beforePack) return;
+ const pack = activeCharExtraPack || beforePack;
+ if(!box || !pack) return;
  box.querySelectorAll("[data-trait-preview]").forEach(el=>{
   const i = Number(el.getAttribute("data-trait-preview"));
-  const tr = (beforePack.traits || [])[i];
+  const tr = (pack.traits || [])[i];
   el.textContent = tr ? (traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）") : "";
  });
 }
@@ -20049,24 +20098,38 @@ function bindBgmSkillsTraitsForm(){
  }catch(e){}
 
  const addL = document.getElementById("addBgmLinkBtn");
- if(addL && !addL.dataset.bound){
+  if(addL && !addL.dataset.bound){
   addL.dataset.bound = "1";
   addL.onclick = ()=>{
-   if(!beforePack) return;
-   ensureCharExtra(beforePack);
-   beforePack.bgm.links.push({ type:"youtube", url:"" });
-   renderBgmLinksEditor(beforePack.bgm.links);
+    const pack = activeCharExtraPack || beforePack;
+    if(!pack) return;
+    ensureCharExtra(pack);
+    pack.bgm.links.push({ type:"youtube", url:"" });
+    renderBgmLinksEditor(pack.bgm.links, pack);
   };
  }
- ["aBgmTitle","aBgmOriginal"].forEach(id=>{
+  const addOriginal = document.getElementById("addBgmOriginalBtn");
+  if(addOriginal && !addOriginal.dataset.bound){
+   addOriginal.dataset.bound = "1";
+   addOriginal.onclick = ()=>{
+    const pack = activeCharExtraPack || beforePack;
+    if(!pack) return;
+    ensureCharExtra(pack);
+    pack.bgm.originals.push("");
+    renderBgmOriginalsEditor(pack);
+   };
+  }
+  ["aBgmTitle","aBgmCircle","aBgmArranger"].forEach(id=>{
   const el = document.getElementById(id);
   if(el && !el.dataset.bound){
    el.dataset.bound = "1";
    el.oninput = ()=>{
-    if(!beforePack) return;
-    ensureCharExtra(beforePack);
-    if(id==="aBgmTitle") beforePack.bgm.title = el.value;
-    if(id==="aBgmOriginal") beforePack.bgm.original = el.value;
+     const pack = activeCharExtraPack || beforePack;
+     if(!pack) return;
+     ensureCharExtra(pack);
+     if(id==="aBgmTitle") pack.bgm.title = el.value;
+     if(id==="aBgmCircle") pack.bgm.circle = el.value;
+     if(id==="aBgmArranger") pack.bgm.arranger = el.value;
    };
   }
  });
@@ -20080,10 +20143,13 @@ function formatBgmSkillsTraitsHtml(pack, opts){
  let h = "";
  const bgm = pack.bgm || {};
  if(section==="all" || section==="bgm"){
-  if(bgm.title || bgm.original || (bgm.links||[]).length){
+  const originals = Array.isArray(bgm.originals) ? bgm.originals.filter(v=>String(v||"").trim()) : (bgm.original ? [bgm.original] : []);
+  if(bgm.title || bgm.circle || bgm.arranger || originals.length || (bgm.links||[]).length){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">BGM</div>`;
    if(bgm.title) h += `<div><b>${esc(bgm.title)}</b></div>`;
-   if(bgm.original) h += `<div class="muted">原曲：${esc(bgm.original)}</div>`;
+   if(bgm.circle) h += `<div class="muted">サークル：${esc(bgm.circle)}</div>`;
+   if(bgm.arranger) h += `<div class="muted">編曲：${esc(bgm.arranger)}</div>`;
+   originals.forEach((name, i)=>{ h += `<div class="muted">原曲${i ? (i+1) : ""}：${esc(name)}</div>`; });
    (bgm.links||[]).forEach(lk=>{
     if(!lk || !lk.url) return;
     const lab = lk.type==="youtube"?"YouTube":(lk.type==="spotify"?"Spotify":"リンク");
