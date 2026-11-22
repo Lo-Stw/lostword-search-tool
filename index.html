@@ -3306,6 +3306,7 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
   <button type="button" id="adminSearchIncompleteSpBullets" class="sub" style="width:auto;">特殊弾詳細未記入</button>
   <button type="button" id="adminExportCharsJson" class="sub" style="width:auto;">キャラJSON書き出し</button>
   <button type="button" id="adminReloadSupabase" class="sub" style="width:auto;">Supabaseから再読込</button>
+  <span class="mini" id="pendingChangesStatus" style="color:#a05030;font-weight:700;"></span>
 </div>
 <button id="searchBtn" class="main" type="button">🔍 検索する</button>
 </div>
@@ -17677,6 +17678,84 @@ async function loadFromSupabaseCharacters(el){
  }
 }
 
+/* ===== 未公開の変更（静的JSON運用） =====
+   保存・削除した内容を端末内(IndexedDB)に保持し、静的JSONを読み込んだあとに重ねて表示する。
+   → 編集のたびに characters.json を再アップロードしなくても、管理者の画面には最新が反映される。
+   書き出し(キャラJSON書き出し)時刻をJSONに埋め込み、再アップロード後は自動で整理する。 */
+const PENDING_DB_NAME = "tlw_pending_changes_v1";
+let staticExportedAtMs = 0;
+function pendingOpenDb(){
+ return new Promise((resolve, reject)=>{
+  try{
+   const r = indexedDB.open(PENDING_DB_NAME, 1);
+   r.onupgradeneeded = ()=>{ r.result.createObjectStore("rows", { keyPath:"key" }); };
+   r.onsuccess = ()=> resolve(r.result);
+   r.onerror = ()=> reject(r.error);
+  }catch(e){ reject(e); }
+ });
+}
+async function pendingRun(mode, fn){
+ const db = await pendingOpenDb();
+ try{
+  return await new Promise((resolve, reject)=>{
+   const tx = db.transaction("rows", mode);
+   const st = tx.objectStore("rows");
+   let result;
+   const req = fn(st);
+   if(req) req.onsuccess = ()=>{ result = req.result; };
+   tx.oncomplete = ()=> resolve(result);
+   tx.onerror = ()=> reject(tx.error);
+   tx.onabort = ()=> reject(tx.error);
+  });
+ }finally{ try{ db.close(); }catch(e){} }
+}
+async function pendingPutRow(row){
+ if(!row || row.id == null) return;
+ let clone;
+ try{ clone = JSON.parse(JSON.stringify(row)); }catch(e){ return; }
+ await pendingRun("readwrite", st => st.put({ key:String(row.id), id:row.id, deleted:false, savedAt:Date.now(), row:clone }));
+ updatePendingStatusUI();
+}
+async function pendingPutDeleted(id){
+ if(id == null) return;
+ await pendingRun("readwrite", st => st.put({ key:String(id), id:id, deleted:true, savedAt:Date.now(), row:null }));
+ updatePendingStatusUI();
+}
+async function pendingClear(){
+ await pendingRun("readwrite", st => st.clear());
+}
+/** 静的JSON(all)に未公開の変更を重ねる。書き出し時刻より前の変更は公開済みとみなして破棄 */
+async function applyPendingOverlay(all, exportedAtMs){
+ let items = [];
+ try{ items = (await pendingRun("readonly", st => st.getAll())) || []; }catch(e){ return all; }
+ if(!items.length) return all;
+ const map = new Map();
+ const order = [];
+ (all || []).forEach(c=>{ const k = String(c && c.id); if(!map.has(k)) order.push(k); map.set(k, c); });
+ const staleKeys = [];
+ items.forEach(it=>{
+  if((it.savedAt || 0) <= exportedAtMs){ staleKeys.push(it.key); return; }
+  const k = String(it.id);
+  if(it.deleted){ map.delete(k); return; }
+  if(!map.has(k)) order.push(k);
+  map.set(k, it.row);
+ });
+ if(staleKeys.length){
+  try{ await pendingRun("readwrite", st => { let last = null; staleKeys.forEach(k => { last = st.delete(k); }); return last; }); }catch(e){}
+ }
+ return order.filter(k => map.has(k)).map(k => map.get(k));
+}
+async function updatePendingStatusUI(){
+ const el = document.getElementById("pendingChangesStatus");
+ if(!el) return;
+ let n = 0;
+ try{
+  const items = (await pendingRun("readonly", st => st.getAll())) || [];
+  n = items.filter(it => (it.savedAt || 0) > staticExportedAtMs).length;
+ }catch(e){}
+ el.textContent = n ? `未公開の変更 ${n}件：書き出し→再アップロードで全員に反映` : "";
+}
+
 async function load(opts){
  const options = opts || {};
  const forceSupabase = !!options.forceSupabase;
@@ -17695,6 +17774,12 @@ async function load(opts){
     if(el) el.innerHTML = `<div class="loading">キャラデータ（静的JSON）を読み込み中…</div>`;
     all = await loadFromStaticCharacters();
     source = "static";
+    try{
+     const meta = (all || []).find(x => x && x.__meta);
+     staticExportedAtMs = meta ? (Date.parse(meta.exportedAt) || 0) : 0;
+     all = (all || []).filter(x => !(x && x.__meta));
+     all = await applyPendingOverlay(all, staticExportedAtMs);
+    }catch(e2){ console.warn("未公開の変更の反映に失敗:", e2); }
    }catch(e){
     console.warn("characters.json なし/失敗 → Supabaseへ:", e && e.message);
    }
@@ -17704,6 +17789,7 @@ async function load(opts){
   if(!all){
    all = await loadFromSupabaseCharacters(el);
    source = "supabase";
+   try{ await pendingClear(); staticExportedAtMs = 0; }catch(e2){}
   }
 
   dataAll = all || []; data = dataAll;
@@ -17715,6 +17801,7 @@ async function load(opts){
  try{ syncAdminWipVisibility(); }catch(e){}
   saveDataCache();
   if(el){
+   try{ updatePendingStatusUI(); }catch(e){}
    const srcLabel = source === "static" ? "静的ファイル" : (source === "supabase" ? "Supabase" : "");
    el.innerHTML =
     `<div class="loading">データを読み込みました（${data.length}件${srcLabel ? "・" + srcLabel : ""}）。条件を選んで「検索する」を押してください</div>`;
@@ -17804,7 +17891,7 @@ async function exportCharactersJson(){
   if(el) el.innerHTML = `<div class="loading">JSON書き出し準備中… 0/${data.length}</div>`;
   await new Promise(r=>setTimeout(r, 20));
 
-  const pieces = [];
+  const pieces = [JSON.stringify({ __meta:true, exportedAt:new Date().toISOString(), count:data.length })];
   for(let i=0;i<data.length;i++){
    let c = data[i];
    try{ c = compactJsonValue(c); }catch(e){ c = data[i]; }
@@ -17970,6 +18057,7 @@ async function deleteCharacter(id){
       );
     }
 
+    try{ pendingPutDeleted(id); }catch(e){}
     if(String(editingId) === String(id)){
       resetFormToNew();
     }
@@ -18179,6 +18267,7 @@ async function save(){
    if(isUpdate && keepId) savedRow.id = keepId;
   }
   try{ normalizeDetailsObj(savedRow); }catch(e){}
+  try{ pendingPutRow(savedRow); }catch(e){}
 
   if(!Array.isArray(data)) data = [];
   if(savedRow.id != null){
