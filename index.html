@@ -1009,6 +1009,12 @@ body.theme-dark .attack-acc-body{background:#12171f !important}
 .bullet-card-top{
  display:flex;justify-content:space-between;align-items:center;gap:8px
 }
+.bullet-stat-row{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px;align-items:center}
+.bullet-stat-row .bstat{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(40,55,80,.82);color:#f2f5fa;font-size:11px;font-weight:700;letter-spacing:.02em}
+.bullet-stat-row .bstat em{font-style:normal;opacity:.75;font-weight:600;font-size:10px}
+.bullet-stat-divider{height:0;border-top:1px solid rgba(160,130,70,.35);margin:6px 0 4px}
+body.theme-dark .bullet-stat-row .bstat{background:rgba(20,28,42,.9)}
+body.theme-dark .bullet-stat-divider{border-top-color:rgba(201,162,74,.35)}
 .bullet-card-title{
  font-weight:800;font-size:14px;color:#fff;letter-spacing:0.4px;
  text-shadow:0 1px 2px rgba(0,0,0,.75),0 0 1px rgba(0,0,0,.9);
@@ -2867,6 +2873,22 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
 </div>
 </div>
 
+<div class="section admin-wip-only hidden" id="bgmSkillSearchSection">
+<div class="title">BGM・原曲・スキル（管理者）</div>
+<div class="suggest-wrap" style="margin-bottom:8px;">
+<input id="qBgm" class="input" placeholder="BGM名で検索" autocomplete="off">
+<div id="qBgmSuggest" class="suggest-list" role="listbox"></div>
+</div>
+<div class="suggest-wrap" style="margin-bottom:8px;">
+<input id="qBgmOriginal" class="input" placeholder="原曲名で検索" autocomplete="off">
+<div id="qBgmOriginalSuggest" class="suggest-list" role="listbox"></div>
+</div>
+<div class="suggest-wrap">
+<input id="qSkill" class="input" placeholder="スキル名で検索" autocomplete="off">
+<div id="qSkillSuggest" class="suggest-list" role="listbox"></div>
+</div>
+</div>
+
 <div class="acc-section open" data-acc>
 <button type="button" class="acc-head">式 <span class="acc-icon">▼</span></button>
 <div class="acc-body"><div id="fType" class="buttons"></div></div>
@@ -3484,6 +3506,48 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
 <input id="sYangDef" type="number" class="input" placeholder="陽防">
 <input id="sYinDef" type="number" class="input" placeholder="陰防">
 </div>
+</div>
+</div>
+
+<!-- BGM・スキル・特性（管理者WIP） -->
+<div class="box form-acc admin-wip-only hidden" id="bgmSkillsTraitsEditorBox">
+<button type="button" class="form-acc-head" data-form-acc>
+  <span>BGM・スキル・特性（管理者・作業中）</span>
+  <span class="form-acc-icon">▼</span>
+</button>
+<div class="form-acc-body">
+  <div class="mini" style="margin-bottom:8px;color:#a05030;font-weight:700;">※作業中のため管理者のみ表示・編集できます</div>
+
+  <div class="mini" style="font-weight:700;margin-bottom:6px;">BGM</div>
+  <input id="aBgmTitle" class="input" placeholder="BGMタイトル" style="margin-bottom:6px;">
+  <input id="aBgmOriginal" class="input" placeholder="原曲名" style="margin-bottom:6px;">
+  <div class="mini" style="margin:6px 0 4px;">リンク（YouTube / Spotify / その他）</div>
+  <div id="bgmLinksEditor"></div>
+  <button type="button" class="btn-add" id="addBgmLinkBtn" style="margin-bottom:12px;">＋ リンクを追加</button>
+
+  <div class="mini" style="font-weight:700;margin:10px 0 6px;">スキル（1〜3）</div>
+  <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
+   <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（スキル）</div>
+   <div class="mini" style="margin-bottom:6px;color:#666;">スキル名〜効果をまとめて貼り付け。Lv.10以降の効果と再使用ターンを採用します。</div>
+   <textarea id="wikiSkillsPaste" class="input" rows="6" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;異変妨害：キューイング（再使用ターン数４）&#10;・自身の霊力を0.50上昇&#10;・…&#10;Lv.10（再使用ターン数４）&#10;・自身の霊力を1.00上昇&#10;…"></textarea>
+   <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+    <button type="button" class="btn-sm" id="wikiSkillsImportBtn" style="font-weight:700;">スキルを取り込む</button>
+    <span class="mini" id="wikiSkillsImportStatus" style="color:#666;"></span>
+   </div>
+  </div>
+  <div id="charSkillsEditor"></div>
+
+  <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性</div>
+  <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
+   <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（特性）</div>
+   <div class="mini" style="margin-bottom:6px;color:#666;">特性名の行と「・」で始まる効果行を貼り付け。発動条件・対象（陽気/陰気/弾種/種族）・倍率・発動確率を自動で振り分けます（最大3件）。</div>
+   <textarea id="wikiTraitsPaste" class="input" rows="6" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;紅いおばけ屋敷のウワサ&#10;・攻撃された時、紅魔館に住む者から受けるダメージを40%ダウン [発生率100%]&#10;冥土の亡霊&#10;・ターン開始時、自身の禁止状態、つよさ低下から1つ回復 [発生率60%]&#10;富士見桜&#10;・ターン開始時、自身の体力を15%回復 [発生率80%]"></textarea>
+   <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+    <button type="button" class="btn-sm" id="wikiTraitsImportBtn" style="font-weight:700;">特性を取り込む</button>
+    <span class="mini" id="wikiTraitsImportStatus" style="color:#666;"></span>
+   </div>
+  </div>
+  <div id="charTraitsEditor"></div>
 </div>
 </div>
 
@@ -4359,7 +4423,14 @@ function emptyPack(){
   statsUnknown: false,
   specialSkills: null, // 後で fill
   abilities: null,
-  attacks: null
+  attacks: null,
+  bgm: { title:"", original:"", links:[] },
+  skills: [
+   { name:"", cooldown:"", specialSlot:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", specialSlot:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", specialSlot:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
+  ],
+  traits: []
  };
 }
 
@@ -4545,7 +4616,14 @@ function snapshotFormToPack(){
   statsUnknown: !!(document.getElementById("statsUnknownChk") && document.getElementById("statsUnknownChk").checked),
   specialSkills: JSON.parse(JSON.stringify(specialData)),
   abilities: JSON.parse(JSON.stringify(abilityData)),
-  attacks: JSON.parse(JSON.stringify(attackData))
+  attacks: JSON.parse(JSON.stringify(attackData)),
+  bgm: (beforePack && beforePack.bgm) ? JSON.parse(JSON.stringify(beforePack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", original:(document.getElementById("aBgmOriginal")||{}).value||"", links:[] },
+  skills: (beforePack && beforePack.skills) ? JSON.parse(JSON.stringify(beforePack.skills)) : [
+   { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
+  ],
+  traits: (beforePack && beforePack.traits) ? JSON.parse(JSON.stringify(beforePack.traits)) : []
  };
 }
 
@@ -4652,6 +4730,8 @@ function loadPackToForm(pack){
  try{ updateLinkHelp(); }catch(e){}
  initAbilities();
 }
+
+ try{ ensureCharExtra(p); if(beforePack){ beforePack.bgm=p.bgm; beforePack.skills=p.skills; beforePack.traits=p.traits; } fillBgmSkillsTraitsForm(p); bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
 
 function isPackEmpty(pack){
  if(!pack) return true;
@@ -4796,6 +4876,9 @@ function packFromCharacterSide(c, side){
  const rootSkills = d.specialSkills || d.skills || null;
  const rootAbilities = d.abilities || null;
  const rootStats = d.stats || c.stats || {};
+ const rootBgm = d.bgm || null;
+ const rootCharSkills = d.charSkills || d.skillsList || null;
+ const rootTraits = d.traits || null;
 
  if(side === "after"){
   const a = (rb.after && typeof rb.after === "object") ? rb.after : null;
@@ -4848,6 +4931,13 @@ function getViewSide(c){
 function getViewModel(c){
  const side = getViewSide(c);
  const pack = packFromCharacterSide(c, side);
+ try{
+  const d = c.details || {};
+  if(!pack.bgm) pack.bgm = d.bgm || { title:"", original:"", links:[] };
+  if(!pack.skills) pack.skills = d.charSkills || d.skillsList || null;
+  if(!pack.traits) pack.traits = d.traits || null;
+  ensureCharExtra(pack);
+ }catch(e){}
  const attacks = pack.attacks || c.attacks || {};
  const ss = pack.specialSkills || (c.details||{}).specialSkills || (c.details||{}).skills || {};
  let stats = pack.stats || {};
@@ -5617,7 +5707,8 @@ function renderAuthBar(msg, msgType){
   const setBtn = document.getElementById("setPwBtn");
   if(setBtn) setBtn.onclick = doChangePasswordWhileLoggedIn;
   const cancel = document.getElementById("cancelSetPwBtn");
-  if(cancel) cancel.onclick = ()=>{ authMode = "login"; renderAuthBar(); };
+  if(cancel) cancel.onclick = ()=>{ authMode = "login"; renderAuthBar();
+ try{ syncAdminWipVisibility(); }catch(e){} };
   const t1 = document.getElementById("pwToggleNew");
   const t2 = document.getElementById("pwToggleNew2");
   if(t1) t1.onclick = ()=> togglePassword("authNewPassword","pwToggleNew");
@@ -6890,6 +6981,7 @@ function removeFavorite(idx){
 function createBulletStructure(index){
  const b = {
   index: index, name: "", count: "", pStage: "P0", attr: "", bulletType: "通常弾", kind: "陽気",
+  power: "", accuracy: "", critical: "",
   specials: {}, abnormalEntries:[], hardRatio:"", sharpRatio:"", stickyRate:"", impactRate:"", absorbRatio:"", recoilRatio:"", specialTarget:"",
   burnRate:"", burnStacks:"", burnTarget:"対象",
   coolRate:"", coolStacks:"", coolTarget:"対象",
@@ -6900,6 +6992,30 @@ function createBulletStructure(index){
  };
  SPECIALS.forEach(x => { b.specials[x] = false; });
  return b;
+}
+/** スペカ効果などの対象 */
+const EFFECT_TARGETS_ALL = ["自身","味方全体","相手単体","相手全体"];
+const EFFECT_TARGETS_ALLY = ["自身","味方全体"];
+/** つよさ段階のステータス（通常＋RankⅡ） */
+function getEffectRankStats(){
+ const base = (typeof STAT_TARGETS !== "undefined" && STAT_TARGETS.length)
+  ? STAT_TARGETS.slice()
+  : ["陽攻","陰攻","陽防","陰防","速力","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"];
+ const out = [];
+ base.forEach(s=>{ out.push(s); out.push(s + "II"); });
+ return out;
+}
+/** 空の効果バッグ（発動前/後・スキル共通） */
+function createEmptyEffectBag(){
+ return {
+  ranks: [],
+  heals: [],
+  barriers: [],
+  barrierAbnormals: [],
+  banReleases: [],
+  spiritPowers: [],
+  barrierHeals: []
+ };
 }
 
 let attackData={};
@@ -11328,6 +11444,29 @@ function getTargetObjectByPrefix(prefix) {
   const attKey = parts[0];
   const bltIdx = Number(parts[1]) - 1;
   return attackData[attKey]?.bullets[bltIdx];
+ } else if (prefix.startsWith("skill-")) {
+  const i = Number(String(prefix).replace("skill-",""));
+  if(!beforePack) return null;
+  ensureCharExtra(beforePack);
+  const sk = beforePack.skills[i];
+  if(!sk) return null;
+  // スペカ用エディタ互換：effects を preEffects として扱う
+  sk.effects = ensureEffectBagShape(sk.effects);
+  sk.preEffects = sk.effects;
+  sk.postEffects = sk.effects;
+  sk.__effectKind = "skill";
+  return sk;
+ } else if (prefix.startsWith("trait-")) {
+  const i = Number(String(prefix).replace("trait-",""));
+  if(!beforePack) return null;
+  ensureCharExtra(beforePack);
+  const tr = beforePack.traits[i];
+  if(!tr) return null;
+  tr.effects = ensureEffectBagShape(tr.effects);
+  tr.preEffects = tr.effects;
+  tr.postEffects = tr.effects;
+  tr.__effectKind = "trait";
+  return tr;
  }
  return null;
 }
@@ -11391,16 +11530,26 @@ function updateDebuffItem(prefix, idx, key, value) {
 }
 
 function refreshBuffDebuffContainer(prefix) {
+ // スキル・特性エディタはフォーム全体を再描画
+ if (String(prefix||"").startsWith("skill-") || String(prefix||"").startsWith("trait-")) {
+  if(beforePack) try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
+  return;
+ }
  const obj = getTargetObjectByPrefix(prefix);
  if (!obj) return;
  const containerEl = document.getElementById(`buff-container-${prefix}`);
  if (!containerEl) return;
- // 攻撃全体で補助のとき：つよさ上昇/低下の代わりに攻撃前・攻撃後効果
+ // 攻撃全体：補助は発動前/後。管理者は通常スペカにも発動前/後を入力可（WIP）
  if (prefix.startsWith("att-")) {
   const key = prefix.replace("att-", "");
   const isShot = (key === "spread" || key === "focus");
-  if (!isShot && obj.range === "補助") {
-   containerEl.innerHTML = renderSupportEffectFields(prefix, obj);
+  const isAdminUser = (typeof isAdmin === "function" && isAdmin());
+  if (!isShot && (obj.range === "補助" || isAdminUser)) {
+   let html = renderSupportEffectFields(prefix, obj);
+   if(isAdminUser && obj.range !== "補助"){
+    html += renderBuffDebuffFields(prefix, obj, "ショット・スペカ全体のつよさ変化");
+   }
+   containerEl.innerHTML = html;
    return;
   }
   containerEl.innerHTML = renderBuffDebuffFields(prefix, obj, "ショット・スペカ全体のつよさ変化");
@@ -11408,22 +11557,25 @@ function refreshBuffDebuffContainer(prefix) {
  }
  containerEl.innerHTML = renderBuffDebuffFields(prefix, obj, "つよさ変化");
 }
+function ensureEffectBagShape(bag){
+ if(!bag || typeof bag !== "object") bag = createEmptyEffectBag();
+ ["ranks","heals","barriers","barrierAbnormals","banReleases","spiritPowers","barrierHeals"].forEach(k=>{
+  if(!Array.isArray(bag[k])) bag[k] = [];
+ });
+ return bag;
+}
 function ensureSupportEffects(obj){
  if(!obj) return;
- if(!obj.preEffects || typeof obj.preEffects !== "object"){
-  obj.preEffects = { ranks:[], heals:[], barriers:[] };
- }
- if(!Array.isArray(obj.preEffects.ranks)) obj.preEffects.ranks = [];
- if(!Array.isArray(obj.preEffects.heals)) obj.preEffects.heals = [];
- if(!Array.isArray(obj.preEffects.barriers)) obj.preEffects.barriers = [];
- if(!obj.postEffects || typeof obj.postEffects !== "object"){
-  obj.postEffects = { ranks:[], heals:[], barriers:[] };
- }
- if(!Array.isArray(obj.postEffects.ranks)) obj.postEffects.ranks = [];
- if(!Array.isArray(obj.postEffects.heals)) obj.postEffects.heals = [];
- if(!Array.isArray(obj.postEffects.barriers)) obj.postEffects.barriers = [];
+ obj.preEffects = ensureEffectBagShape(obj.preEffects);
+ obj.postEffects = ensureEffectBagShape(obj.postEffects);
 }
 function getSupportBag(obj, phase){
+ if(obj && (obj.__effectKind === "skill" || obj.__effectKind === "trait")){
+  obj.effects = ensureEffectBagShape(obj.effects);
+  obj.preEffects = obj.effects;
+  obj.postEffects = obj.effects;
+  return obj.effects;
+ }
  ensureSupportEffects(obj);
  return phase === "pre" ? obj.preEffects : obj.postEffects;
 }
@@ -11431,88 +11583,137 @@ function renderSupportEffectBlock(prefix, phase, title, color){
  const obj = getTargetObjectByPrefix(prefix);
  ensureSupportEffects(obj);
  const bag = phase === "pre" ? obj.preEffects : obj.postEffects;
- const rankTargets = ["対象","自身","味方全体"];
- const healTargets = ["自身","味方全体"];
+ const rankStats = (typeof getEffectRankStats==="function") ? getEffectRankStats() : (STAT_TARGETS||[]);
+ const abList = (typeof ABNORMAL !== "undefined" && ABNORMAL.length) ? ABNORMAL : ["毒霧","帯電","燃焼","凍結","暗闇"];
+ const T_ALL = (typeof EFFECT_TARGETS_ALL!=="undefined") ? EFFECT_TARGETS_ALL : ["自身","味方全体","相手単体","相手全体"];
+ const T_ALLY = (typeof EFFECT_TARGETS_ALLY!=="undefined") ? EFFECT_TARGETS_ALLY : ["自身","味方全体"];
  let html = `<div style="margin-top:10px;padding:10px;border:1px solid rgba(160,130,70,.35);border-radius:10px;background:rgba(255,255,255,.55)">`;
  html += `<div style="font-size:13px;font-weight:700;color:${color};margin-bottom:8px;">${title}</div>`;
 
- html += `<div class="mini" style="font-weight:700;margin-bottom:4px;">ステータス段階アップ／ダウン</div>`;
- (bag.ranks||[]).forEach((r, idx)=>{
-  const tgt = rankTargets.includes(r.target) ? r.target : "味方全体";
-  const dir = r.dir === "ダウン" ? "ダウン" : "アップ";
-  html += `
-  <div style="background:#f7f1e8;border:1px solid #e0d4c0;border-radius:8px;padding:8px;margin-bottom:6px;">
-   <button type="button" class="btn-del" onclick="removeSupportRank('${prefix}','${phase}',${idx})">削除</button>
-   <div class="mini" style="margin-top:4px;">対象</div>
-   <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'target',this.value)">
-    ${rankTargets.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}
-   </select>
-   <div class="row3" style="margin-top:6px;">
-    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'stat',this.value)">
-     <option value="">ステータス</option>
-     ${STAT_TARGETS.map(s=>`<option ${r.stat===s?"selected":""}>${s}</option>`).join("")}
-    </select>
-    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'dir',this.value)">
-     <option value="アップ" ${dir==="アップ"?"selected":""}>アップ</option>
-     <option value="ダウン" ${dir==="ダウン"?"selected":""}>ダウン</option>
-    </select>
-    <input class="input" type="number" placeholder="段階" value="${esc(r.stages||"")}" oninput="updateSupportRank('${prefix}','${phase}',${idx},'stages',this.value)">
+ html += `<div class="mini" style="font-weight:700;margin-bottom:4px;">結界異常付与</div>`;
+ (bag.barrierAbnormals||[]).forEach((x, idx)=>{
+  const tgt = T_ALL.includes(x.target) ? x.target : "相手単体";
+  const nm = x.name || "";
+  html += `<div style="background:#fff5f0;border:1px solid #e8c8b8;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" onclick="removeSupportBagItem('${prefix}','${phase}','barrierAbnormals',${idx})">削除</button>
+   <div class="row3" style="margin-top:4px;">
+    <select class="select" onchange="updateSupportBagItem('${prefix}','${phase}','barrierAbnormals',${idx},'target',this.value)">${T_ALL.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <select class="select" onchange="updateSupportBagItem('${prefix}','${phase}','barrierAbnormals',${idx},'name',this.value)"><option value="">結界異常</option>${abList.map(a=>`<option value="${a}" ${nm===a?"selected":""}>${a}</option>`).join("")}</select>
+    <input class="input" type="number" placeholder="枚数" value="${esc(x.stacks||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','barrierAbnormals',${idx},'stacks',this.value)">
    </div>
-   <div class="mini" style="margin-top:6px;">追加効果＋1（任意・%記入時のみ結果表示）</div>
-   <input class="input" type="number" placeholder="n% で追加効果＋1（空欄可）" value="${esc(r.bonusPct||"")}" oninput="updateSupportRank('${prefix}','${phase}',${idx},'bonusPct',this.value)">
+   <div class="row" style="margin-top:6px;gap:8px;">
+    <input class="input" type="number" placeholder="ターン数 T" value="${esc(x.turns||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','barrierAbnormals',${idx},'turns',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(x.bonusPct||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','barrierAbnormals',${idx},'bonusPct',this.value)">
+   </div>
   </div>`;
  });
- html += `<button type="button" class="btn-add" onclick="addSupportRank('${prefix}','${phase}')">＋ ステータス効果を追加</button>`;
+ html += `<button type="button" class="btn-add" onclick="addSupportBagItem('${prefix}','${phase}','barrierAbnormals')">＋ 結界異常付与</button>`;
 
- html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">HP回復</div>`;
- (bag.heals||[]).forEach((h, idx)=>{
-  const tgt = healTargets.includes(h.target) ? h.target : "自身";
-  html += `
-  <div style="background:#eef8f0;border:1px solid #c5e0c8;border-radius:8px;padding:8px;margin-bottom:6px;">
-   <button type="button" class="btn-del" onclick="removeSupportHeal('${prefix}','${phase}',${idx})">削除</button>
-   <div class="mini" style="margin-top:4px;">対象</div>
-   <select class="select" onchange="updateSupportHeal('${prefix}','${phase}',${idx},'target',this.value)">
-    ${healTargets.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}
-   </select>
-   <div class="mini" style="margin-top:6px;">回復量 %</div>
-   <input class="input" type="number" placeholder="HP ○○% 回復" value="${esc(h.percent||"")}" oninput="updateSupportHeal('${prefix}','${phase}',${idx},'percent',this.value)">
+ html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">つよさ上昇・低下</div>`;
+ (bag.ranks||[]).forEach((r, idx)=>{
+  const tgt = T_ALL.includes(r.target) ? r.target : (r.target==="対象"?"相手単体":"味方全体");
+  const dir = r.dir === "ダウン" ? "ダウン" : "アップ";
+  html += `<div style="background:#f7f1e8;border:1px solid #e0d4c0;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" onclick="removeSupportRank('${prefix}','${phase}',${idx})">削除</button>
+   <div class="row3" style="margin-top:4px;">
+    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'target',this.value)">${T_ALL.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'stat',this.value)"><option value="">ステータス</option>${rankStats.map(s=>`<option value="${s}" ${r.stat===s?"selected":""}>${s}</option>`).join("")}</select>
+    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'dir',this.value)"><option value="アップ" ${dir==="アップ"?"selected":""}>アップ</option><option value="ダウン" ${dir==="ダウン"?"selected":""}>ダウン</option></select>
+   </div>
+   <div class="row3" style="margin-top:6px;">
+    <input class="input" type="number" placeholder="段階" value="${esc(r.stages||"")}" oninput="updateSupportRank('${prefix}','${phase}',${idx},'stages',this.value)">
+    <input class="input" type="number" placeholder="ターン数 T" value="${esc(r.turns||"")}" oninput="updateSupportRank('${prefix}','${phase}',${idx},'turns',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(r.bonusPct||"")}" oninput="updateSupportRank('${prefix}','${phase}',${idx},'bonusPct',this.value)">
+   </div>
   </div>`;
  });
- html += `<button type="button" class="btn-add" onclick="addSupportHeal('${prefix}','${phase}')">＋ HP回復を追加</button>`;
+ html += `<button type="button" class="btn-add" onclick="addSupportRank('${prefix}','${phase}')">＋ つよさ効果</button>`;
+
+ html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">禁止解除</div>`;
+ (bag.banReleases||[]).forEach((x, idx)=>{
+  const tgt = T_ALLY.includes(x.target) ? x.target : "自身";
+  html += `<div style="background:#f8f0fa;border:1px solid #d8c0e0;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" onclick="removeSupportBagItem('${prefix}','${phase}','banReleases',${idx})">削除</button>
+   <div class="row" style="margin-top:4px;gap:8px;">
+    <select class="select" onchange="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'target',this.value)">${T_ALLY.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <input class="input" type="number" placeholder="解除個数" value="${esc(x.count||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'count',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(x.bonusPct||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'bonusPct',this.value)">
+   </div>
+  </div>`;
+ });
+ html += `<button type="button" class="btn-add" onclick="addSupportBagItem('${prefix}','${phase}','banReleases')">＋ 禁止解除</button>`;
+
+ html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">体力回復</div>`;
+ (bag.heals||[]).forEach((h, idx)=>{
+  const tgt = T_ALLY.includes(h.target) ? h.target : "自身";
+  html += `<div style="background:#eef8f0;border:1px solid #c5e0c8;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" onclick="removeSupportHeal('${prefix}','${phase}',${idx})">削除</button>
+   <div class="row" style="margin-top:4px;gap:8px;">
+    <select class="select" onchange="updateSupportHeal('${prefix}','${phase}',${idx},'target',this.value)">${T_ALLY.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <input class="input" type="number" placeholder="回復 %" value="${esc(h.percent||"")}" oninput="updateSupportHeal('${prefix}','${phase}',${idx},'percent',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(h.bonusPct||"")}" oninput="updateSupportHeal('${prefix}','${phase}',${idx},'bonusPct',this.value)">
+   </div>
+  </div>`;
+ });
+ html += `<button type="button" class="btn-add" onclick="addSupportHeal('${prefix}','${phase}')">＋ 体力回復</button>`;
 
  html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">結界増加</div>`;
  (bag.barriers||[]).forEach((b, idx)=>{
-  const tgt = healTargets.includes(b.target) ? b.target : "自身";
-  html += `
-  <div style="background:#eef2fa;border:1px solid #c5d0e8;border-radius:8px;padding:8px;margin-bottom:6px;">
+  const tgt = T_ALLY.includes(b.target) ? b.target : "自身";
+  html += `<div style="background:#eef2fa;border:1px solid #c5d0e8;border-radius:8px;padding:8px;margin-bottom:6px;">
    <button type="button" class="btn-del" onclick="removeSupportBarrier('${prefix}','${phase}',${idx})">削除</button>
-   <div class="mini" style="margin-top:4px;">対象</div>
-   <select class="select" onchange="updateSupportBarrier('${prefix}','${phase}',${idx},'target',this.value)">
-    ${healTargets.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}
-   </select>
-   <div class="mini" style="margin-top:6px;">増加枚数</div>
-   <input class="input" type="number" placeholder="結界 ○○ 枚増加" value="${esc(b.stacks||"")}" oninput="updateSupportBarrier('${prefix}','${phase}',${idx},'stacks',this.value)">
-   <div class="mini" style="margin-top:6px;">追加効果＋1（任意・%記入時のみ結果表示）</div>
-   <input class="input" type="number" placeholder="n% で追加効果＋1（空欄可）" value="${esc(b.bonusPct||"")}" oninput="updateSupportBarrier('${prefix}','${phase}',${idx},'bonusPct',this.value)">
+   <div class="row" style="margin-top:4px;gap:8px;">
+    <select class="select" onchange="updateSupportBarrier('${prefix}','${phase}',${idx},'target',this.value)">${T_ALLY.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <input class="input" type="number" placeholder="増加枚数" value="${esc(b.stacks||"")}" oninput="updateSupportBarrier('${prefix}','${phase}',${idx},'stacks',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(b.bonusPct||"")}" oninput="updateSupportBarrier('${prefix}','${phase}',${idx},'bonusPct',this.value)">
+   </div>
   </div>`;
  });
- html += `<button type="button" class="btn-add" onclick="addSupportBarrier('${prefix}','${phase}')">＋ 結界増加を追加</button>`;
+ html += `<button type="button" class="btn-add" onclick="addSupportBarrier('${prefix}','${phase}')">＋ 結界増加</button>`;
+
+ html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">霊力増加</div>`;
+ (bag.spiritPowers||[]).forEach((x, idx)=>{
+  const tgt = T_ALLY.includes(x.target) ? x.target : "自身";
+  html += `<div style="background:#f5f0ff;border:1px solid #d0c4e8;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" onclick="removeSupportBagItem('${prefix}','${phase}','spiritPowers',${idx})">削除</button>
+   <div class="row" style="margin-top:4px;gap:8px;">
+    <select class="select" onchange="updateSupportBagItem('${prefix}','${phase}','spiritPowers',${idx},'target',this.value)">${T_ALLY.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <input class="input" type="number" step="0.01" placeholder="増加量" value="${esc(x.amount||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','spiritPowers',${idx},'amount',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(x.bonusPct||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','spiritPowers',${idx},'bonusPct',this.value)">
+   </div>
+  </div>`;
+ });
+ html += `<button type="button" class="btn-add" onclick="addSupportBagItem('${prefix}','${phase}','spiritPowers')">＋ 霊力増加</button>`;
+
+ html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">結界異常回復</div>`;
+ (bag.barrierHeals||[]).forEach((x, idx)=>{
+  const tgt = T_ALLY.includes(x.target) ? x.target : "自身";
+  html += `<div style="background:#f0faf8;border:1px solid #c0e0d8;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" onclick="removeSupportBagItem('${prefix}','${phase}','barrierHeals',${idx})">削除</button>
+   <div class="row" style="margin-top:4px;gap:8px;">
+    <select class="select" onchange="updateSupportBagItem('${prefix}','${phase}','barrierHeals',${idx},'target',this.value)">${T_ALLY.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
+    <input class="input" type="number" placeholder="回復枚数" value="${esc(x.count||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','barrierHeals',${idx},'count',this.value)">
+    <input class="input" type="number" placeholder="追加効果 n%" value="${esc(x.bonusPct||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','barrierHeals',${idx},'bonusPct',this.value)">
+   </div>
+  </div>`;
+ });
+ html += `<button type="button" class="btn-add" onclick="addSupportBagItem('${prefix}','${phase}','barrierHeals')">＋ 結界異常回復</button>`;
  html += `</div>`;
  return html;
 }
 function renderSupportEffectFields(prefix, obj) {
  ensureSupportEffects(obj);
  return `
-  <div class="mini">補助スペカの効果（攻撃前・攻撃後）</div>
-  <div class="mini" style="margin-top:4px;color:#666;">「つよさ上昇・低下」の代わりに、攻撃前／攻撃後の効果を入力します。追加効果＋1の％は空欄なら検索結果に出しません。</div>
-  ${renderSupportEffectBlock(prefix, "pre", "攻撃前効果", "#004085")}
-  ${renderSupportEffectBlock(prefix, "post", "攻撃後効果", "#5c4a7a")}
- `;
+  <div class="mini">スペカ効果（発動前・発動後）</div>
+  <div class="mini" style="margin-top:4px;color:#666;">追加効果％は空欄なら表示しません。表記例：［追加効果n%で＋1］</div>
+  ${renderSupportEffectBlock(prefix, "pre", "発動前効果", "#004085")}
+  ${renderSupportEffectBlock(prefix, "post", "発動後効果", "#5c4a7a")}
+`;
 }
 function addSupportRank(prefix, phase){
  const obj = getTargetObjectByPrefix(prefix);
  if(!obj) return;
- getSupportBag(obj, phase).ranks.push({ target:"味方全体", stat:"", dir:"アップ", stages:"", bonusPct:"" });
+ getSupportBag(obj, phase).ranks.push({ target:"味方全体", stat:"", dir:"アップ", stages:"", turns:"", bonusPct:"" });
  refreshBuffDebuffContainer(prefix);
 }
 function removeSupportRank(prefix, phase, idx){
@@ -11530,7 +11731,7 @@ function updateSupportRank(prefix, phase, idx, key, value){
 function addSupportHeal(prefix, phase){
  const obj = getTargetObjectByPrefix(prefix);
  if(!obj) return;
- getSupportBag(obj, phase).heals.push({ target:"自身", percent:"" });
+ getSupportBag(obj, phase).heals.push({ target:"自身", percent:"", bonusPct:"" });
  refreshBuffDebuffContainer(prefix);
 }
 function removeSupportHeal(prefix, phase, idx){
@@ -11563,28 +11764,86 @@ function updateSupportBarrier(prefix, phase, idx, key, value){
  const b = getSupportBag(obj, phase).barriers[idx];
  if(b) b[key] = value;
 }
+function addSupportBagItem(prefix, phase, key){
+ const obj = getTargetObjectByPrefix(prefix);
+ if(!obj) return;
+ const bag = getSupportBag(obj, phase);
+ if(!Array.isArray(bag[key])) bag[key] = [];
+ const defaults = {
+  barrierAbnormals: { target:"相手単体", name:"", stacks:"", turns:"", bonusPct:"" },
+  banReleases: { target:"自身", count:"", bonusPct:"" },
+  spiritPowers: { target:"自身", amount:"", bonusPct:"" },
+  barrierHeals: { target:"自身", count:"", bonusPct:"" }
+ };
+ bag[key].push(Object.assign({}, defaults[key] || {}));
+ refreshBuffDebuffContainer(prefix);
+}
+function removeSupportBagItem(prefix, phase, key, idx){
+ const obj = getTargetObjectByPrefix(prefix);
+ if(!obj) return;
+ const bag = getSupportBag(obj, phase);
+ if(Array.isArray(bag[key])) bag[key].splice(idx, 1);
+ refreshBuffDebuffContainer(prefix);
+}
+function updateSupportBagItem(prefix, phase, key, idx, field, value){
+ const obj = getTargetObjectByPrefix(prefix);
+ if(!obj) return;
+ const bag = getSupportBag(obj, phase);
+ if(bag[key] && bag[key][idx]) bag[key][idx][field] = value;
+}
 function formatSupportEffectsHtml(bag, phaseLabel){
  if(!bag) return "";
+ const bonusTxt = (x)=>{
+  if(!x || x.bonusPct==="" || x.bonusPct==null) return "";
+  return `［追加効果${x.bonusPct}%で＋1］`;
+ };
  let h = "";
+ (bag.barrierAbnormals||[]).forEach(x=>{
+  if(!x || !x.name) return;
+  const tgt = x.target || "相手単体";
+  let line = `${tgt}に結界異常「${x.name}」を${x.stacks||"?"}枚付与`;
+  if(x.turns!=="" && x.turns!=null) line += `(${x.turns}T)`;
+  line += bonusTxt(x);
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+ });
  (bag.ranks||[]).forEach(r=>{
   if(!r || !r.stat || r.stages==="" || r.stages==null) return;
   const dir = r.dir === "ダウン" ? "ダウン" : "アップ";
   const tgt = r.target || "味方全体";
   let line = `${tgt}の${r.stat}を${r.stages}段階${dir}`;
-  if(r.bonusPct !== "" && r.bonusPct != null) line += `（${r.bonusPct}%で追加効果＋1）`;
+  if(r.turns!=="" && r.turns!=null) line += `(${r.turns}T)`;
+  line += bonusTxt(r);
   h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${colorizeEffectText(line)}</span></div>`;
+ });
+ (bag.banReleases||[]).forEach(x=>{
+  if(!x || x.count==="" || x.count==null) return;
+  const tgt = x.target || "自身";
+  let line = `${tgt}の禁止状態・つよさ低下を${x.count}つ回復` + bonusTxt(x);
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
  });
  (bag.heals||[]).forEach(x=>{
   if(!x || x.percent==="" || x.percent==null) return;
   const tgt = x.target || "自身";
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(tgt)}のHPを${x.percent}%回復</span></div>`;
+  let line = `${tgt}の体力を${x.percent}%回復` + bonusTxt(x);
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
  });
  (bag.barriers||[]).forEach(x=>{
   if(!x || x.stacks==="" || x.stacks==null) return;
   const tgt = x.target || "自身";
-  let line = `${tgt}の結界を${x.stacks}枚増加`;
-  if(x.bonusPct !== "" && x.bonusPct != null) line += `（${x.bonusPct}%で追加効果＋1）`;
+  let line = `${tgt}の結界を${x.stacks}枚増加` + bonusTxt(x);
   h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${colorizeEffectText(line)}</span></div>`;
+ });
+ (bag.spiritPowers||[]).forEach(x=>{
+  if(!x || x.amount==="" || x.amount==null) return;
+  const tgt = x.target || "自身";
+  let line = `${tgt}の霊力を${x.amount}上昇` + bonusTxt(x);
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+ });
+ (bag.barrierHeals||[]).forEach(x=>{
+  if(!x || x.count==="" || x.count==null) return;
+  const tgt = x.target || "自身";
+  let line = `${tgt}の結界異常を${x.count}枚回復` + bonusTxt(x);
+  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
  });
  return h;
 }
@@ -13131,6 +13390,7 @@ function wikiLooksLikeBulletStart(tokens){
 
 function wikiParseBulletRow(tokens, currentP){
  // returns {p, bullet partial, special tokens left}
+ // 列順想定: P / 属性 / 弾幕名 / 陰陽 / 弾種 / 威力 / 弾数 / 命中 / CRI / 追加効果...
  const t = (tokens || []).filter(x => x && x !== "|");
  let p = currentP;
  let i = 0;
@@ -13140,11 +13400,13 @@ function wikiParseBulletRow(tokens, currentP){
  }
  const attr = wikiParseAttr(t[i]||"");
  if(attr) i++;
- // name: next tokens until kind or bullet type
  let nameParts = [];
  let kind = "";
  let bulletType = "";
  let count = "";
+ let power = "";
+ let accuracy = "";
+ let critical = "";
  const specials = [];
  while(i < t.length){
   const tok = t[i];
@@ -13153,23 +13415,26 @@ function wikiParseBulletRow(tokens, currentP){
   }
   const bt = wikiParseBulletType(tok);
   if(bt){ bulletType = bt; i++; break; }
-  // if power-like float, stop name
   if(/^\d+\.\d+$/.test(tok)) break;
   nameParts.push(tok); i++;
  }
- // after kind, expect bullet type if not found
  if(!bulletType && i < t.length){
   const bt = wikiParseBulletType(t[i]);
   if(bt){ bulletType = bt; i++; }
  }
- // skip power floats, read count, first 2% = hit/cri, rest = specials
+ // 威力（小数）→ 弾数 → 命中% → CRI% → 特殊
  let pctSeen = 0;
  while(i < t.length){
   const tok = t[i];
-  if(/^\d+\.\d+$/.test(tok)){ i++; continue; }
   if(tok === "-" || tok === "－"){ i++; continue; }
+  if(/^\d+\.\d+$/.test(tok)){
+   if(power === "") power = tok;
+   i++; continue;
+  }
   if(/^\d+%$/.test(tok)){
-   if(pctSeen < 2){ pctSeen++; i++; continue; }
+   const num = tok.replace("%","");
+   if(pctSeen === 0){ accuracy = num; pctSeen++; i++; continue; }
+   if(pctSeen === 1){ critical = num; pctSeen++; i++; continue; }
    const spPct = wikiParseSpecialToken(tok);
    if(spPct){ specials.push(spPct); i++; continue; }
    i++; continue;
@@ -13183,8 +13448,116 @@ function wikiParseBulletRow(tokens, currentP){
  return {
   p: p || "P0",
   name: nameParts.join(" ").trim(),
-  attr, kind: kind || "陽気", bulletType, count, specials
+  attr, kind: kind || "陽気", bulletType, count, power, accuracy, critical, specials
  };
+}
+
+/** 範囲表記 2~3 / 2〜3 / 2-3 → 最大値を返す */
+function wikiTakeMaxRange(str){
+ const s = String(str||"");
+ const m = s.match(/(\d+(?:\.\d+)?)\s*[~～〜\-－]\s*(\d+(?:\.\d+)?)/);
+ if(m) return String(Math.max(Number(m[1]), Number(m[2])));
+ const one = s.match(/(\d+(?:\.\d+)?)/);
+ return one ? one[1] : "";
+}
+
+/** 攻撃前/後テキスト1行を効果バッグへ追加 */
+function wikiParsePrePostEffectLine(line, bag){
+ if(!line || !bag) return false;
+ let s = String(line).trim();
+ if(!s) return false;
+ if(/^\(/.test(s) || /スペカレベル依存|変動なし|レベル別性能/.test(s)) return false;
+ if(/^攻撃前効果|^攻撃後効果/.test(s)) return false;
+ s = s.replace(/←.*$/, "").trim();
+ if(!s) return false;
+
+ // 禁止解除
+ if(/禁止状態|つよさ低下を.*回復|禁止.*回復/.test(s)){
+  const tgt = /味方全体/.test(s) ? "味方全体" : "自身";
+  const count = wikiTakeMaxRange(s) || "1";
+  bag.banReleases.push({ target: tgt, count, bonusPct:"" });
+  return true;
+ }
+ // 結界異常付与
+ {
+  const m = s.match(/結界異常[「『]([^」』]+)[」』].*?(\d+(?:\.\d+)?(?:\s*[~～〜\-－]\s*\d+(?:\.\d+)?)?)\s*枚/);
+  if(m){
+   let tgt = "相手単体";
+   if(/味方全体/.test(s)) tgt = "味方全体";
+   else if(/相手全体/.test(s)) tgt = "相手全体";
+   else if(/自身/.test(s)) tgt = "自身";
+   else if(/相手単体|対象/.test(s)) tgt = "相手単体";
+   const stacks = wikiTakeMaxRange(m[2]) || m[2];
+   const tm = s.match(/\((\d+)\s*T\)/i) || s.match(/(\d+)\s*T/);
+   bag.barrierAbnormals.push({ target:tgt, name:m[1], stacks, turns: tm?tm[1]:"", bonusPct:"" });
+   return true;
+  }
+ }
+ // つよさ上昇・低下
+ {
+  const m = s.match(/(自身|味方全体|相手単体|相手全体|対象)の([^\sを]+?)を\s*(\d+(?:\.\d+)?(?:\s*[~～〜\-－]\s*\d+(?:\.\d+)?)?)\s*段階\s*(アップ|ダウン|上昇|低下)/);
+  if(m){
+   let tgt = m[1] === "対象" ? "相手単体" : m[1];
+   let dir = /ダウン|低下/.test(m[4]) ? "ダウン" : "アップ";
+   const stages = wikiTakeMaxRange(m[3]) || m[3];
+   const tm = s.match(/\((\d+)\s*T\)/i) || s.match(/(\d+)\s*T/);
+   bag.ranks.push({ target:tgt, stat:m[2], dir, stages, turns: tm?tm[1]:"", bonusPct:"" });
+   return true;
+  }
+ }
+ // 体力回復
+ {
+  const m = s.match(/(自身|味方全体)の(?:体力|HP).*?(\d+(?:\.\d+)?)\s*%/);
+  if(m && /回復/.test(s)){
+   bag.heals.push({ target:m[1], percent:m[2], bonusPct:"" });
+   return true;
+  }
+ }
+ // 結界増加
+ {
+  const m = s.match(/(自身|味方全体)の結界を.*?(\d+(?:\.\d+)?(?:\s*[~～〜\-－]\s*\d+(?:\.\d+)?)?)\s*枚/);
+  if(m && /増加|付与/.test(s)){
+   bag.barriers.push({ target:m[1], stacks: wikiTakeMaxRange(m[2])||m[2], bonusPct:"" });
+   return true;
+  }
+ }
+ // 霊力増加
+ {
+  const m = s.match(/(自身|味方全体)の霊力を.*?(\d+(?:\.\d+)?)/);
+  if(m && /上昇|増加/.test(s)){
+   bag.spiritPowers.push({ target:m[1], amount:m[2], bonusPct:"" });
+   return true;
+  }
+ }
+ // 結界異常回復
+ {
+  const m = s.match(/(自身|味方全体)の結界異常を.*?(\d+(?:\.\d+)?)/);
+  if(m && /回復/.test(s)){
+   bag.barrierHeals.push({ target:m[1], count: wikiTakeMaxRange(m[2])||m[2], bonusPct:"" });
+   return true;
+  }
+ }
+ return false;
+}
+
+/** 攻撃テキストから攻撃前/後効果を抽出して preEffects/postEffects に入れる */
+function wikiImportPrePostEffects(a, raw){
+ ensureSupportEffects(a);
+ a.preEffects = createEmptyEffectBag();
+ a.postEffects = createEmptyEffectBag();
+ const lines = String(raw||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ let mode = ""; // pre | post | ""
+ for(const line of lines){
+  if(/攻撃前効果/.test(line)){ mode = "pre"; continue; }
+  if(/攻撃後効果/.test(line)){ mode = "post"; continue; }
+  if(/レベル別性能|追加\s*累計|^P\b/.test(line) && /属性|弾幕/.test(line)){ mode = ""; continue; }
+  if(/レベル別性能/.test(line)){ mode = ""; continue; }
+  // バレット表っぽい行が来たら終了
+  if(mode && /^[0-3]\b/.test(line) && /属性|\.jpg|陽気|陰気/.test(line)){ mode = ""; continue; }
+  if(!mode) continue;
+  const bag = mode === "pre" ? a.preEffects : a.postEffects;
+  wikiParsePrePostEffectLine(line, bag);
+ }
 }
 
 function importWikiPaste(text){
@@ -14127,6 +14500,111 @@ function gamerchImportIntoAttack(a, attackKey, raw){
  return { ok:true, count:list.length, name: a.name||"" };
 }
 
+
+/** スキルWiki取込: Lv.10以降の効果のみ採用。上からスキル1〜3 */
+function importWikiIntoSkills(text){
+ const raw = String(text||"").trim();
+ if(!raw){
+  alert("テキストが空です。");
+  return { ok:false };
+ }
+ if(!beforePack){
+  alert("編集中のキャラがありません。");
+  return { ok:false };
+ }
+ ensureCharExtra(beforePack);
+ const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ // スキルブロック分割: ・で始まらない行で、かつ効果行でないものをスキル名候補に
+ const skills = [];
+ let cur = null;
+ let mode = "pre"; // pre = Lv.10前 / post = Lv.10以降
+
+ function flush(){
+  if(cur && cur.name) skills.push(cur);
+  cur = null;
+  mode = "pre";
+ }
+ function ensureCur(nameLine){
+  if(cur && cur.name) flush();
+  let name = String(nameLine||"").trim();
+  // 名前行から再使用ターンを仮取り（Lv.10側で上書き）
+  let cd = "";
+  const cdm = name.match(/再使用ターン数\s*[：:】\)]?\s*(\d+)/) || name.match(/[（(]\s*再使用ターン数\s*(\d+)\s*[）)]/);
+  if(cdm) cd = cdm[1];
+  name = name.replace(/[（(]?再使用ターン数\s*\d+[）)]?/g, "").replace(/[（(]\s*$/,"").trim();
+  name = name.replace(/\s*Lv\.?\s*\d+.*$/,"").trim();
+  cur = { name, cooldown: cd, specialSlot:"", effects: createEmptyEffectBag(), _preEffects: [], _postEffects: [], _postCd: "" };
+  mode = "pre";
+ }
+
+ for(const line of lines){
+  if(!line) continue;
+  // Lv.10 マーカー
+  if(/Lv\.?\s*10\b/i.test(line)){
+   if(!cur) continue;
+   mode = "post";
+   const cdm = line.match(/再使用ターン数\s*[：:】\)]?\s*(\d+)/) || line.match(/再使用ターン数\s*(\d+)/);
+   if(cdm) cur._postCd = cdm[1];
+   // 同じ行に効果が続くことは稀だが名前以外は後続で処理
+   const rest = line.replace(/.*?Lv\.?\s*10\b/i, "").replace(/[（(]?再使用ターン数\s*\d+[）)]?/g, "").trim();
+   if(rest && /^[・･]/.test(rest)){
+    cur._postEffects.push(rest.replace(/^[・･]\s*/, ""));
+   }
+   continue;
+  }
+  // 箇条書き効果
+  if(/^[・･]/.test(line)){
+   if(!cur) continue;
+   const body = line.replace(/^[・･]\s*/, "").trim();
+   if(!body) continue;
+   if(mode === "post") cur._postEffects.push(body);
+   else cur._preEffects.push(body);
+   continue;
+  }
+  // 再使用ターンだけの行
+  if(/再使用ターン数\s*\d+/.test(line) && !/Lv\.?\s*\d+/i.test(line) && line.length < 40){
+   if(cur){
+    const cdm = line.match(/再使用ターン数\s*(\d+)/);
+    if(cdm){
+     if(mode === "post") cur._postCd = cdm[1];
+     else if(!cur.cooldown) cur.cooldown = cdm[1];
+    }
+   }
+   continue;
+  }
+  // それ以外 → 次スキル名
+  // 表ヘッダや無視行はスキップ
+  if(/^(P\b|属性|弾幕|レベル別|攻撃前|攻撃後)/.test(line)) continue;
+  ensureCur(line);
+ }
+ flush();
+
+ // 最大3件。効果は Lv.10 以降を優先。なければ pre を使わない（仕様: Lv10見えるまで入力しない）
+ const out = [createEmptySkill(), createEmptySkill(), createEmptySkill()];
+ for(let i=0; i<Math.min(3, skills.length); i++){
+  const s = skills[i];
+  const fxLines = (s._postEffects && s._postEffects.length) ? s._postEffects : [];
+  const bag = createEmptyEffectBag();
+  fxLines.forEach(fx=>{
+   // wikiParsePrePostEffectLine を流用。付与 の有無ゆれを補完
+   let line = fx;
+   if(/結界異常/.test(line) && /枚/.test(line) && !/付与/.test(line)) line = line.replace(/枚/, "枚付与");
+   wikiParsePrePostEffectLine(line, bag);
+  });
+  out[i] = {
+   name: s.name || "",
+   cooldown: (s._postCd || s.cooldown || ""),
+   specialSlot: "",
+   effects: bag
+  };
+ }
+ beforePack.skills = out;
+ try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
+ const n = skills.length;
+ const used = out.filter(s=>s.name).length;
+ return { ok:true, count: used, totalFound: n };
+}
+
 function importWikiIntoAttack(attackKey, text){
  const a = attackData[attackKey];
  if(!a){
@@ -14190,6 +14668,9 @@ function importWikiIntoAttack(attackKey, text){
   }
  }
 
+ // 攻撃前/後効果（新規）
+ try{ wikiImportPrePostEffects(a, raw); }catch(e){ console.warn(e); }
+
  // バレット行
  for(const line of lines){
   if(/攻撃前効果|攻撃後効果/.test(line)){ inPrePost = true; continue; }
@@ -14214,7 +14695,7 @@ function importWikiIntoAttack(attackKey, text){
   if(!wikiLooksLikeBulletStart(toks) && !/^[0-3]\b/.test(line) && !/^\|?\s*[0-3]\b/.test(line)) continue;
   const row = wikiParseBulletRow(toks, curP);
   if(row.p) curP = row.p;
-  if(row.name || row.bulletType || row.attr) bulletBucket.push(row);
+  if(row.name || row.bulletType || row.attr || row.power) bulletBucket.push(row);
  }
 
  if(!Array.isArray(a.bullets)) a.bullets = [];
@@ -14236,6 +14717,9 @@ function importWikiIntoAttack(attackKey, text){
   if(row.bulletType) b.bulletType = row.bulletType;
   if(row.count) b.count = row.count;
   if(row.p) b.pStage = row.p;
+  if(row.power !== undefined && row.power !== "") b.power = row.power;
+  if(row.accuracy !== undefined && row.accuracy !== "") b.accuracy = row.accuracy;
+  if(row.critical !== undefined && row.critical !== "") b.critical = row.critical;
   b.specials = b.specials || {};
   SPECIALS.forEach(x=>{ if(b.specials[x]==null) b.specials[x]=false; });
   b.buffs = [];
@@ -14437,6 +14921,21 @@ function buildBulletsEditorUI(attackKey){
      </div>
     </div>
 
+    <div class="row3" style="margin-bottom:10px;">
+     <div>
+      <div class="mini">威力 (PWR)</div>
+      <input class="input" type="number" step="0.01" id="${prefix}-power" placeholder="例：13.17" value="${esc(bulletObj.power||"")}">
+     </div>
+     <div>
+      <div class="mini">命中 (ACC)</div>
+      <input class="input" type="number" step="0.01" id="${prefix}-accuracy" placeholder="例：75" value="${esc(bulletObj.accuracy||"")}">
+     </div>
+     <div>
+      <div class="mini">CRI</div>
+      <input class="input" type="number" step="0.01" id="${prefix}-critical" placeholder="例：5" value="${esc(bulletObj.critical||"")}">
+     </div>
+    </div>
+
     <div style="margin-top:10px;" id="buff-container-${prefix}">
      ${renderBuffDebuffFields(prefix, bulletObj, "つよさ変化")}
     </div>
@@ -14472,6 +14971,9 @@ function buildBulletsEditorUI(attackKey){
   const attrSelect = acc.querySelector(`#${prefix}-attr`);
   const bulletTypeSelect = acc.querySelector(`#${prefix}-bulletType`);
   const kindSelect = acc.querySelector(`#${prefix}-kind`);
+  const powerInput = acc.querySelector(`#${prefix}-power`);
+  const accuracyInput = acc.querySelector(`#${prefix}-accuracy`);
+  const criticalInput = acc.querySelector(`#${prefix}-critical`);
 
   nameInput.oninput = e => { 
    bulletObj.name = e.target.value; 
@@ -14483,6 +14985,9 @@ function buildBulletsEditorUI(attackKey){
   attrSelect.onchange = e => { bulletObj.attr = e.target.value; };
   bulletTypeSelect.onchange = e => { bulletObj.bulletType = e.target.value; };
   kindSelect.onchange = e => { bulletObj.kind = e.target.value; };
+  if(powerInput) powerInput.oninput = e => { bulletObj.power = e.target.value; };
+  if(accuracyInput) accuracyInput.oninput = e => { bulletObj.accuracy = e.target.value; };
+  if(criticalInput) criticalInput.oninput = e => { bulletObj.critical = e.target.value; };
 
   const moveBtn = acc.querySelector("#" + prefix + "-moveBtn");
   const moveSel = acc.querySelector("#" + prefix + "-moveTo");
@@ -15992,19 +16497,24 @@ function search(skipHistory) {
 
 function getBuffDebuffHtml(obj) {
  let h = "";
- // 補助スペカ：攻撃前・攻撃後効果
- if (obj && obj.range === "補助") {
+ // 発動前・発動後効果（補助は常時／通常スペカはデータがあるとき・管理者向けWIP含む）
+ if (obj) {
   ensureSupportEffects(obj);
-  h += formatSupportEffectsHtml(obj.preEffects, "攻撃前");
-  h += formatSupportEffectsHtml(obj.postEffects, "攻撃後");
-  // 旧テキスト形式の互換
-  if (!h && obj.preEffect && String(obj.preEffect).trim()) {
-   h += `<div style="margin:4px 0;"><span class="tag tag-buff">攻撃前</span> <span class="muted">${esc(String(obj.preEffect).trim())}</span></div>`;
+  const preH = formatSupportEffectsHtml(obj.preEffects, "発動前");
+  const postH = formatSupportEffectsHtml(obj.postEffects, "発動後");
+  const isSupport = obj.range === "補助";
+  const isAdminUser = (typeof isAdmin === "function" && isAdmin());
+  if (isSupport || preH || postH) {
+   h += preH;
+   h += postH;
+   if (!preH && obj.preEffect && String(obj.preEffect).trim()) {
+    h += `<div style="margin:4px 0;"><span class="tag tag-buff">発動前</span> <span class="muted">${esc(String(obj.preEffect).trim())}</span></div>`;
+   }
+   if (!postH && obj.postEffect && String(obj.postEffect).trim()) {
+    h += `<div style="margin:4px 0;"><span class="tag tag-buff">発動後</span> <span class="muted">${esc(String(obj.postEffect).trim())}</span></div>`;
+   }
+   if (isSupport) return h;
   }
-  if (obj.postEffect && String(obj.postEffect).trim() && !(obj.postEffects && ((obj.postEffects.ranks||[]).length||(obj.postEffects.heals||[]).length||(obj.postEffects.barriers||[]).length))) {
-   h += `<div style="margin:4px 0;"><span class="tag tag-buff">攻撃後</span> <span class="muted">${esc(String(obj.postEffect).trim())}</span></div>`;
-  }
-  return h;
  }
  let buffs = obj.buffs || (obj.buff && obj.buff.stat ? [obj.buff] : []);
  let debuffs = obj.debuffs || (obj.debuff && obj.debuff.stat ? [obj.debuff] : []);
@@ -16159,6 +16669,16 @@ function renderBulletCardHtml(b, bIdx) {
   return `<span class="${cls}" data-sp-name="${esc(sp)}" data-sp-detail="${esc(detail)}" title="長押しで効果の説明">${matched ? `<mark class="hl">${esc(txt)}</mark>` : esc(txt)}</span>`;
  }).join("");
 
+ const hasStats = (b.power!=="" && b.power!=null) || (b.accuracy!=="" && b.accuracy!=null) || (b.critical!=="" && b.critical!=null);
+ const hasSpecials = activeSpecials.length > 0;
+ const statsRow = hasStats ? `
+    <div class="bullet-stat-row">
+     <span class="bstat"><em>威力</em>${esc(b.power!==""&&b.power!=null?b.power:"—")}</span>
+     <span class="bstat"><em>命中</em>${esc(b.accuracy!==""&&b.accuracy!=null?b.accuracy:"—")}${b.accuracy!==""&&b.accuracy!=null?"%":""}</span>
+     <span class="bstat"><em>CRI</em>${esc(b.critical!==""&&b.critical!=null?b.critical:"—")}${b.critical!==""&&b.critical!=null?"%":""}</span>
+    </div>` : "";
+ const divider = (hasStats && hasSpecials) ? `<div class="bullet-stat-divider"></div>` : "";
+
  return `
   <div class="bullet-card ${attrClass} ${kindClass} ${cardHl}">
    ${renderBulletTypeIconHtml(b.bulletType)}
@@ -16167,6 +16687,8 @@ function renderBulletCardHtml(b, bIdx) {
      <div class="bullet-card-title">${esc(b.name || `バレット ${bIdx+1}`)}</div>
      <div class="bullet-card-count">${b.count ? `×${esc(b.count)}` : ''}</div>
     </div>
+    ${statsRow}
+    ${divider}
     <div class="bullet-card-tags">
      ${getBuffDebuffHtml(b)}
      ${specialTagsHtml}
@@ -16194,6 +16716,8 @@ function editCharacter(id) {
  editingId = c.id;
 
  document.getElementById("formTitle").textContent = `キャラクター編集（${c.character}）`;
+ try{ syncAdminWipVisibility(); bindBgmSkillsTraitsForm(); }catch(e){}
+
  document.getElementById("resetEditBtn").classList.remove("hidden");
  document.getElementById("save").textContent = "🔄 データを更新保存する";
 
@@ -16900,11 +17424,13 @@ function openModal(id){
    </div>
   </div>
   
+  ${(typeof formatBgmSkillsTraitsHtml==="function" ? formatBgmSkillsTraitsHtml(vm, { section:"bgm" }) : "")}
   <div class="box" style="background:#f9f9f9">
    <div class="title">ステータス${sideLabel?`（${sideLabel}）`:""}</div>
    ${vm.statsUnknown && vm.side==="after" ? `<div class="mini" style="margin-bottom:8px;padding:8px 10px;border-radius:8px;background:#fff6e8;border:1px solid #e0c48a;color:#6b4e12;line-height:1.5;">転生後のステータスは現在不明のため、<b>転生前のステータス</b>を表示しています。</div>` : ""}
    <div>${formatStatTags(vm.stats) || '<span class="muted">未登録</span>'}</div>
   </div>
+  ${(typeof formatBgmSkillsTraitsHtml==="function" ? formatBgmSkillsTraitsHtml(vm, { section:"skillsTraits" }) : "")}
 
   <div class="box" style="background:#f9f9f9">
    <div class="title">特殊スキル</div>
@@ -17186,6 +17712,7 @@ async function load(opts){
   refreshVisibleData();
   buildFilters();
   try{ if(typeof updateSpecialTargetVisibility==="function") updateSpecialTargetVisibility(); }catch(e){}
+ try{ syncAdminWipVisibility(); }catch(e){}
   saveDataCache();
   if(el){
    const srcLabel = source === "static" ? "静的ファイル" : (source === "supabase" ? "Supabase" : "");
@@ -17565,6 +18092,9 @@ async function save(){
    impl_day: implDay !== "" ? Number(implDay) : null,
    sort_order: keepSort,
    added_at: addedAt || undefined,
+   bgm: before.bgm || { title:"", original:"", links:[] },
+   charSkills: before.skills || [],
+   traits: before.traits || [],
    rebirth: {
     enabled: !!rebirthEnabled,
     before: before,
@@ -18954,6 +19484,493 @@ function initTheme(){
  }
 }
 
+
+/* ===== 管理者WIP: BGM / スキル / 特性 ===== */
+function createEmptySkill(){
+ return { name:"", cooldown:"", specialSlot:"", effects: createEmptyEffectBag() };
+}
+function createEmptyTrait(){
+ return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", banKinds:"", yangReduce:"", yinReduce:"", trigger:"", text:"", effects: createEmptyEffectBag() };
+}
+function ensureCharExtra(pack){
+ if(!pack) return;
+ if(!pack.bgm || typeof pack.bgm !== "object") pack.bgm = { title:"", original:"", links:[] };
+ if(!Array.isArray(pack.bgm.links)) pack.bgm.links = [];
+ if(!Array.isArray(pack.skills)) pack.skills = [createEmptySkill(), createEmptySkill(), createEmptySkill()];
+ while(pack.skills.length < 3) pack.skills.push(createEmptySkill());
+ pack.skills.forEach(sk=>{
+  if(!sk.effects) sk.effects = createEmptyEffectBag();
+  else sk.effects = ensureEffectBagShape(sk.effects);
+ });
+ if(!Array.isArray(pack.traits)) pack.traits = [];
+ pack.traits.forEach(t=>{
+  if(t && t.effects) t.effects = ensureEffectBagShape(t.effects);
+  if(t && t.trigger === "被弾時") t.trigger = "攻撃された時";
+ });
+}
+function syncAdminWipVisibility(){
+ const show = (typeof isAdmin === "function" && isAdmin());
+ document.querySelectorAll(".admin-wip-only").forEach(el=>{
+  el.classList.toggle("hidden", !show);
+ });
+}
+function renderBgmLinksEditor(links){
+ const box = document.getElementById("bgmLinksEditor");
+ if(!box) return;
+ if(!Array.isArray(links)) links = [];
+ box.innerHTML = links.map((lk, i)=>`
+  <div class="row" style="gap:6px;margin-bottom:6px;align-items:center;">
+   <select class="select" style="width:110px" data-bgm-link-type="${i}">
+    <option value="youtube" ${lk.type==="youtube"?"selected":""}>YouTube</option>
+    <option value="spotify" ${lk.type==="spotify"?"selected":""}>Spotify</option>
+    <option value="other" ${lk.type==="other"||!lk.type?"selected":""}>その他</option>
+   </select>
+   <input class="input" style="flex:1" data-bgm-link-url="${i}" placeholder="URL" value="${esc(lk.url||"")}">
+   <button type="button" class="btn-del" data-bgm-link-del="${i}">削除</button>
+  </div>`).join("") || `<div class="mini" style="color:#888;">リンク未追加</div>`;
+ box.querySelectorAll("[data-bgm-link-type]").forEach(sel=>{
+  sel.onchange = ()=>{
+   const i = Number(sel.getAttribute("data-bgm-link-type"));
+   if(beforePack && beforePack.bgm) { ensureCharExtra(beforePack); beforePack.bgm.links[i].type = sel.value; }
+  };
+ });
+ box.querySelectorAll("[data-bgm-link-url]").forEach(inp=>{
+  inp.oninput = ()=>{
+   const i = Number(inp.getAttribute("data-bgm-link-url"));
+   if(beforePack && beforePack.bgm){ ensureCharExtra(beforePack); beforePack.bgm.links[i].url = inp.value; }
+  };
+ });
+ box.querySelectorAll("[data-bgm-link-del]").forEach(btn=>{
+  btn.onclick = ()=>{
+   const i = Number(btn.getAttribute("data-bgm-link-del"));
+   if(beforePack && beforePack.bgm){ ensureCharExtra(beforePack); beforePack.bgm.links.splice(i,1); renderBgmLinksEditor(beforePack.bgm.links); }
+  };
+ });
+}
+function fillBgmSkillsTraitsForm(pack){
+ ensureCharExtra(pack);
+ // 編集中パックと同期
+ if(typeof beforePack !== "undefined" && beforePack){
+  beforePack.bgm = pack.bgm;
+  beforePack.skills = pack.skills;
+  beforePack.traits = pack.traits;
+ }
+ const t = document.getElementById("aBgmTitle");
+ const o = document.getElementById("aBgmOriginal");
+ if(t) t.value = pack.bgm.title || "";
+ if(o) o.value = pack.bgm.original || "";
+ renderBgmLinksEditor(pack.bgm.links);
+ const skBox = document.getElementById("charSkillsEditor");
+ if(skBox){
+  skBox.innerHTML = pack.skills.map((sk, i)=>{
+   const prefix = `skill-${i}`;
+   const effectHtml = (typeof renderSupportEffectBlock === "function")
+    ? renderSupportEffectBlock(prefix, "pre", `スキル${i+1} 効果`, "#5c4a7a")
+    : "";
+   return `
+   <div style="border:1px solid rgba(160,130,70,.35);border-radius:10px;padding:10px;margin-bottom:10px;background:rgba(255,252,245,.7)">
+    <div class="mini" style="font-weight:800;margin-bottom:6px;">スキル${i+1}</div>
+    <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+     <input class="input" data-skill-name="${i}" placeholder="スキル名" value="${esc(sk.name||"")}" style="flex:1;min-width:140px">
+     <input class="input" data-skill-cd="${i}" type="number" placeholder="再使用T" value="${esc(sk.cooldown||"")}" style="width:100px">
+     <input class="input" data-skill-slot="${i}" type="number" min="1" max="3" placeholder="特殊スキル箇所" value="${esc(sk.specialSlot||"")}" style="width:130px" title="特殊スキルが何番のスキルにあるか">
+    </div>
+    <div id="buff-container-${prefix}">${effectHtml}</div>
+   </div>`;
+  }).join("");
+  skBox.querySelectorAll("[data-skill-name]").forEach(inp=>{
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-name")); pack.skills[i].name = inp.value; };
+  });
+  skBox.querySelectorAll("[data-skill-cd]").forEach(inp=>{
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cd")); pack.skills[i].cooldown = inp.value; };
+  });
+  skBox.querySelectorAll("[data-skill-slot]").forEach(inp=>{
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-slot")); pack.skills[i].specialSlot = inp.value; };
+  });
+ }
+ const trBox = document.getElementById("charTraitsEditor");
+ if(trBox){
+  if(!pack.traits.length) pack.traits.push(createEmptyTrait());
+  const abList = (typeof ABNORMAL !== "undefined" && ABNORMAL.length) ? ABNORMAL : ["毒霧","帯電","燃焼","凍結","暗闇"];
+  const bulletOpts = (typeof BULLETS !== "undefined") ? BULLETS : [];
+  trBox.innerHTML = pack.traits.map((tr, i)=>{
+   const prefix = `trait-${i}`;
+   const typ = tr.type || "";
+   let extra = "";
+   if(typ === "ダメージ軽減"){
+    extra = `
+     <div class="row3" style="margin-top:6px;">
+      <input class="input" data-trait-race="${i}" placeholder="種族（自由入力）" value="${esc(tr.race||"")}">
+      <select class="select" data-trait-bullet="${i}"><option value="">弾種</option>${bulletOpts.map(b=>`<option value="${b}" ${tr.bulletType===b?"selected":""}>${b}</option>`).join("")}</select>
+      <input class="input" data-trait-reduce="${i}" type="number" placeholder="軽減%（種族・弾種）" value="${esc(tr.reduce||"")}">
+     </div>
+     <div class="row" style="margin-top:6px;gap:8px;">
+      <input class="input" data-trait-yang="${i}" type="number" placeholder="陽気から被ダメ軽減%" value="${esc(tr.yangReduce||"")}">
+      <input class="input" data-trait-yin="${i}" type="number" placeholder="陰気から被ダメ軽減%" value="${esc(tr.yinReduce||"")}">
+     </div>`;
+   } else if(typ === "禁止解除"){
+    extra = `
+     <div style="margin-top:6px;">
+      <div class="mini">解除する状態（Wikiの表記どおり）</div>
+      <input class="input" data-trait-bankinds="${i}" placeholder="例：禁止状態、つよさ低下" value="${esc(tr.banKinds||"")}">
+     </div>`;
+   }
+   const trigOpts = ["攻撃された時","ターン開始時"];
+   if(tr.trigger && !trigOpts.includes(tr.trigger)) trigOpts.push(tr.trigger);
+   const triggerHtml = typ ? `
+     <div style="margin-top:6px;">
+      <div class="mini">発動条件</div>
+      <select class="select" data-trait-trigger="${i}">
+       <option value="">指定なし</option>
+       ${trigOpts.map(o=>`<option value="${esc(o)}" ${tr.trigger===o?"selected":""}>${esc(o)}</option>`).join("")}
+      </select>
+     </div>` : "";
+   const effectHtml = (typ && typ !== "特殊" && typ !== "ダメージ軽減" && typeof renderSupportEffectBlock === "function")
+    ? renderSupportEffectBlock(prefix, "pre", "特性効果", "#004085")
+    : "";
+   // ダメージ軽減は専用フィールド、特殊はテキストのみ、それ以外は効果バッグ
+   const showEffects = typ && typ !== "特殊" && typ !== "ダメージ軽減";
+   return `
+   <div style="border:1px solid rgba(160,130,70,.35);border-radius:10px;padding:10px;margin-bottom:8px;">
+    <button type="button" class="btn-del" data-trait-del="${i}">削除</button>
+    <input class="input" data-trait-name="${i}" placeholder="特性名" value="${esc(tr.name||"")}" style="margin-top:4px;width:100%;font-weight:700;">
+    <div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap;">
+     <select class="select" data-trait-type="${i}" style="min-width:150px">
+      <option value="">種類</option>
+      ${["ダメージ軽減","体力回復","禁止解除","霊力増加","結界増加","結界異常回復","結界異常付与","つよさ上昇低下","特殊"].map(t=>`<option value="${t}" ${typ===t?"selected":""}>${t}</option>`).join("")}
+     </select>
+     <input class="input" data-trait-chance="${i}" type="number" placeholder="発動確率%" value="${esc(tr.chance||"")}" style="width:110px">
+    </div>
+    ${triggerHtml}
+    ${extra}
+    ${typ==="特殊" || !typ ? `<textarea class="input" data-trait-text="${i}" rows="2" style="margin-top:6px;width:100%;border-radius:10px;" placeholder="特殊特性テキスト / 補足">${esc(tr.text||"")}</textarea>` : `<textarea class="input" data-trait-text="${i}" rows="1" style="margin-top:6px;width:100%;border-radius:10px;" placeholder="補足（任意）">${esc(tr.text||"")}</textarea>`}
+    <div data-trait-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc(traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）")}</div>
+    ${showEffects ? `<div id="buff-container-${prefix}" style="margin-top:8px;">${effectHtml}</div>` : ""}
+   </div>`;
+  }).join("") + `<button type="button" class="btn-add" id="addTraitBtn">＋ 特性を追加</button>`;
+
+  trBox.querySelectorAll("[data-trait-type]").forEach(sel=>{
+   sel.onchange = ()=>{
+    const i = Number(sel.getAttribute("data-trait-type"));
+    pack.traits[i].type = sel.value;
+    fillBgmSkillsTraitsForm(pack);
+   };
+  });
+  trBox.querySelectorAll("[data-trait-chance]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-chance"))].chance = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-text]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-text"))].text = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-race]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-race"))].race = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-bullet]").forEach(sel=>{
+   sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-bullet"))].bulletType = sel.value; };
+  });
+  trBox.querySelectorAll("[data-trait-name]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-name"))].name = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-reduce]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-reduce"))].reduce = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-bankinds]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-bankinds"))].banKinds = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-yang]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-yang"))].yangReduce = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-yin]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-yin"))].yinReduce = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-trigger]").forEach(sel=>{
+   sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-trigger"))].trigger = sel.value; };
+  });
+  trBox.querySelectorAll("[data-trait-del]").forEach(btn=>{
+   btn.onclick = ()=>{ pack.traits.splice(Number(btn.getAttribute("data-trait-del")),1); fillBgmSkillsTraitsForm(pack); };
+  });
+  trBox.oninput = trBox.onchange = updateTraitPreviews;
+  const addT = document.getElementById("addTraitBtn");
+  if(addT) addT.onclick = ()=>{ pack.traits.push(createEmptyTrait()); fillBgmSkillsTraitsForm(pack); };
+ }
+}
+
+/* ===== 特性：Wiki表記（コピペ元と同じ書式）で組み立て ===== */
+/** 例）攻撃された時、紅魔館に住む者から受けるダメージを40%ダウン［発生率100%］ */
+function traitWikiLines(tr){
+ if(!tr) return [];
+ const trig = (tr.trigger === "被弾時") ? "攻撃された時" : (tr.trigger || "");
+ const head = trig ? trig + "、" : "";
+ const tail = (tr.chance !== "" && tr.chance != null) ? `［発生率${tr.chance}%］` : "";
+ const fx = tr.effects || {};
+ const bodies = [];
+ if(tr.type === "ダメージ軽減"){
+  const rd = (who, rate)=>{ if(who && rate !== "" && rate != null) bodies.push(`${who}から受けるダメージを${rate}%ダウン`); };
+  rd(tr.race, tr.reduce);
+  rd(tr.bulletType, tr.reduce);
+  rd("陽気", tr.yangReduce);
+  rd("陰気", tr.yinReduce);
+ }
+ (fx.heals||[]).forEach(h=>{ if(h.percent !== "" && h.percent != null) bodies.push(`${h.target||"自身"}の体力を${h.percent}%回復`); });
+ (fx.banReleases||[]).forEach(b=>bodies.push(`${b.target||"自身"}の${tr.banKinds || "禁止状態"}から${b.count||1}つ回復`));
+ (fx.spiritPowers||[]).forEach(x=>bodies.push(`${x.target||"自身"}の霊力を${x.amount}上昇`));
+ (fx.barriers||[]).forEach(x=>bodies.push(`${x.target||"自身"}の結界を${x.stacks}枚増加`));
+ (fx.barrierHeals||[]).forEach(x=>bodies.push(`${x.target||"自身"}の結界異常を${x.count}つ回復`));
+ (fx.barrierAbnormals||[]).forEach(x=>bodies.push(`${x.target||"相手単体"}に結界異常「${x.name||""}」を${x.stacks}枚付与${x.turns?`（${x.turns}T）`:""}`));
+ (fx.ranks||[]).forEach(x=>bodies.push(`${x.target||"自身"}の${x.stat||""}を${x.stages}段階${x.dir||""}${x.turns?`（${x.turns}T）`:""}`));
+ if(!bodies.length && tr.text) bodies.push(tr.text);
+ return bodies.map(b => head + b + tail);
+}
+function updateTraitPreviews(){
+ const box = document.getElementById("charTraitsEditor");
+ if(!box || typeof beforePack === "undefined" || !beforePack) return;
+ box.querySelectorAll("[data-trait-preview]").forEach(el=>{
+  const i = Number(el.getAttribute("data-trait-preview"));
+  const tr = (beforePack.traits || [])[i];
+  el.textContent = tr ? (traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）") : "";
+ });
+}
+
+/* ===== Wiki取込（特性） =====
+function normalizeTraitTrigger(raw){
+ const t = String(raw||"").trim();
+ if(!t) return "";
+ if(/攻撃された|被弾|ダメージを受け/.test(t)) return "攻撃された時";
+ if(/ターン開始/.test(t)) return "ターン開始時";
+ return t;
+}
+function wikiTraitNorm(str){
+ return String(str||"")
+  .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+  .replace(/％/g,"%").replace(/［/g,"[").replace(/］/g,"]")
+  .replace(/[（(]\s*←[^）)]*[）)]/g,"")   // 説明用の（←…）注釈は除去
+  .replace(/←.*$/,"")
+  .trim();
+}
+/** 効果行1本を解析して tr に反映。解析できたら true */
+function wikiParseTraitEffectLine(raw, tr){
+ let s = wikiTraitNorm(String(raw||"").replace(/^[・･]\s*/,""));
+ if(!s) return false;
+ tr.effects = ensureEffectBagShape(tr.effects);
+ const bag = tr.effects;
+
+ // 発動確率 [発生率100%]
+ const cm = s.match(/\[\s*発生率\s*(\d+(?:\.\d+)?)\s*%\s*\]|発生率\s*(\d+(?:\.\d+)?)\s*%/);
+ if(cm){
+  if(tr.chance === "" || tr.chance == null) tr.chance = cm[1] || cm[2];
+  s = s.replace(cm[0], "").trim();
+ }
+ // 発動条件（文頭〜最初の「時、」）
+ const tm = s.match(/^(.+?時)\s*[、,，]\s*/);
+ if(tm){
+  if(!tr.trigger) tr.trigger = normalizeTraitTrigger(tm[1]);
+  s = s.slice(tm[0].length).trim();
+ }
+ s = s.replace(/[。\s]+$/,"");
+ const setType = (t)=>{ if(!tr.type) tr.type = t; };
+ const addNote = (t)=>{ tr.text = tr.text ? (tr.text + " / " + t) : t; };
+
+ // ① ダメージ軽減：「〇〇から受けるダメージを40%ダウン」
+ {
+  const m = s.match(/^(.+?)から(?:受ける|受けた)?ダメージ(?:を|が)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:ダウン|軽減|減少|低下|カット|減)/);
+  if(m){
+   const who = m[1].replace(/^自身(?:は|が)?/,"").trim();
+   const rate = m[2];
+   setType("ダメージ軽減");
+   const hasYang = /陽気/.test(who), hasYin = /陰気/.test(who);
+   if(hasYang || hasYin){
+    if(hasYang) tr.yangReduce = rate;
+    if(hasYin)  tr.yinReduce  = rate;
+   }else{
+    const b = (typeof wikiParseBulletType === "function") ? wikiParseBulletType(who) : "";
+    if(b){
+     if(!tr.bulletType){ tr.bulletType = b; tr.reduce = rate; } else addNote(s);
+    }else{
+     // 弾種・陰陽に該当しない → 種族
+     if(!tr.race){ tr.race = who; tr.reduce = rate; } else addNote(s);
+    }
+   }
+   return true;
+  }
+ }
+ // ② 禁止解除：「自身の禁止状態、つよさ低下から1つ回復」
+ if(/禁止状態/.test(s) && /回復|解除/.test(s)){
+  const tg = (s.match(/(自身|味方全体|味方単体|相手単体|相手全体)/) || [])[1] || "自身";
+  const cnt = (s.match(/(\d+)\s*つ/) || [])[1] || "1";
+  const kinds = (s.match(/の(.+?)から/) || [])[1];
+  setType("禁止解除");
+  bag.banReleases.push({ target: tg, count: cnt, bonusPct: "" });
+  if(kinds) tr.banKinds = kinds;
+  return true;
+ }
+ // ③ 体力回復：「自身の体力を15%回復」
+ {
+  const m = s.match(/(自身|味方全体|味方単体)の(?:体力|HP)を?\s*(\d+(?:\.\d+)?)\s*%.*回復/);
+  if(m){
+   setType("体力回復");
+   bag.heals.push({ target: m[1], percent: m[2], bonusPct: "" });
+   return true;
+  }
+ }
+ // ④ その他（つよさ上昇低下／結界増加／霊力増加／結界異常 など）は既存パーサーへ
+ {
+  const keys = ["ranks","heals","barriers","barrierAbnormals","banReleases","spiritPowers","barrierHeals"];
+  const before = {}; keys.forEach(k=>{ before[k] = bag[k].length; });
+  let line = s;
+  if(/結界異常/.test(line) && /枚/.test(line) && !/付与/.test(line)) line = line.replace(/枚/, "枚付与");
+  if(typeof wikiParsePrePostEffectLine === "function" && wikiParsePrePostEffectLine(line, bag)){
+   const typeMap = { ranks:"つよさ上昇低下", barrierAbnormals:"結界異常付与", barriers:"結界増加", spiritPowers:"霊力増加", barrierHeals:"結界異常回復", heals:"体力回復", banReleases:"禁止解除" };
+   for(const k of keys){ if(bag[k].length > before[k]){ setType(typeMap[k]); break; } }
+   return true;
+  }
+ }
+ // ⑤ 解析できない → 特殊（原文を補足に残す）
+ setType("特殊");
+ addNote(s);
+ return false;
+}
+function importWikiIntoTraits(text){
+ const raw = String(text||"").trim();
+ if(!raw){ alert("テキストが空です。"); return { ok:false }; }
+ if(!beforePack){ alert("編集中のキャラがありません。"); return { ok:false }; }
+ ensureCharExtra(beforePack);
+ const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ const traits = [];
+ let cur = null;
+ let unparsed = 0;
+ for(const line of lines){
+  if(/^[・･]/.test(line)){
+   if(!cur) continue;
+   if(!wikiParseTraitEffectLine(line, cur)) unparsed++;
+   continue;
+  }
+  const name = wikiTraitNorm(line);
+  if(!name) continue;
+  if(/^(特性|特性名|特技|性能|効果|発動条件)$/.test(name)) continue;
+  cur = createEmptyTrait();
+  cur.name = name;
+  traits.push(cur);
+ }
+ const out = traits.slice(0,3);
+ if(!out.length){ alert("特性を検出できませんでした。特性名の行と「・」で始まる効果行を貼り付けてください。"); return { ok:false }; }
+ beforePack.traits = out;
+ try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
+ return { ok:true, count: out.length, totalFound: traits.length, unparsed };
+}
+
+function bindBgmSkillsTraitsForm(){
+
+ try{
+  const skBtn = document.getElementById("wikiSkillsImportBtn");
+  if(skBtn && !skBtn.dataset.bound){
+   skBtn.dataset.bound = "1";
+   skBtn.onclick = ()=>{
+    const ta = document.getElementById("wikiSkillsPaste");
+    const st = document.getElementById("wikiSkillsImportStatus");
+    const r = importWikiIntoSkills(ta ? ta.value : "");
+    if(r && r.ok){
+     if(st) st.textContent = "取込完了: スキル"+r.count+"件（検出"+r.totalFound+"）";
+     alert("スキルを取り込みました（"+r.count+"件）");
+    }
+   };
+  }
+ }catch(e){}
+
+ try{
+  const trBtn = document.getElementById("wikiTraitsImportBtn");
+  if(trBtn && !trBtn.dataset.bound){
+   trBtn.dataset.bound = "1";
+   trBtn.onclick = ()=>{
+    const ta = document.getElementById("wikiTraitsPaste");
+    const st = document.getElementById("wikiTraitsImportStatus");
+    const r = importWikiIntoTraits(ta ? ta.value : "");
+    if(r && r.ok){
+     if(st) st.textContent = "取込完了: 特性"+r.count+"件（検出"+r.totalFound+(r.unparsed?"／未解析"+r.unparsed+"行は「特殊」に補足として保存":"")+"）";
+     alert("特性を取り込みました（"+r.count+"件）");
+    }
+   };
+  }
+ }catch(e){}
+
+ const addL = document.getElementById("addBgmLinkBtn");
+ if(addL && !addL.dataset.bound){
+  addL.dataset.bound = "1";
+  addL.onclick = ()=>{
+   if(!beforePack) return;
+   ensureCharExtra(beforePack);
+   beforePack.bgm.links.push({ type:"youtube", url:"" });
+   renderBgmLinksEditor(beforePack.bgm.links);
+  };
+ }
+ ["aBgmTitle","aBgmOriginal"].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el && !el.dataset.bound){
+   el.dataset.bound = "1";
+   el.oninput = ()=>{
+    if(!beforePack) return;
+    ensureCharExtra(beforePack);
+    if(id==="aBgmTitle") beforePack.bgm.title = el.value;
+    if(id==="aBgmOriginal") beforePack.bgm.original = el.value;
+   };
+  }
+ });
+}
+function formatBgmSkillsTraitsHtml(pack, opts){
+ if(!pack) return "";
+ const admin = (typeof isAdmin === "function" && isAdmin());
+ if(!admin) return "";
+ ensureCharExtra(pack);
+ const section = (opts && opts.section) || "all";
+ let h = "";
+ const bgm = pack.bgm || {};
+ if(section==="all" || section==="bgm"){
+  if(bgm.title || bgm.original || (bgm.links||[]).length){
+   h += `<div class="box" style="background:#f9f9f9"><div class="title">BGM</div>`;
+   if(bgm.title) h += `<div><b>${esc(bgm.title)}</b></div>`;
+   if(bgm.original) h += `<div class="muted">原曲：${esc(bgm.original)}</div>`;
+   (bgm.links||[]).forEach(lk=>{
+    if(!lk || !lk.url) return;
+    const lab = lk.type==="youtube"?"YouTube":(lk.type==="spotify"?"Spotify":"リンク");
+    h += `<div><a href="${esc(lk.url)}" target="_blank" rel="noopener">${esc(lab)}</a></div>`;
+   });
+   h += `</div>`;
+  }
+ }
+ if(section==="all" || section==="skillsTraits"){
+  const skills = pack.skills || [];
+  if(skills.some(s=>s && (s.name || s.cooldown || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
+   h += `<div class="box" style="background:#f9f9f9"><div class="title">スキル</div>`;
+   skills.forEach((sk,i)=>{
+    if(!sk) return;
+    const hasFx = sk.effects && Object.values(sk.effects).some(a=>Array.isArray(a)&&a.length);
+    if(!sk.name && !sk.cooldown && !hasFx) return;
+    h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
+    h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">(${esc(sk.cooldown)}T)</span>`:""}</div>`;
+    if(sk.specialSlot) h += `<div class="mini">特殊スキル：スキル${esc(sk.specialSlot)}</div>`;
+    if(hasFx && typeof formatSupportEffectsHtml==="function") h += formatSupportEffectsHtml(sk.effects, "効果");
+    h += `</div>`;
+   });
+   h += `</div>`;
+  }
+  const traits = pack.traits || [];
+  if(traits.some(t=>t && (t.name || t.type || t.text))){
+   h += `<div class="box" style="background:#f9f9f9"><div class="title">特性</div>`;
+   traits.forEach(tr=>{
+    if(!tr) return;
+    const wl = traitWikiLines(tr);
+    if(!wl.length && !tr.name) return;
+    h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.2);border-radius:8px;">`;
+    if(tr.name) h += `<div><b>${esc(tr.name)}</b></div>`;
+    wl.forEach(x=>{ h += `<div class="muted">・${esc(x)}</div>`; });
+    if(tr.text && tr.type !== "特殊" && wl.length) h += `<div class="mini" style="color:#666;">${esc(tr.text)}</div>`;
+    h += `</div>`;
+   });
+   h += `</div>`;
+  }
+ }
+ return h;
+}
+
 async function init(){
  // 1) 前回キャッシュを即表示（ネット待ちなし）
  try{ hydrateFromCache(); }catch(e){}
@@ -19029,6 +20046,7 @@ async function init(){
  initBgSettings();
  bindDetailFiltersToggle();
  initTheme();
+ try{ bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
  try{ fetchGachaPickups(); }catch(e){}
  try{ showPickupFabTutorial(); }catch(e){}
 
