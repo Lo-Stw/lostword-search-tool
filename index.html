@@ -3548,6 +3548,10 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
     <span class="mini" id="wikiTraitsImportStatus" style="color:#666;"></span>
    </div>
   </div>
+  <datalist id="traitTriggerList">
+   <option value="攻撃された時"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
+   <option value="ターン終了時"></option><option value="戦闘開始時"></option><option value="スペルカード発動時"></option>
+  </datalist>
   <div id="charTraitsEditor"></div>
 </div>
 </div>
@@ -14595,6 +14599,8 @@ function importWikiIntoSkills(text){
   out[i] = {
    name: s.name || "",
    cooldown: (s._postCd || s.cooldown || ""),
+   cooldownInit: (s._postCd && s.cooldown && s.cooldown !== s._postCd) ? s.cooldown : "",
+   text: "",
    specialSlot: "",
    effects: bag
   };
@@ -19576,10 +19582,10 @@ function initTheme(){
 
 /* ===== 管理者WIP: BGM / スキル / 特性 ===== */
 function createEmptySkill(){
- return { name:"", cooldown:"", specialSlot:"", effects: createEmptyEffectBag() };
+ return { name:"", cooldown:"", cooldownInit:"", specialSlot:"", text:"", effects: createEmptyEffectBag() };
 }
 function createEmptyTrait(){
- return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", banKinds:"", yangReduce:"", yinReduce:"", trigger:"", text:"", effects: createEmptyEffectBag() };
+ return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", extraReductions:[], banKinds:"", yangReduce:"", yinReduce:"", trigger:"", text:"", effects: createEmptyEffectBag() };
 }
 function ensureCharExtra(pack){
  if(!pack) return;
@@ -19595,6 +19601,7 @@ function ensureCharExtra(pack){
  pack.traits.forEach(t=>{
   if(t && t.effects) t.effects = ensureEffectBagShape(t.effects);
   if(t && t.trigger === "被弾時") t.trigger = "攻撃された時";
+  if(t && !Array.isArray(t.extraReductions)) t.extraReductions = [];
  });
 }
 function syncAdminWipVisibility(){
@@ -19661,10 +19668,13 @@ function fillBgmSkillsTraitsForm(pack){
     <div class="mini" style="font-weight:800;margin-bottom:6px;">スキル${i+1}</div>
     <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap;">
      <input class="input" data-skill-name="${i}" placeholder="スキル名" value="${esc(sk.name||"")}" style="flex:1;min-width:140px">
-     <input class="input" data-skill-cd="${i}" type="number" placeholder="再使用T" value="${esc(sk.cooldown||"")}" style="width:100px">
+     <input class="input" data-skill-cdinit="${i}" type="number" placeholder="再使用T（初期）" value="${esc(sk.cooldownInit||"")}" style="width:120px" title="Lv.10になる前の再使用ターン数">
+     <input class="input" data-skill-cd="${i}" type="number" placeholder="再使用T（Lv.10）" value="${esc(sk.cooldown||"")}" style="width:130px" title="Lv.10以降の再使用ターン数">
      <input class="input" data-skill-slot="${i}" type="number" min="1" max="3" placeholder="特殊スキル箇所" value="${esc(sk.specialSlot||"")}" style="width:130px" title="特殊スキルが何番のスキルにあるか">
     </div>
     <div id="buff-container-${prefix}">${effectHtml}</div>
+     <textarea class="input" data-skill-text="${i}" rows="2" style="margin-top:8px;width:100%;border-radius:10px;" placeholder="補足（効果欄で表せない内容・条件など／任意）">${esc(sk.text||"")}</textarea>
+     <div data-skill-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc([skillWikiHead(sk)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean).join("\n") || "（Wiki表記のプレビュー）")}</div>
    </div>`;
   }).join("");
   skBox.querySelectorAll("[data-skill-name]").forEach(inp=>{
@@ -19673,6 +19683,13 @@ function fillBgmSkillsTraitsForm(pack){
   skBox.querySelectorAll("[data-skill-cd]").forEach(inp=>{
    inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cd")); pack.skills[i].cooldown = inp.value; };
   });
+  skBox.querySelectorAll("[data-skill-cdinit]").forEach(inp=>{
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cdinit")); pack.skills[i].cooldownInit = inp.value; };
+  });
+  skBox.querySelectorAll("[data-skill-text]").forEach(inp=>{
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-text")); pack.skills[i].text = inp.value; };
+  });
+  skBox.oninput = skBox.onchange = updateSkillPreviews;
   skBox.querySelectorAll("[data-skill-slot]").forEach(inp=>{
    inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-slot")); pack.skills[i].specialSlot = inp.value; };
   });
@@ -19696,7 +19713,15 @@ function fillBgmSkillsTraitsForm(pack){
      <div class="row" style="margin-top:6px;gap:8px;">
       <input class="input" data-trait-yang="${i}" type="number" placeholder="陽気から被ダメ軽減%" value="${esc(tr.yangReduce||"")}">
       <input class="input" data-trait-yin="${i}" type="number" placeholder="陰気から被ダメ軽減%" value="${esc(tr.yinReduce||"")}">
-     </div>`;
+     </div>
+     <div class="mini" style="margin-top:8px;font-weight:700;">追加の軽減（種族・弾種などを複数指定）</div>
+     ${(tr.extraReductions||[]).map((x,k)=>`
+      <div class="row" style="gap:6px;margin-top:4px;align-items:center;">
+       <input class="input" style="flex:1" data-trait-xr-who="${i}:${k}" placeholder="対象（例：妖精）" value="${esc(x.who||"")}">
+       <input class="input" style="width:90px" type="number" data-trait-xr-rate="${i}:${k}" placeholder="軽減%" value="${esc(x.rate||"")}">
+       <button type="button" class="btn-del" data-trait-xr-del="${i}:${k}">削除</button>
+      </div>`).join("")}
+     <button type="button" class="btn-add" data-trait-xr-add="${i}" style="margin-top:4px;">＋ 軽減を追加</button>`;
    } else if(typ === "禁止解除"){
     extra = `
      <div style="margin-top:6px;">
@@ -19704,15 +19729,10 @@ function fillBgmSkillsTraitsForm(pack){
       <input class="input" data-trait-bankinds="${i}" placeholder="例：禁止状態、つよさ低下" value="${esc(tr.banKinds||"")}">
      </div>`;
    }
-   const trigOpts = ["攻撃された時","ターン開始時"];
-   if(tr.trigger && !trigOpts.includes(tr.trigger)) trigOpts.push(tr.trigger);
    const triggerHtml = typ ? `
      <div style="margin-top:6px;">
-      <div class="mini">発動条件</div>
-      <select class="select" data-trait-trigger="${i}">
-       <option value="">指定なし</option>
-       ${trigOpts.map(o=>`<option value="${esc(o)}" ${tr.trigger===o?"selected":""}>${esc(o)}</option>`).join("")}
-      </select>
+      <div class="mini">発動条件（候補から選択／自由入力も可）</div>
+      <input class="input" list="traitTriggerList" data-trait-trigger="${i}" placeholder="例：攻撃された時 / ターン開始時" value="${esc(tr.trigger||"")}">
      </div>` : "";
    const effectHtml = (typ && typ !== "特殊" && typ !== "ダメージ軽減" && typeof renderSupportEffectBlock === "function")
     ? renderSupportEffectBlock(prefix, "pre", "特性効果", "#004085")
@@ -19763,6 +19783,19 @@ function fillBgmSkillsTraitsForm(pack){
   trBox.querySelectorAll("[data-trait-reduce]").forEach(inp=>{
    inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-reduce"))].reduce = inp.value; };
   });
+  const xrIdx = (v)=>{ const [a,b]=String(v).split(":").map(Number); return [a,b]; };
+  trBox.querySelectorAll("[data-trait-xr-who]").forEach(inp=>{
+   inp.oninput = ()=>{ const [a,b]=xrIdx(inp.getAttribute("data-trait-xr-who")); pack.traits[a].extraReductions[b].who = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-xr-rate]").forEach(inp=>{
+   inp.oninput = ()=>{ const [a,b]=xrIdx(inp.getAttribute("data-trait-xr-rate")); pack.traits[a].extraReductions[b].rate = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-xr-del]").forEach(btn=>{
+   btn.onclick = ()=>{ const [a,b]=xrIdx(btn.getAttribute("data-trait-xr-del")); pack.traits[a].extraReductions.splice(b,1); fillBgmSkillsTraitsForm(pack); };
+  });
+  trBox.querySelectorAll("[data-trait-xr-add]").forEach(btn=>{
+   btn.onclick = ()=>{ const a=Number(btn.getAttribute("data-trait-xr-add")); if(!Array.isArray(pack.traits[a].extraReductions)) pack.traits[a].extraReductions=[]; pack.traits[a].extraReductions.push({who:"",rate:""}); fillBgmSkillsTraitsForm(pack); };
+  });
   trBox.querySelectorAll("[data-trait-bankinds]").forEach(inp=>{
    inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-bankinds"))].banKinds = inp.value; };
   });
@@ -19773,7 +19806,7 @@ function fillBgmSkillsTraitsForm(pack){
    inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-yin"))].yinReduce = inp.value; };
   });
   trBox.querySelectorAll("[data-trait-trigger]").forEach(sel=>{
-   sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-trigger"))].trigger = sel.value; };
+   sel.oninput = sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-trigger"))].trigger = sel.value.trim(); };
   });
   trBox.querySelectorAll("[data-trait-del]").forEach(btn=>{
    btn.onclick = ()=>{ pack.traits.splice(Number(btn.getAttribute("data-trait-del")),1); fillBgmSkillsTraitsForm(pack); };
@@ -19786,12 +19819,24 @@ function fillBgmSkillsTraitsForm(pack){
 
 /* ===== 特性：Wiki表記（コピペ元と同じ書式）で組み立て ===== */
 /** 例）攻撃された時、紅魔館に住む者から受けるダメージを40%ダウン［発生率100%］ */
+/** 効果バッグ → Wiki表記の文（「自身の体力を15%回復」など） */
+function effectBagWikiLines(fx, banKinds){
+ fx = fx || {};
+ const out = [];
+ (fx.heals||[]).forEach(h=>{ if(h.percent !== "" && h.percent != null) out.push(`${h.target||"自身"}の体力を${h.percent}%回復`); });
+ (fx.banReleases||[]).forEach(b=>out.push(`${b.target||"自身"}の${banKinds || "禁止状態"}から${b.count||1}つ回復`));
+ (fx.spiritPowers||[]).forEach(x=>out.push(`${x.target||"自身"}の霊力を${x.amount}上昇`));
+ (fx.barriers||[]).forEach(x=>out.push(`${x.target||"自身"}の結界を${x.stacks}枚増加`));
+ (fx.barrierHeals||[]).forEach(x=>out.push(`${x.target||"自身"}の結界異常を${x.count}つ回復`));
+ (fx.barrierAbnormals||[]).forEach(x=>out.push(`${x.target||"相手単体"}に結界異常「${x.name||""}」を${x.stacks}枚付与${x.turns?`（${x.turns}T）`:""}`));
+ (fx.ranks||[]).forEach(x=>out.push(`${x.target||"自身"}の${x.stat||""}を${x.stages}段階${x.dir||""}${x.turns?`（${x.turns}T）`:""}`));
+ return out;
+}
 function traitWikiLines(tr){
  if(!tr) return [];
  const trig = (tr.trigger === "被弾時") ? "攻撃された時" : (tr.trigger || "");
  const head = trig ? trig + "、" : "";
  const tail = (tr.chance !== "" && tr.chance != null) ? `［発生率${tr.chance}%］` : "";
- const fx = tr.effects || {};
  const bodies = [];
  if(tr.type === "ダメージ軽減"){
   const rd = (who, rate)=>{ if(who && rate !== "" && rate != null) bodies.push(`${who}から受けるダメージを${rate}%ダウン`); };
@@ -19799,16 +19844,34 @@ function traitWikiLines(tr){
   rd(tr.bulletType, tr.reduce);
   rd("陽気", tr.yangReduce);
   rd("陰気", tr.yinReduce);
+  (tr.extraReductions||[]).forEach(x=>rd(String(x.who||"").trim(), x.rate));
  }
- (fx.heals||[]).forEach(h=>{ if(h.percent !== "" && h.percent != null) bodies.push(`${h.target||"自身"}の体力を${h.percent}%回復`); });
- (fx.banReleases||[]).forEach(b=>bodies.push(`${b.target||"自身"}の${tr.banKinds || "禁止状態"}から${b.count||1}つ回復`));
- (fx.spiritPowers||[]).forEach(x=>bodies.push(`${x.target||"自身"}の霊力を${x.amount}上昇`));
- (fx.barriers||[]).forEach(x=>bodies.push(`${x.target||"自身"}の結界を${x.stacks}枚増加`));
- (fx.barrierHeals||[]).forEach(x=>bodies.push(`${x.target||"自身"}の結界異常を${x.count}つ回復`));
- (fx.barrierAbnormals||[]).forEach(x=>bodies.push(`${x.target||"相手単体"}に結界異常「${x.name||""}」を${x.stacks}枚付与${x.turns?`（${x.turns}T）`:""}`));
- (fx.ranks||[]).forEach(x=>bodies.push(`${x.target||"自身"}の${x.stat||""}を${x.stages}段階${x.dir||""}${x.turns?`（${x.turns}T）`:""}`));
+ effectBagWikiLines(tr.effects, tr.banKinds).forEach(x=>bodies.push(x));
  if(!bodies.length && tr.text) bodies.push(tr.text);
  return bodies.map(b => head + b + tail);
+}
+/** スキル：見出し（スキル名＋再使用ターン）と効果文 */
+function skillWikiHead(sk){
+ if(!sk) return "";
+ const n = sk.name || "";
+ const cd = (sk.cooldown !== "" && sk.cooldown != null) ? `（再使用ターン数${sk.cooldown}）` : "";
+ return n ? (n + cd) : "";
+}
+function skillWikiLines(sk){
+ if(!sk) return [];
+ const out = effectBagWikiLines(sk.effects, "");
+ if(sk.text) out.push(sk.text);
+ return out;
+}
+function updateSkillPreviews(){
+ const box = document.getElementById("charSkillsEditor");
+ if(!box || typeof beforePack === "undefined" || !beforePack) return;
+ box.querySelectorAll("[data-skill-preview]").forEach(el=>{
+  const i = Number(el.getAttribute("data-skill-preview"));
+  const sk = (beforePack.skills || [])[i];
+  const lines = sk ? [skillWikiHead(sk)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean) : [];
+  el.textContent = lines.join("\n") || "（Wiki表記のプレビュー）";
+ });
 }
 function updateTraitPreviews(){
  const box = document.getElementById("charTraitsEditor");
@@ -19872,11 +19935,15 @@ function wikiParseTraitEffectLine(raw, tr){
     if(hasYin)  tr.yinReduce  = rate;
    }else{
     const b = (typeof wikiParseBulletType === "function") ? wikiParseBulletType(who) : "";
-    if(b){
-     if(!tr.bulletType){ tr.bulletType = b; tr.reduce = rate; } else addNote(s);
+    if(tr.race || tr.bulletType){
+     // 2件目以降 → 追加の軽減
+     if(!Array.isArray(tr.extraReductions)) tr.extraReductions = [];
+     tr.extraReductions.push({ who: b || who, rate: rate });
+    }else if(b){
+     tr.bulletType = b; tr.reduce = rate;
     }else{
      // 弾種・陰陽に該当しない → 種族
-     if(!tr.race){ tr.race = who; tr.reduce = rate; } else addNote(s);
+     tr.race = who; tr.reduce = rate;
     }
    }
    return true;
@@ -20032,11 +20099,11 @@ function formatBgmSkillsTraitsHtml(pack, opts){
    skills.forEach((sk,i)=>{
     if(!sk) return;
     const hasFx = sk.effects && Object.values(sk.effects).some(a=>Array.isArray(a)&&a.length);
-    if(!sk.name && !sk.cooldown && !hasFx) return;
+    if(!sk.name && !sk.cooldown && !hasFx && !sk.text) return;
     h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
-    h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">(${esc(sk.cooldown)}T)</span>`:""}</div>`;
+    h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">(${sk.cooldownInit?esc(sk.cooldownInit)+"T→":""}${esc(sk.cooldown)}T)</span>`:""}</div>`;
     if(sk.specialSlot) h += `<div class="mini">特殊スキル：スキル${esc(sk.specialSlot)}</div>`;
-    if(hasFx && typeof formatSupportEffectsHtml==="function") h += formatSupportEffectsHtml(sk.effects, "効果");
+    skillWikiLines(sk).forEach(x=>{ h += `<div class="muted">・${esc(x)}</div>`; });
     h += `</div>`;
    });
    h += `</div>`;
