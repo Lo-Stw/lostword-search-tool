@@ -19601,7 +19601,7 @@ function createEmptySkill(){
  return { name:"", cooldown:"", text:"", effects: createEmptyEffectBag() };
 }
 function createEmptyTrait(){
- return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", extraReductions:[], banKinds:"", yangReduce:"", yinReduce:"", trigger:"", text:"", effects: createEmptyEffectBag() };
+ return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", reduceRb:"", extraReductions:[], banKinds:"", yangReduce:"", yangReduceRb:"", yinReduce:"", yinReduceRb:"", trigger:"", text:"", effects: createEmptyEffectBag() };
 }
 function ensureCharExtra(pack){
  if(!pack) return;
@@ -19752,17 +19752,21 @@ function fillBgmSkillsTraitsForm(pack){
      <div class="row3" style="margin-top:6px;">
       <input class="input" data-trait-race="${i}" placeholder="種族（自由入力）" value="${esc(tr.race||"")}">
       <select class="select" data-trait-bullet="${i}"><option value="">弾種</option>${bulletOpts.map(b=>`<option value="${b}" ${tr.bulletType===b?"selected":""}>${b}</option>`).join("")}</select>
-      <input class="input" data-trait-reduce="${i}" type="number" placeholder="軽減%（種族・弾種）" value="${esc(tr.reduce||"")}">
+      <input class="input" data-trait-reduce="${i}" type="number" placeholder="軽減%（転生前）" value="${esc(tr.reduce||"")}">
+       <input class="input" data-trait-reducerb="${i}" type="number" placeholder="転生後%（括弧内）" value="${esc(tr.reduceRb||"")}">
      </div>
-     <div class="row" style="margin-top:6px;gap:8px;">
-      <input class="input" data-trait-yang="${i}" type="number" placeholder="陽気から被ダメ軽減%" value="${esc(tr.yangReduce||"")}">
-      <input class="input" data-trait-yin="${i}" type="number" placeholder="陰気から被ダメ軽減%" value="${esc(tr.yinReduce||"")}">
+     <div class="row" style="margin-top:6px;gap:8px;flex-wrap:wrap;">
+      <input class="input" data-trait-yang="${i}" type="number" placeholder="陽気から軽減%（転生前）" value="${esc(tr.yangReduce||"")}">
+       <input class="input" data-trait-yangrb="${i}" type="number" placeholder="陽気・転生後%" value="${esc(tr.yangReduceRb||"")}">
+      <input class="input" data-trait-yin="${i}" type="number" placeholder="陰気から軽減%（転生前）" value="${esc(tr.yinReduce||"")}">
+       <input class="input" data-trait-yinrb="${i}" type="number" placeholder="陰気・転生後%" value="${esc(tr.yinReduceRb||"")}">
      </div>
      <div class="mini" style="margin-top:8px;font-weight:700;">追加の軽減（種族・弾種などを複数指定）</div>
      ${(tr.extraReductions||[]).map((x,k)=>`
       <div class="row" style="gap:6px;margin-top:4px;align-items:center;">
        <input class="input" style="flex:1" data-trait-xr-who="${i}:${k}" placeholder="対象（例：妖精）" value="${esc(x.who||"")}">
-       <input class="input" style="width:90px" type="number" data-trait-xr-rate="${i}:${k}" placeholder="軽減%" value="${esc(x.rate||"")}">
+       <input class="input" style="width:84px" type="number" data-trait-xr-rate="${i}:${k}" placeholder="転生前%" value="${esc(x.rate||"")}">
+        <input class="input" style="width:84px" type="number" data-trait-xr-raterb="${i}:${k}" placeholder="転生後%" value="${esc(x.rateRb||"")}">
        <button type="button" class="btn-del" data-trait-xr-del="${i}:${k}">削除</button>
       </div>`).join("")}
      <button type="button" class="btn-add" data-trait-xr-add="${i}" style="margin-top:4px;">＋ 軽減を追加</button>`;
@@ -19849,6 +19853,18 @@ function fillBgmSkillsTraitsForm(pack){
   trBox.querySelectorAll("[data-trait-yin]").forEach(inp=>{
    inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-yin"))].yinReduce = inp.value; };
   });
+  trBox.querySelectorAll("[data-trait-reducerb]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-reducerb"))].reduceRb = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-yangrb]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-yangrb"))].yangReduceRb = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-yinrb]").forEach(inp=>{
+   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-yinrb"))].yinReduceRb = inp.value; };
+  });
+  trBox.querySelectorAll("[data-trait-xr-raterb]").forEach(inp=>{
+   inp.oninput = ()=>{ const [a,b]=xrIdx(inp.getAttribute("data-trait-xr-raterb")); pack.traits[a].extraReductions[b].rateRb = inp.value; };
+  });
   trBox.querySelectorAll("[data-trait-trigger]").forEach(sel=>{
    sel.oninput = sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-trigger"))].trigger = sel.value.trim(); };
   });
@@ -19881,12 +19897,12 @@ function traitWikiLines(tr){
  const tail = (tr.chance !== "" && tr.chance != null) ? `［発生率${tr.chance}%］` : "";
  const bodies = [];
  if(tr.type === "ダメージ軽減"){
-  const rd = (who, rate)=>{ if(who && rate !== "" && rate != null) bodies.push(`${who}から受けるダメージを${rate}%ダウン`); };
-  rd(tr.race, tr.reduce);
-  rd(tr.bulletType, tr.reduce);
-  rd("陽気", tr.yangReduce);
-  rd("陰気", tr.yinReduce);
-  (tr.extraReductions||[]).forEach(x=>rd(String(x.who||"").trim(), x.rate));
+  const rd = (who, rate, rb)=>{ if(who && rate !== "" && rate != null) bodies.push(`${who}から受けるダメージを${rate}%${(rb !== "" && rb != null) ? `(${rb}%)` : ""}ダウン`); };
+  rd(tr.race, tr.reduce, tr.reduceRb);
+  rd(tr.bulletType, tr.reduce, tr.reduceRb);
+  rd("陽気", tr.yangReduce, tr.yangReduceRb);
+  rd("陰気", tr.yinReduce, tr.yinReduceRb);
+  (tr.extraReductions||[]).forEach(x=>rd(String(x.who||"").trim(), x.rate, x.rateRb));
  }
  effectBagWikiLines(tr.effects, tr.banKinds).forEach(x=>bodies.push(x));
  if(!bodies.length && tr.text) bodies.push(tr.text);
@@ -19968,26 +19984,27 @@ function wikiParseTraitEffectLine(raw, tr){
 
  // ① ダメージ軽減：「〇〇から受けるダメージを40%ダウン」
  {
-  const m = s.match(/^(.+?)から(?:受ける|受けた)?ダメージ(?:を|が)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:ダウン|軽減|減少|低下|カット|減)/);
+  const m = s.match(/^(.+?)から(?:受ける|受けた)?ダメージ(?:を|が)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:[（(]\s*(?:転生後\s*[：:]?\s*)?(\d+(?:\.\d+)?)\s*%\s*[）)]\s*)?(?:ダウン|軽減|減少|低下|カット|減)/);   // 例：妖怪から受けるダメージを25%(30%)ダウン（カッコ内＝転生後）
   if(m){
    const who = m[1].replace(/^自身(?:は|が)?/,"").trim();
    const rate = m[2];
+   const rb = m[3] || "";   // 転生後の値
    setType("ダメージ軽減");
    const hasYang = /陽気/.test(who), hasYin = /陰気/.test(who);
    if(hasYang || hasYin){
-    if(hasYang) tr.yangReduce = rate;
-    if(hasYin)  tr.yinReduce  = rate;
+    if(hasYang){ tr.yangReduce = rate; tr.yangReduceRb = rb; }
+    if(hasYin){ tr.yinReduce = rate; tr.yinReduceRb = rb; }
    }else{
     const b = (typeof wikiParseBulletType === "function") ? wikiParseBulletType(who) : "";
     if(tr.race || tr.bulletType){
      // 2件目以降 → 追加の軽減
      if(!Array.isArray(tr.extraReductions)) tr.extraReductions = [];
-     tr.extraReductions.push({ who: b || who, rate: rate });
+     tr.extraReductions.push({ who: b || who, rate: rate, rateRb: rb });
     }else if(b){
-     tr.bulletType = b; tr.reduce = rate;
+     tr.bulletType = b; tr.reduce = rate; tr.reduceRb = rb;
     }else{
      // 弾種・陰陽に該当しない → 種族
-     tr.race = who; tr.reduce = rate;
+     tr.race = who; tr.reduce = rate; tr.reduceRb = rb;
     }
    }
    return true;
