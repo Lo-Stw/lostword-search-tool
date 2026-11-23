@@ -940,6 +940,15 @@ body.theme-dark .abnormal-chip{
 .form-acc-body{display:none;padding:12px 14px 14px}
 .form-acc.open .form-acc-body{display:block}
 .form-acc.open .form-acc-head{border-bottom:1px solid var(--lw-border)}
+.char-extra-entry{border:1px solid var(--lw-border);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.char-extra-entry > summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;cursor:pointer;font-weight:700;font-size:13px;list-style:none;background:linear-gradient(90deg,rgba(92,74,122,.08),rgba(201,162,74,.06));overflow-wrap:anywhere}
+.char-extra-entry > summary::-webkit-details-marker{display:none}
+.char-extra-entry > summary::after{content:"▼";flex:none;font-size:11px;color:var(--lw-ink)}
+#bgmEditorBox .form-acc-icon,#skillsEditorBox .form-acc-icon,#traitsEditorBox .form-acc-icon{color:var(--lw-ink)}
+.char-extra-entry[open] > summary::after{content:"▲"}
+.char-extra-entry[open] > summary{border-bottom:1px solid var(--lw-border)}
+.char-extra-entry-body{padding:10px 12px 12px}
+body.theme-dark .char-extra-wiki{background:#182433!important;border-color:#49617a!important}
 
 
 .ability{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:9px;background:#fafafa}
@@ -3595,15 +3604,13 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
 </div>
 
 <!-- BGM・スキル・特性（管理者WIP） -->
-<div class="box form-acc open admin-wip-only hidden" id="bgmSkillsTraitsEditorBox">
-<button type="button" class="form-acc-head" data-form-acc>
-  <span>BGM・スキル・特性（管理者・作業中）</span>
+<div class="box form-acc admin-wip-only hidden" id="bgmEditorBox">
+<button type="button" class="form-acc-head" data-form-acc aria-expanded="false">
+  <span>BGM（管理者・作業中）</span>
   <span class="form-acc-icon">▼</span>
 </button>
 <div class="form-acc-body">
   <div class="mini" style="margin-bottom:8px;color:#a05030;font-weight:700;">※作業中のため管理者のみ表示・編集できます</div>
-
-  <div class="mini" style="font-weight:700;margin-bottom:6px;">BGM</div>
   <input id="aBgmTitle" class="input" placeholder="BGMタイトル" style="margin-bottom:6px;">
   <div class="mini" style="margin:4px 0;">サークル</div>
   <input id="aBgmCircle" class="input" placeholder="サークル名" style="margin-bottom:6px;">
@@ -3621,10 +3628,16 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
   <div id="bgmLinksEditor"></div>
   <button type="button" class="btn-add" id="addBgmLinkBtn" style="margin-bottom:12px;">＋ リンクを追加</button>
 
-  <div class="mini" style="font-weight:700;margin:10px 0 6px;">スキル（1〜3）</div>
+</div>
+</div>
+<div class="box form-acc admin-wip-only hidden" id="skillsEditorBox">
+<button type="button" class="form-acc-head" data-form-acc aria-expanded="false">
+  <span>スキル（管理者・作業中）</span><span class="form-acc-icon">▼</span>
+</button>
+<div class="form-acc-body">
   <div id="charSkillsEditor"></div>
   <div class="mini" style="font-weight:700;margin:14px 0 6px;">Wiki取込（任意）</div>
-  <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
+  <div class="char-extra-wiki" style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
    <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（スキル）</div>
    <div class="mini" style="margin-bottom:6px;color:#666;">スキル名〜効果をまとめて貼り付け。Lv.10以降の効果と再使用ターンを採用します。</div>
    <textarea id="wikiSkillsPaste" class="input" rows="6" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;異変妨害：キューイング（再使用ターン数４）&#10;・自身の霊力を0.50上昇&#10;・…&#10;Lv.10（再使用ターン数４）&#10;・自身の霊力を1.00上昇&#10;…"></textarea>
@@ -3633,14 +3646,20 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
     <span class="mini" id="wikiSkillsImportStatus" style="color:#666;"></span>
    </div>
   </div>
-  <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性（1〜3）</div>
+</div>
+</div>
+<div class="box form-acc admin-wip-only hidden" id="traitsEditorBox">
+<button type="button" class="form-acc-head" data-form-acc aria-expanded="false">
+  <span>特性（管理者・作業中）</span><span class="form-acc-icon">▼</span>
+</button>
+<div class="form-acc-body">
   <datalist id="traitTriggerList">
    <option value="攻撃された時"></option><option value="攻撃された後"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
    <option value="ターン終了時"></option><option value="戦闘開始時"></option><option value="スペルカード発動時"></option>
   </datalist>
   <div id="charTraitsEditor"></div>
   <div class="mini" style="font-weight:700;margin:14px 0 6px;">Wiki取込（任意）</div>
-  <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
+  <div class="char-extra-wiki" style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
    <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（特性）</div>
    <div class="mini" style="margin-bottom:6px;color:#666;">特性名の行と「・」で始まる効果行を貼り付け。発動条件・対象（陽気/陰気/弾種/種族）・倍率・発動確率を自動で振り分けます（最大3件）。</div>
    <textarea id="wikiTraitsPaste" class="input" rows="6" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;紅いおばけ屋敷のウワサ&#10;・攻撃された時、紅魔館に住む者から受けるダメージを40%ダウン [発生率100%]&#10;冥土の亡霊&#10;・ターン開始時、自身の禁止状態、つよさ低下から1つ回復 [発生率60%]&#10;富士見桜&#10;・ターン開始時、自身の体力を15%回復 [発生率80%]"></textarea>
@@ -4708,6 +4727,7 @@ function syncAccumFromDom(){
 }
 
 function snapshotFormToPack(){
+ syncBanReleaseEditor(false);
  try{ if(typeof syncRank2FieldsFromDom === "function") syncRank2FieldsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncSpecialXcFlagsFromDom === "function") syncSpecialXcFlagsFromDom(); }catch(err){ console.warn(err); }
  try{ if(typeof syncBigBarrierFromDom === "function") syncBigBarrierFromDom(); }catch(err){ console.warn(err); }
@@ -4723,7 +4743,7 @@ function snapshotFormToPack(){
    yangDef:num("sYangDef"), yinDef:num("sYinDef")
   },
   statsUnknown: !!(document.getElementById("statsUnknownChk") && document.getElementById("statsUnknownChk").checked),
-  specialSkills: JSON.parse(JSON.stringify(specialData)),
+  specialSkills: specialSkillsForSave(),
   abilities: JSON.parse(JSON.stringify(abilityData)),
   attacks: JSON.parse(JSON.stringify(attackData)),
     bgm: (activeCharExtraPack && activeCharExtraPack.bgm) ? JSON.parse(JSON.stringify(activeCharExtraPack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", circle:(document.getElementById("aBgmCircle")||{}).value||"", arranger:(document.getElementById("aBgmArranger")||{}).value||"", lyricist:(document.getElementById("aBgmLyricist")||{}).value||"", vocal:"", vocals:[], original:"", originals:[""], links:[] },
@@ -4739,6 +4759,7 @@ function snapshotFormToPack(){
 function loadPackToForm(pack){
  try{ clearWikiPasteFields(); }catch(e){}
  const p = pack || emptyPack();
+ activeCharExtraPack = p;
  document.getElementById("aSymbol").value = p.symbol || "";
  document.getElementById("aType").value = p.type || "";
  const s = p.stats || {};
@@ -4759,7 +4780,7 @@ function loadPackToForm(pack){
   ["ファスト","チャージ"].forEach(k=>{
    if(specialData[k]) normalizeFastChargeData(specialData[k]);
   });
-  if(specialData["禁止解除"]) normalizeBanReleaseData(specialData["禁止解除"]);
+  if(hasLegacyBanRelease(specialData["禁止解除"])) normalizeBanReleaseData(specialData["禁止解除"]);
   ["RANKⅡバフ","RANKⅡデバフ"].forEach(k=>{
    const d = specialData[k];
    if(!d) return;
@@ -4836,6 +4857,8 @@ function loadPackToForm(pack){
  }else{
   resetAttackData();
  }
+ migrateLocatedLegacyBanRelease();
+ syncBanReleaseEditor(false);
  initSpecialSkills();
  initEditors();
  try{ updateLinkHelp(); }catch(e){}
@@ -4994,7 +5017,7 @@ function copyAfterToBefore(){
  alert("転生後の内容を転生前にコピーしました。\n転生前で違う部分だけ修正してください。");
 }
 
-function packFromCharacterSide(c, side){
+function rawPackFromCharacterSide(c, side){
  const d = c.details || {};
  const rb = d.rebirth || {};
  const rootAttacks = c.attacks || null;
@@ -5051,6 +5074,37 @@ function packFromCharacterSide(c, side){
    skills: sideSkills(b),
    traits: sideTraits(b)
  };
+}
+
+// 通常スキルとスペカ前後の効果バッグを、禁止解除の検索・表示にも使う。
+function banReleaseRows(pack, attacks){
+ const rows = [];
+ const add = (source, bag)=>{
+  (Array.isArray(bag?.banReleases) ? bag.banReleases : []).forEach((effect, index)=>{
+   if(effect && typeof effect === "object") rows.push({ source, index, target:effect.target || "自身", count:effect.count ?? "", turns:effect.turns ?? "", bonusPct:effect.bonusPct ?? "" });
+  });
+ };
+ (Array.isArray(pack?.skills) ? pack.skills : []).slice(0,3).forEach((skill, i)=>add("スキル"+(i+1), skill?.effects));
+ const all = attacks || pack?.attacks || {};
+ [["spell1","スペルカード1"],["spell2","スペルカード2"],["lastWord","LASTWORD"]].forEach(([key,label])=>{
+  add(label+"・効果前", all[key]?.preEffects);
+  add(label+"・効果後", all[key]?.postEffects);
+ });
+ return rows;
+}
+function hasLegacyBanRelease(d){
+ return !!(d && (d.self || d.team || d.skill || d.spell || d.scope || d.target || d.selfSkill || d.teamSkill || d.selfSpell || d.teamSpell || d.selfSpellItems?.length || d.teamSpellItems?.length));
+}
+function specialSkillsWithBanReleases(pack){
+ const ss = pack?.specialSkills;
+ const rows = banReleaseRows(pack);
+ if(!rows.length) return ss;
+ const old = ss?.["禁止解除"] || {};
+ return { ...(ss || {}), "禁止解除": { ...old, enabled:true, linkedBanReleases:rows, _banDerivedEnabled: !!old._banDerivedEnabled || !old.enabled } };
+}
+function packFromCharacterSide(c, side){
+ const pack = rawPackFromCharacterSide(c, side);
+ return { ...pack, specialSkills:specialSkillsWithBanReleases(pack) };
 }
 
 function getCharRebirth(c){
@@ -7775,7 +7829,7 @@ function normalizeBanReleaseData(d){
 function matchBanReleaseDetail(ss){
  const d0 = ss && ss["禁止解除"];
  if(!d0 || !d0.enabled) return false;
- const d = normalizeBanReleaseData(d0);
+ const d = hasLegacyBanRelease(d0) ? normalizeBanReleaseData(d0) : d0;
  const wantSkill = !!document.getElementById("fBanSkill")?.checked;
  const wantSpell = !!document.getElementById("fBanSpell")?.checked;
  const skc = (document.getElementById("fBanSkillCount")?.value || "").trim();
@@ -7785,6 +7839,11 @@ function matchBanReleaseDetail(ss){
  if(d.selfSkill) skillSides.push(String(d.selfSkillCount ?? ""));
  if(d.teamSkill) skillSides.push(String(d.teamSkillCount ?? ""));
  const spellSides = [];
+ (d.linkedBanReleases || []).forEach(row=>{
+  if(/^スキル/.test(row.source)) skillSides.push(String(row.count ?? ""));
+  else if(/^(スペルカード|LASTWORD)/.test(row.source)) spellSides.push(String(row.count ?? ""));
+ });
+ [...(d.selfSpellItems || []), ...(d.teamSpellItems || [])].forEach(row=>spellSides.push(String(row.count ?? "")));
  if(d.selfSpell) spellSides.push(String(d.selfSpellCount ?? ""));
  if(d.teamSpell) spellSides.push(String(d.teamSpellCount ?? ""));
  // 旧形式
@@ -8692,7 +8751,9 @@ function formatSpecialSkillBaseText(name, d, options = {}){
 
 
  if(name === "禁止解除"){
-  normalizeBanReleaseData(d);
+  const linked = Array.isArray(d.linkedBanReleases) ? d.linkedBanReleases : [];
+  const legacy = hasLegacyBanRelease(d);
+  if(legacy) normalizeBanReleaseData(d);
   const parts = [];
   const fmtSide = (label, on, sk, skc, spellItems)=>{
    if(!on) return;
@@ -8710,7 +8771,13 @@ function formatSpecialSkillBaseText(name, d, options = {}){
   };
   fmtSide("自身", d.self, d.selfSkill, d.selfSkillCount, d.selfSpellItems);
   fmtSide("味方全体", d.team, d.teamSkill, d.teamSkillCount, d.teamSpellItems);
-  if(!parts.length){
+  if(parts.length > 1) parts.splice(0, parts.length, parts.join(" / "));
+  linked.forEach(row=>{
+   const count = row.count === "" || row.count == null ? "?" : row.count;
+   const bonus = row.bonusPct === "" || row.bonusPct == null ? "" : `［追加効果${row.bonusPct}%で＋1］`;
+   parts.push(`${row.source}：${row.target || "自身"}の禁止状態・つよさ低下を${count}つ回復${specialTurnsSuffix(row)}${bonus}`);
+  });
+  if(!parts.length && legacy){
    // 旧形式フォールバック
    if(d.target) bits.push(d.target);
    if(d.skill){
@@ -8725,7 +8792,7 @@ function formatSpecialSkillBaseText(name, d, options = {}){
    }
    return bits.join(" · ") || "";
   }
-  return parts.join(" / ");
+  return parts.join("\n");
  }
  if(name === "秘密封印"){
   const lines = [];
@@ -9164,6 +9231,10 @@ function projectSpecialSkills(ss, matches, asXc = false){
   const legacy = getActivationLocations(root);
   const projected = { ...panel, enabled:true, xChangeOnly:asXc || !!root.xChangeOnly, xcEnabled:false };
   delete projected.xc;
+  if(name === "禁止解除" && Array.isArray(projected.linkedBanReleases)){
+   delete projected.linkedBanReleases;
+   if(!hasLegacyBanRelease(projected)) return;
+  }
   if(isRowSourceSpecialSkill(name) && Array.isArray(panel.list) && panel.list.length){
    projected.list = panel.list.filter(item=>item && matches(specialEffectSources(item, panel, legacy)));
    if(!projected.list.length) return;
@@ -9305,8 +9376,14 @@ function formatSpecialSkillsContent(ss, options){
     parts.push(formatSpecialSkillsContent({[x]:{ ...ss[x].xc, enabled:true, xcEnabled:false, xChangeOnly:true }}, { ...options, emptyText:"" }));
    }
   }else{
-   let detail = formatSpecialSkillDetailText(x, ss[x], options);
-   detail = withXChangeOnlySuffix(detail, ss[x]);
+   let detail;
+   if(x === "禁止解除" && ss[x].linkedBanReleases?.length){
+    const legacy = hasLegacyBanRelease(ss[x]) ? withXChangeOnlySuffix(formatSpecialSkillDetailText(x, { ...ss[x], linkedBanReleases:[] }, options), ss[x]) : "";
+    const linked = formatSpecialSkillDetailText(x, { enabled:true, linkedBanReleases:ss[x].linkedBanReleases }, options);
+    detail = [legacy, linked].filter(Boolean).join("\n");
+   }else{
+    detail = withXChangeOnlySuffix(formatSpecialSkillDetailText(x, ss[x], options), ss[x]);
+   }
    if(ss[x] && ss[x].xcEnabled && ss[x].xc){
     let xcDetail = formatSpecialSkillDetailText(x, Object.assign({}, ss[x].xc, { enabled:true }), options);
     xcDetail = withXChangeOnlySuffix(xcDetail, { xChangeOnly:true });
@@ -9516,10 +9593,12 @@ function initSpecialSkills(){
   e.appendChild(box);
 
   const btn2=document.getElementById("ss-"+skill);
+  if(skill === "禁止解除" && btn2) btn2.disabled = !!specialData[skill].linkedBanReleases?.length;
   const detail=document.getElementById("sd-"+skill);
   const detailXc=document.getElementById("sd-"+skill+"-xc");
   const xcOnlyChk=document.getElementById("ss-xc-only-"+skill);
   const xcAddChk=document.getElementById("ss-xc-add-"+skill);
+  if(skill === "禁止解除" && xcOnlyChk && specialData[skill].linkedBanReleases?.length && !hasLegacyBanRelease(specialData[skill])) xcOnlyChk.disabled = true;
   if(xcOnlyChk){
    xcOnlyChk.addEventListener("change", ()=>{
     specialData[skill].xChangeOnly = !!xcOnlyChk.checked;
@@ -9991,7 +10070,8 @@ function buildSpecialDetail(skill, e){
    `;
    break;
   case "禁止解除":
-   normalizeBanReleaseData(d);
+   const legacyBan = hasLegacyBanRelease(d);
+   if(legacyBan) normalizeBanReleaseData(d);
    const banSpellOpts = ["スペルカード1","スペルカード2","LASTWORD"];
    const banSpellRows = (side, items)=>{
     const map = {};
@@ -10009,7 +10089,9 @@ function buildSpecialDetail(skill, e){
       }).join("")}
      </div>`;
    };
-   e.innerHTML=`
+   e.innerHTML=(e.dataset.specialPanel === "primary" ? banReleaseEditorHtml() : "") + (legacyBan || e.dataset.specialPanel === "xc" ? `
+    <div class="mini" style="margin-bottom:8px;">従来の設定</div>
+    <div class="mini" style="margin-bottom:8px;">発動箇所と対象・個数を特定できる設定は、上の効果に反映されます。</div>
     <div class="mini" style="margin-bottom:8px;">自身・味方全体を両方設定できます。スペカはスペカごとに個数を入力できます。</div>
     <div style="border:1px solid #e0d6c8;border-radius:8px;padding:10px;margin-bottom:8px;background:#faf8f5;">
      <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:700;">
@@ -10041,7 +10123,8 @@ function buildSpecialDetail(skill, e){
       ${d.teamSpell ? banSpellRows("team", d.teamSpellItems) : ""}
      </div>
     </div>
-   `;
+   ` : "");
+   if(e.dataset.specialPanel === "primary") bindBanReleaseEditor(e);
    break;
   case "X-Change":
    if(!Array.isArray(d.partners)) d.partners = [];
@@ -10737,13 +10820,14 @@ function buildSpecialDetail(skill, e){
    break;
  }
 
- if(!isRowSourceSpecialSkill(skill)) e.insertAdjacentHTML("afterbegin", specialSourceField(d, d, skill));
+ if(!isRowSourceSpecialSkill(skill) && (skill !== "禁止解除" || hasLegacyBanRelease(d) || e.dataset.specialPanel === "xc")) e.insertAdjacentHTML("afterbegin", specialSourceField(d, d, skill));
  e.onchange = ev=>{
   const select = ev.target;
   if(!select.matches("[data-special-source]")) return;
   const idx = select.dataset.specialSource;
   const item = idx === "" ? d : d.list?.[Number(idx)];
   if(item && select.value) item.source = select.value;
+  if(skill === "禁止解除" && e.dataset.specialPanel === "primary" && migrateLocatedLegacyBanRelease()) syncBanReleaseEditor();
  };
  e.oninput = ev=>{
   const input = ev.target;
@@ -11211,7 +11295,8 @@ function saveSpecialField(skill,el,e){
    d.teamSkill = false; d.teamSpell = false; d.teamSkillCount = ""; d.teamSpellCount = ""; d.teamSpellItems = [];
   }
   normalizeBanReleaseData(d);
-  buildSpecialDetail(skill, e);
+  if(e.dataset.specialPanel === "primary" && migrateLocatedLegacyBanRelease()) syncBanReleaseEditor();
+  else buildSpecialDetail(skill, e);
   return;
  }
  // 旧フィールド互換
@@ -11732,9 +11817,10 @@ function getTargetObjectByPrefix(prefix) {
   return attackData[attKey]?.bullets[bltIdx];
  } else if (prefix.startsWith("skill-")) {
   const i = Number(String(prefix).replace("skill-",""));
-  if(!beforePack) return null;
-  ensureCharExtra(beforePack);
-  const sk = beforePack.skills[i];
+  const pack = activeCharExtraPack || beforePack;
+  if(!pack) return null;
+  ensureCharExtra(pack);
+  const sk = pack.skills[i];
   if(!sk) return null;
   // スペカ用エディタ互換：effects を preEffects として扱う
   sk.effects = ensureEffectBagShape(sk.effects);
@@ -11818,7 +11904,8 @@ function updateDebuffItem(prefix, idx, key, value) {
 function refreshBuffDebuffContainer(prefix) {
  // スキル・特性エディタはフォーム全体を再描画
  if (String(prefix||"").startsWith("skill-") || String(prefix||"").startsWith("trait-")) {
-  if(beforePack) try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
+  const pack = String(prefix||"").startsWith("skill-") ? (activeCharExtraPack || beforePack) : beforePack;
+  if(pack) try{ fillBgmSkillsTraitsForm(pack); }catch(e){}
   return;
  }
  const obj = getTargetObjectByPrefix(prefix);
@@ -11927,6 +12014,7 @@ function renderSupportEffectBlock(prefix, phase, title, color){
    <div class="row" style="margin-top:4px;gap:8px;">
     <select class="select" onchange="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'target',this.value)">${T_ALLY.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
     <input class="input" type="number" placeholder="解除個数" value="${esc(x.count||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'count',this.value)">
+    <input class="input" type="number" min="1" placeholder="ターン数 T" value="${esc(x.turns||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'turns',this.value)">
     <input class="input" type="number" placeholder="追加効果 n%" value="${esc(x.bonusPct||"")}" oninput="updateSupportBagItem('${prefix}','${phase}','banReleases',${idx},'bonusPct',this.value)">
    </div>
   </div>`;
@@ -12054,6 +12142,158 @@ function updateSupportBarrier(prefix, phase, idx, key, value){
  const b = getSupportBag(obj, phase).barriers[idx];
  if(b) b[key] = value;
 }
+const BAN_SYNC_SOURCES = ["スキル1","スキル2","スキル3","スペルカード1・効果前","スペルカード1・効果後","スペルカード2・効果前","スペルカード2・効果後","LASTWORD・効果前","LASTWORD・効果後"];
+function banEditorBag(source){
+ const loc = SOURCE_TO_ACT_LOC[source];
+ if(/^skill[123]$/.test(loc || "")){
+  const pack = activeCharExtraPack || beforePack;
+  if(!pack) return null;
+  ensureCharExtra(pack);
+  const skill = pack.skills[Number(loc.slice(-1))-1];
+  if(!skill) return null;
+  skill.effects = ensureEffectBagShape(skill.effects);
+  return skill.effects;
+ }
+ const match = /^(spell1|spell2|lastWord):(pre|post)$/.exec(loc || "");
+ if(!match || !attackData[match[1]]) return null;
+ return getSupportBag(attackData[match[1]], match[2]);
+}
+// 旧形式でも発動箇所と対象・個数が一意のものは効果バッグへ移行する。
+function migrateLocatedLegacyBanRelease(){
+ const d = specialData?.["禁止解除"];
+ if(!d?.enabled || d.xChangeOnly || d.xcEnabled || (d.turns && !/^\d+$/.test(String(d.turns))) || !hasLegacyBanRelease(d)) return;
+ const source = pickRank2Source(d);
+ if(!BAN_SYNC_SOURCES.includes(source)) return;
+ normalizeBanReleaseData(d);
+ const isSkill = /^スキル/.test(source);
+ const card = source.split("・")[0];
+ const rows = [];
+ for(const side of ["self","team"]){
+  if(!d[side]) continue;
+  const target = side === "self" ? "自身" : "味方全体";
+  const skill = !!d[side+"Skill"], spell = !!d[side+"Spell"];
+  const items = d[side+"SpellItems"] || [];
+  if(isSkill){
+   if(spell || items.length || !skill || d[side+"SkillCount"] === "") return;
+   rows.push({target, count:String(d[side+"SkillCount"]), turns:d.turns ?? "", bonusPct:""});
+  }else{
+   if(skill || !spell || items.length > 1 || (items.length && items[0].from !== card)) return;
+   const count = items.length ? items[0].count : d[side+"SpellCount"];
+   if(count === "" || count == null) return;
+   rows.push({target, count:String(count), turns:d.turns ?? "", bonusPct:""});
+  }
+ }
+ if(!rows.length) return;
+ const bag = banEditorBag(source);
+ if(!bag) return;
+ rows.forEach(row=>{
+  if(!bag.banReleases.some(x=>x && (x.target || "自身") === row.target && String(x.count ?? "") === row.count && String(x.turns ?? "") === String(row.turns) && String(x.bonusPct ?? "") === row.bonusPct)) bag.banReleases.push(row);
+ });
+ d._legacyBanReleaseBackup = JSON.parse(JSON.stringify(d));
+ ["source","from","place","trigger","activationLocation","activationLocations","self","team","selfSkill","teamSkill","selfSpell","teamSpell","selfSkillCount","teamSkillCount","selfSpellCount","teamSpellCount","selfSpellItems","teamSpellItems","selfSpellFrom","teamSpellFrom","selfSpellFroms","teamSpellFroms","skill","spell","skillCount","spellCount","scope","count","target","turns"].forEach(k=>delete d[k]);
+ d._banDerivedEnabled = true;
+ return true;
+}
+
+function specialSkillsForSave(){
+ const copy = JSON.parse(JSON.stringify(specialData));
+ const ban = copy["禁止解除"];
+ if(ban){
+  delete ban.linkedBanReleases;
+  if(ban._banDerivedEnabled) ban.enabled = !!(ban.xcEnabled || hasLegacyBanRelease(ban));
+  delete ban._banDerivedEnabled;
+ }
+ return copy;
+}
+function syncBanReleaseEditor(redraw = true){
+ const pack = activeCharExtraPack || beforePack;
+ if(!pack || !specialData) return;
+ const rows = banReleaseRows(pack, attackData);
+ let d = specialData["禁止解除"];
+ if(!d && !rows.length) return;
+ if(!d) d = specialData["禁止解除"] = {enabled:false};
+ d.linkedBanReleases = rows;
+ if(rows.length){
+  if(!d.enabled){ d._banDerivedEnabled = true; d.enabled = true; }
+ }else if(d._banDerivedEnabled){
+  d.enabled = !!(d.xcEnabled || hasLegacyBanRelease(d));
+  delete d._banDerivedEnabled;
+ }
+ if(!redraw) return;
+ const button = document.getElementById("ss-禁止解除");
+ const panel = document.getElementById("sd-禁止解除");
+ if(!button || !panel) return;
+ button.classList.toggle("on", !!d.enabled);
+ button.textContent = "禁止解除：" + (d.enabled ? "あり" : "なし");
+ button.disabled = rows.length > 0;
+ const xcOnly = document.getElementById("ss-xc-only-禁止解除");
+ if(xcOnly) xcOnly.disabled = !!rows.length && !hasLegacyBanRelease(d);
+ const xcAdd = document.getElementById("ss-xc-add-禁止解除");
+ if(xcAdd){ xcAdd.disabled = !d.enabled; xcAdd.parentElement.style.opacity = d.enabled ? "" : ".5"; }
+ panel.classList.toggle("show", !!d.enabled);
+ if(d.enabled) withSpecialEditTarget("禁止解除", null, ()=>buildSpecialDetail("禁止解除", panel));
+ else panel.innerHTML = "";
+}
+function banReleaseEditorHtml(){
+ const rows = banReleaseRows(activeCharExtraPack || beforePack, attackData);
+ return `<div class="mini" style="font-weight:700;margin-bottom:6px;">禁止解除の効果</div>${rows.map((row,i)=>`
+  <div data-ban-linked-row="${i}" style="border:1px solid #d8c0e0;border-radius:8px;padding:8px;margin-bottom:6px;">
+   <button type="button" class="btn-del" data-ban-linked-delete="${i}">削除</button>
+   <label class="mini">発動箇所<select class="select" data-ban-linked-field="source" data-ban-linked-index="${i}">${BAN_SYNC_SOURCES.map(src=>`<option value="${esc(src)}" ${src===row.source?"selected":""}>${esc(src)}</option>`).join("")}</select></label>
+   <div class="row" style="gap:8px;margin-top:6px;">
+    <label class="mini" style="flex:1;min-width:100px;">対象<select class="select" data-ban-linked-field="target" data-ban-linked-index="${i}">${["自身","味方全体"].map(t=>`<option value="${t}" ${row.target===t?"selected":""}>${t}</option>`).join("")}</select></label>
+    <label class="mini" style="flex:1;min-width:100px;">解除個数<input class="input" type="number" min="1" placeholder="解除個数" value="${esc(row.count)}" data-ban-linked-field="count" data-ban-linked-index="${i}"></label>
+    <label class="mini" style="flex:1;min-width:100px;">ターン数（T）<input class="input" type="number" min="1" step="1" placeholder="例：3" value="${esc(row.turns)}" data-ban-linked-field="turns" data-ban-linked-index="${i}"></label>
+    <label class="mini" style="flex:1;min-width:100px;">追加効果（%）<input class="input" type="number" placeholder="追加効果 n%" value="${esc(row.bonusPct)}" data-ban-linked-field="bonusPct" data-ban-linked-index="${i}"></label>
+   </div>
+  </div>`).join("")}<button type="button" class="btn-add" data-ban-linked-add>＋ 禁止解除</button>`;
+}
+function refreshBanEffectLocations(){
+ const pack = activeCharExtraPack || beforePack;
+ if(pack) fillBgmSkillsTraitsForm(pack);
+ ["spell1","spell2","lastWord"].forEach(key=>refreshBuffDebuffContainer("att-"+key));
+}
+function bindBanReleaseEditor(panel){
+ const rowAt = i=>banReleaseRows(activeCharExtraPack || beforePack, attackData)[i];
+ panel.querySelectorAll("[data-ban-linked-field]").forEach(el=>{
+  el.addEventListener(el.tagName === "SELECT" ? "change" : "input", ()=>{
+   const row = rowAt(Number(el.dataset.banLinkedIndex));
+   const bag = row && banEditorBag(row.source);
+   const item = bag?.banReleases[row.index];
+   if(!item) return;
+   const field = el.dataset.banLinkedField;
+   if(field === "source"){
+    const dest = banEditorBag(el.value);
+    if(!dest) return;
+    bag.banReleases.splice(row.index,1);
+    dest.banReleases.push(item);
+    syncBanReleaseEditor();
+   }else{
+    item[field] = el.value;
+    specialData["禁止解除"].linkedBanReleases = banReleaseRows(activeCharExtraPack || beforePack, attackData);
+   }
+   refreshBanEffectLocations();
+  });
+ });
+ panel.querySelectorAll("[data-ban-linked-delete]").forEach(btn=>btn.addEventListener("click", ()=>{
+  const row = rowAt(Number(btn.dataset.banLinkedDelete));
+  const bag = row && banEditorBag(row.source);
+  if(!bag) return;
+  bag.banReleases.splice(row.index,1);
+  syncBanReleaseEditor();
+  refreshBanEffectLocations();
+ }));
+ panel.querySelector("[data-ban-linked-add]")?.addEventListener("click", ()=>{
+  const bag = banEditorBag("スキル1");
+  if(!bag) return;
+  const d = specialData["禁止解除"];
+  if(!hasLegacyBanRelease(d)) d._banDerivedEnabled = true;
+  bag.banReleases.push({target:"自身",count:"",bonusPct:""});
+  syncBanReleaseEditor();
+  refreshBanEffectLocations();
+ });
+}
+
 function addSupportBagItem(prefix, phase, key){
  const obj = getTargetObjectByPrefix(prefix);
  if(!obj) return;
@@ -12066,6 +12306,7 @@ function addSupportBagItem(prefix, phase, key){
   barrierHeals: { target:"自身", count:"", bonusPct:"" }
  };
  bag[key].push(Object.assign({}, defaults[key] || {}));
+ if(key === "banReleases" && /^(skill-|att-(spell1|spell2|lastWord))/.test(prefix)) syncBanReleaseEditor();
  refreshBuffDebuffContainer(prefix);
 }
 function removeSupportBagItem(prefix, phase, key, idx){
@@ -12073,6 +12314,7 @@ function removeSupportBagItem(prefix, phase, key, idx){
  if(!obj) return;
  const bag = getSupportBag(obj, phase);
  if(Array.isArray(bag[key])) bag[key].splice(idx, 1);
+ if(key === "banReleases" && /^(skill-|att-(spell1|spell2|lastWord))/.test(prefix)) syncBanReleaseEditor();
  refreshBuffDebuffContainer(prefix);
 }
 function updateSupportBagItem(prefix, phase, key, idx, field, value){
@@ -12080,6 +12322,7 @@ function updateSupportBagItem(prefix, phase, key, idx, field, value){
  if(!obj) return;
  const bag = getSupportBag(obj, phase);
  if(bag[key] && bag[key][idx]) bag[key][idx][field] = value;
+ if(key === "banReleases" && /^(skill-|att-(spell1|spell2|lastWord))/.test(prefix)) syncBanReleaseEditor();
 }
 function formatSupportEffectsHtml(bag){
  if(!bag) return "";
@@ -12108,8 +12351,9 @@ function formatSupportEffectsHtml(bag){
  (bag.banReleases||[]).forEach(x=>{
   if(!x || x.count==="" || x.count==null) return;
   const tgt = x.target || "自身";
-  let line = `${tgt}の禁止状態・つよさ低下を${x.count}つ回復` + bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span>${esc(line)}</span></div>`;
+  let line = `${tgt}の禁止状態・つよさ低下を${x.count}つ回復` + specialTurnsSuffix(x) + bonusTxt(x);
+  const text = esc(line);
+  h += `<div style="margin:3px 0;">${(selected.char||[]).includes("禁止解除") ? `<mark class="hl">${text}</mark>` : `<span>${text}</span>`}</div>`;
  });
  (bag.heals||[]).forEach(x=>{
   if(!x || x.percent==="" || x.percent==null) return;
@@ -12151,11 +12395,13 @@ function bindFormAccordions(){
  document.querySelectorAll("[data-form-acc]").forEach(btn=>{
   if(btn.dataset.boundForm) return;
   btn.dataset.boundForm = "1";
+  btn.setAttribute("aria-expanded", String(!!btn.closest(".form-acc")?.classList.contains("open")));
   btn.onclick = (e)=>{
    e.preventDefault();
    const wrap = btn.closest(".form-acc");
    if(!wrap) return;
    wrap.classList.toggle("open");
+   btn.setAttribute("aria-expanded", String(wrap.classList.contains("open")));
    const icon = btn.querySelector(".form-acc-icon");
    if(icon) icon.textContent = wrap.classList.contains("open") ? "▲" : "▼";
   };
@@ -14829,11 +15075,12 @@ function importWikiIntoSkills(text){
   alert("テキストが空です。");
   return { ok:false };
  }
- if(!beforePack){
+ const editingPack = activeCharExtraPack || beforePack;
+ if(!editingPack){
   alert("編集中のキャラがありません。");
   return { ok:false };
  }
- ensureCharExtra(beforePack);
+ ensureCharExtra(editingPack);
  const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
   .map(x => /^[・･]/.test(x) ? toHalfDigits(x).replace(/％/g,"%").replace(/．/g,".") : x);  // 効果行の数値は半角に
  // スキルブロック分割: ・で始まらない行で、かつ効果行でないものをスキル名候補に
@@ -14922,8 +15169,9 @@ function importWikiIntoSkills(text){
    effects: bag
   };
  }
- beforePack.skills = out;
- try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
+ editingPack.skills = out;
+ syncBanReleaseEditor();
+ try{ fillBgmSkillsTraitsForm(editingPack); }catch(e){}
  const n = skills.length;
  const used = out.filter(s=>s.name).length;
  return { ok:true, count: used, totalFound: n };
@@ -14993,7 +15241,7 @@ function importWikiIntoAttack(attackKey, text){
  }
 
  // 攻撃前/後効果（新規）
- try{ wikiImportPrePostEffects(a, raw); }catch(e){ console.warn(e); }
+ try{ wikiImportPrePostEffects(a, raw); syncBanReleaseEditor(); }catch(e){ console.warn(e); }
 
  // バレット行
  for(const line of lines){
@@ -16138,6 +16386,7 @@ function isSpecialSkillDetailBlank(name, d){
   return !hasP && !hasE;
  }
  if(n === "禁止解除"){
+  if(Array.isArray(d.linkedBanReleases) && d.linkedBanReleases.length) return d.linkedBanReleases.some(row=>!row || row.count == null || row.count === "");
   const hasSkill = !!(d.skill || (d.skillCount != null && d.skillCount !== "") || (Array.isArray(d.skillItems) && d.skillItems.length));
   const hasSpell = !!(d.spell || (d.spellCount != null && d.spellCount !== "") || (Array.isArray(d.spellItems) && d.spellItems.length));
   // 旧形式
@@ -20000,7 +20249,6 @@ document.getElementById("tabAdd").onclick=()=>{
   fillBgmSkillsTraitsForm(beforePack);
   bindBgmSkillsTraitsForm();
   syncAdminWipVisibility();
-  document.getElementById("bgmSkillsTraitsEditorBox")?.classList.add("open");
  }
  updateEditGuard();
 };
@@ -20344,14 +20592,16 @@ function fillBgmSkillsTraitsForm(pack){
  renderBgmLinksEditor(pack.bgm.links, pack);
  const skBox = document.getElementById("charSkillsEditor");
  if(skBox){
+  const openSkills = new Set([...skBox.querySelectorAll("details[data-skill-entry]")].filter(el=>el.open).map(el=>Number(el.dataset.skillEntry)));
   skBox.innerHTML = pack.skills.map((sk, i)=>{
    const prefix = `skill-${i}`;
    const effectHtml = (typeof renderSupportEffectBlock === "function")
     ? renderSupportEffectBlock(prefix, "pre", `スキル${i+1} 効果`, "#5c4a7a")
     : "";
    return `
-   <div style="border:1px solid rgba(160,130,70,.35);border-radius:10px;padding:10px;margin-bottom:10px;background:rgba(255,252,245,.7)">
-    <div class="mini" style="font-weight:800;margin-bottom:6px;">スキル${i+1}</div>
+   <details class="char-extra-entry" data-skill-entry="${i}" ${openSkills.has(i)?"open":""}>
+    <summary><span data-skill-heading="${i}">スキル${i+1}${sk.name ? "："+esc(sk.name) : ""}</span></summary>
+    <div class="char-extra-entry-body">
     <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap;">
      <input class="input" data-skill-name="${i}" placeholder="スキル名" value="${esc(sk.name||"")}" style="flex:1;min-width:140px">
      <label class="mini" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">再使用ターン数<input class="input" data-skill-cd="${i}" type="number" min="0" placeholder="例：4" value="${esc(sk.cooldown||"")}" style="width:84px"></label>
@@ -20359,10 +20609,11 @@ function fillBgmSkillsTraitsForm(pack){
     <div id="buff-container-${prefix}">${effectHtml}</div>
      <textarea class="input" data-skill-text="${i}" rows="2" style="margin-top:8px;width:100%;border-radius:10px;" placeholder="補足（効果欄で表せない内容・条件など／任意）">${esc(sk.text||"")}</textarea>
      <div data-skill-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc([skillWikiHead(sk)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean).join("\n") || "（Wiki表記のプレビュー）")}</div>
-   </div>`;
+    </div>
+   </details>`;
   }).join("");
   skBox.querySelectorAll("[data-skill-name]").forEach(inp=>{
-   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-name")); pack.skills[i].name = inp.value; };
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-name")); pack.skills[i].name = inp.value; const heading=skBox.querySelector(`[data-skill-heading="${i}"]`); if(heading) heading.textContent = `スキル${i+1}${inp.value ? "："+inp.value : ""}`; };
   });
   skBox.querySelectorAll("[data-skill-cd]").forEach(inp=>{
    inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cd")); pack.skills[i].cooldown = inp.value; };
@@ -20374,6 +20625,7 @@ function fillBgmSkillsTraitsForm(pack){
  }
  const trBox = document.getElementById("charTraitsEditor");
  if(trBox){
+  const openTraits = new Set([...trBox.querySelectorAll("details[data-trait-entry]")].filter(el=>el.open).map(el=>Number(el.dataset.traitEntry)));
   if(!pack.traits.length) pack.traits.push(createEmptyTrait());
   const abList = (typeof ABNORMAL !== "undefined" && ABNORMAL.length) ? ABNORMAL : ["毒霧","帯電","燃焼","凍結","暗闇"];
   const bulletOpts = (typeof BULLETS !== "undefined") ? BULLETS : [];
@@ -20422,8 +20674,10 @@ function fillBgmSkillsTraitsForm(pack){
    // ダメージ軽減は専用フィールド、特殊はテキストのみ、それ以外は効果バッグ
    const showEffects = typ && typ !== "特殊" && typ !== "ダメージ軽減";
    return `
-   <div style="border:1px solid rgba(160,130,70,.35);border-radius:10px;padding:10px;margin-bottom:8px;">
-    <div class="row" style="justify-content:space-between;align-items:center;"><div class="mini" style="font-weight:800;">特性${i+1}</div><button type="button" class="btn-del" data-trait-del="${i}">クリア</button></div>
+   <details class="char-extra-entry" data-trait-entry="${i}" ${openTraits.has(i)?"open":""}>
+    <summary><span data-trait-heading="${i}">特性${i+1}${tr.name ? "："+esc(tr.name) : ""}</span></summary>
+    <div class="char-extra-entry-body">
+    <div style="text-align:right;"><button type="button" class="btn-del" data-trait-del="${i}">クリア</button></div>
     <input class="input" data-trait-name="${i}" placeholder="特性名" value="${esc(tr.name||"")}" style="margin-top:4px;width:100%;font-weight:700;">
     <div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap;">
      <select class="select" data-trait-type="${i}" style="min-width:150px">
@@ -20437,7 +20691,8 @@ function fillBgmSkillsTraitsForm(pack){
     ${typ==="特殊" || !typ ? `<textarea class="input" data-trait-text="${i}" rows="2" style="margin-top:6px;width:100%;border-radius:10px;" placeholder="特殊特性テキスト / 補足">${esc(tr.text||"")}</textarea>` : `<textarea class="input" data-trait-text="${i}" rows="1" style="margin-top:6px;width:100%;border-radius:10px;" placeholder="補足（任意）">${esc(tr.text||"")}</textarea>`}
     <div data-trait-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc(traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）")}</div>
     ${showEffects ? `<div id="buff-container-${prefix}" style="margin-top:8px;">${effectHtml}</div>` : ""}
-   </div>`;
+    </div>
+   </details>`;
   }).join("");
 
   trBox.querySelectorAll("[data-trait-type]").forEach(sel=>{
@@ -20460,7 +20715,7 @@ function fillBgmSkillsTraitsForm(pack){
    sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-bullet"))].bulletType = sel.value; };
   });
   trBox.querySelectorAll("[data-trait-name]").forEach(inp=>{
-   inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-name"))].name = inp.value; };
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-trait-name")); pack.traits[i].name = inp.value; const heading=trBox.querySelector(`[data-trait-heading="${i}"]`); if(heading) heading.textContent = `特性${i+1}${inp.value ? "："+inp.value : ""}`; };
   });
   trBox.querySelectorAll("[data-trait-reduce]").forEach(inp=>{
    inp.oninput = ()=>{ pack.traits[Number(inp.getAttribute("data-trait-reduce"))].reduce = inp.value; };
@@ -20516,7 +20771,7 @@ function effectBagWikiLines(fx, banKinds){
  fx = fx || {};
  const out = [];
  (fx.heals||[]).forEach(h=>{ if(h.percent !== "" && h.percent != null) out.push(`${h.target||"自身"}の体力を${h.percent}%回復`); });
- (fx.banReleases||[]).forEach(b=>out.push(`${b.target||"自身"}の${banKinds || "禁止状態"}から${b.count||1}つ回復`));
+ (fx.banReleases||[]).forEach(b=>out.push(`${b.target||"自身"}の${banKinds || "禁止状態"}から${b.count||1}つ回復${specialTurnsSuffix(b)}`));
  (fx.spiritPowers||[]).forEach(x=>out.push(`${x.target||"自身"}の霊力を${x.amount}上昇`));
  (fx.barriers||[]).forEach(x=>out.push(`${x.target||"自身"}の結界を${x.stacks}枚増加`));
  (fx.barrierHeals||[]).forEach(x=>out.push(`${x.target||"自身"}の結界異常を${x.count}つ回復`));
@@ -20854,7 +21109,11 @@ function formatBgmSkillsTraitsHtml(pack, opts){
      if(!sk.name && !sk.cooldown && !hasFx && !sk.text && !slotHtmls[i]) return;
     h += `<div class="skill-entry" style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
     h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">（再使用ターン数${esc(sk.cooldown)}）</span>`:""}</div>`;
-    skillWikiLines(sk).forEach(x=>{ h += `<div class="skill-effect-text">・${esc(x)}</div>`; });
+    skillWikiLines(sk).forEach(x=>{
+     const text = esc(x);
+     const matchedBan = (selected.char||[]).includes("禁止解除") && x.includes("禁止状態");
+     h += `<div class="skill-effect-text">・${matchedBan ? `<mark class="hl">${text}</mark>` : text}</div>`;
+    });
     if(slotHtmls[i]) h += `<div class="skill-slot-special">${slotHtmls[i]}</div>`;
     h += `</div>`;
    });
