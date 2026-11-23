@@ -14229,6 +14229,21 @@ function gamerchSliceForKey(raw, attackKey){
  return lines.slice(start, end).join("\n");
 }
 
+function gamerchParseBulletStats(detail){
+ // 数値が明示された項目だけを読み取る。特殊弾の発動率は対象にしない。
+ const text = String(detail || "").normalize("NFKC");
+ const read = label => {
+  const re = new RegExp("(?:^|[\\s/|,;])(?:" + label + ")\\s*[:：]?\\s*(\\d+(?:\\.\\d+)?)(?![\\d.])", "i");
+  const match = text.match(re);
+  return match ? match[1] : "";
+ };
+ return {
+  power: read("威力"),
+  accuracy: read("命中(?:率)?"),
+  critical: read("CRI(?:率|確率)?|クリティカル(?:率|確率)?")
+ };
+}
+
 function gamerchParseBulletDetail(detail){
  const rawDetail = String(detail||"");
  const s = rawDetail.replace(/\s+/g,"");
@@ -14523,15 +14538,24 @@ function gamerchExtractRows(raw){
     detailParts.push("威力："+wm[1]);
     if(wm[2] != null && wm[2] !== "") pCell = wm[2];
     i++;
+    // 威力の後に独立した命中・CRI行が続く場合も同じ弾に含める。
+    while(i < lines.length && /^\s*(?:命中(?:率)?|CRI(?:率|確率)?|クリティカル(?:率|確率)?)\s*[:：]?\s*[\d０-９]/i.test(lines[i])){
+     detailParts.push(lines[i++].trim());
+    }
     break;
    }
    if(/威力[：:]/.test(ln)){
-    detailParts.push(ln.split("\t")[0].trim());
     const tabs = ln.split("\t").map(x=>x.trim());
-    for(let k=1;k<tabs.length;k++){
-     if(/^[0-3]$/.test(tabs[k])) pCell = tabs[k];
-    }
+    const first = tabs.shift();
+    detailParts.push(first);
+    tabs.forEach(cell=>{
+     if(/^[0-3]$/.test(cell)) pCell = cell;
+     else if(cell) detailParts.push(cell);
+    });
     i++;
+    while(i < lines.length && /^\s*(?:命中(?:率)?|CRI(?:率|確率)?|クリティカル(?:率|確率)?)\s*[:：]?\s*[\d０-９]/i.test(lines[i])){
+     detailParts.push(lines[i++].trim());
+    }
     break;
    }
    detailParts.push(ln);
@@ -14549,6 +14573,7 @@ function gamerchExtractRows(raw){
   }
 
   const det = gamerchParseBulletDetail(detail);
+  const stats = gamerchParseBulletStats(detail);
   if(!det.attr || !det.kind){
    const head = detailParts[0] || "";
    const am = head.match(/([日月火水木金土星無])属性/);
@@ -14571,6 +14596,7 @@ function gamerchExtractRows(raw){
    attr: det.attr,
    kind: det.kind,
    bulletType: det.bulletType,
+   ...stats,
    specials,
    detail
   });
@@ -14596,7 +14622,7 @@ function gamerchExtractRows(raw){
     if(sp.kind==="buff"||sp.kind==="debuff") return sp;
     return { name:sp.name, ratio:sp.ratio, targets:sp.targets };
    });
-   rows.push({ name, count, p, attr:det.attr, kind:det.kind, bulletType:det.bulletType, specials, detail:cells[1] });
+   rows.push({ name, count, p, attr:det.attr, kind:det.kind, bulletType:det.bulletType, ...gamerchParseBulletStats(cells[1]), specials, detail:cells[1] });
   }
  }
 
@@ -14731,6 +14757,9 @@ function gamerchImportIntoAttack(a, attackKey, raw){
   if(row.count) b.count = row.count;
   if(row.p) b.pStage = row.p;
   if(row._range) b.range = row._range;
+  if(row.power !== "") b.power = row.power;
+  if(row.accuracy !== "") b.accuracy = row.accuracy;
+  if(row.critical !== "") b.critical = row.critical;
   b.specials = {};
   SPECIALS.forEach(x=>{ b.specials[x]=false; });
   b.buffs = [];
