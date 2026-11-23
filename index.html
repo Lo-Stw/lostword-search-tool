@@ -5121,6 +5121,13 @@ function packFromCharacterSide(c, side){
  return { ...pack, specialSkills:specialSkillsWithBanReleases(pack) };
 }
 
+// 旧データの共通特性を使う場合も、編集は各転生面で独立させる。
+function editablePackFromCharacterSide(c, side){
+ const pack = packFromCharacterSide(c, side);
+ if(Array.isArray(pack.traits)) pack.traits = JSON.parse(JSON.stringify(pack.traits));
+ return pack;
+}
+
 function getCharRebirth(c){
  const d = c?.details || {};
  const enabled = !!(d.rebirth?.enabled || d.hasRebirth || d.statsAfter);
@@ -11853,9 +11860,10 @@ function getTargetObjectByPrefix(prefix) {
   return sk;
  } else if (prefix.startsWith("trait-")) {
   const i = Number(String(prefix).replace("trait-",""));
-  if(!beforePack) return null;
-  ensureCharExtra(beforePack);
-  const tr = beforePack.traits[i];
+  const pack = activeCharExtraPack || beforePack;
+  if(!pack) return null;
+  ensureCharExtra(pack);
+  const tr = pack.traits[i];
   if(!tr) return null;
   tr.effects = ensureEffectBagShape(tr.effects);
   tr.preEffects = tr.effects;
@@ -11927,7 +11935,7 @@ function updateDebuffItem(prefix, idx, key, value) {
 function refreshBuffDebuffContainer(prefix) {
  // スキル・特性エディタはフォーム全体を再描画
  if (String(prefix||"").startsWith("skill-") || String(prefix||"").startsWith("trait-")) {
-  const pack = String(prefix||"").startsWith("skill-") ? (activeCharExtraPack || beforePack) : beforePack;
+  const pack = activeCharExtraPack || beforePack;
   if(pack) try{ fillBgmSkillsTraitsForm(pack); }catch(e){}
   return;
  }
@@ -17460,8 +17468,8 @@ function editCharacter(id) {
  document.getElementById("aOriginWork").value = c.origin_work || (c.details||{}).origin_work || "";
  applyRarityOriginRule();
 
- beforePack = packFromCharacterSide(c, "before");
- afterPack = packFromCharacterSide(c, "after");
+ beforePack = editablePackFromCharacterSide(c, "before");
+ afterPack = editablePackFromCharacterSide(c, "after");
  // 転生後に attacks が無い旧データは転生前をコピーして開始しやすくする
  if(getCharRebirth(c).enabled && afterPack && !afterPack.attacks && beforePack.attacks){
   afterPack.attacks = JSON.parse(JSON.stringify(beforePack.attacks));
@@ -19306,8 +19314,8 @@ async function save(){
     // 編集画面を保存後データで再構築（リセットしない）
     editingId = again.id;
     document.getElementById("aCharacter").value = again.character || "";
-    beforePack = packFromCharacterSide(again, "before");
-    afterPack = packFromCharacterSide(again, "after");
+    beforePack = editablePackFromCharacterSide(again, "before");
+    afterPack = editablePackFromCharacterSide(again, "after");
     rebirthEnabled = false;
     editVariant = "before";
     setRebirthUI(keepRebirth || getCharRebirth(again).enabled, keepVariant || "before", { skipSnapshot: true });
@@ -20844,7 +20852,7 @@ function fillBgmSkillsTraitsForm(pack){
     ${triggerHtml}
     ${extra}
     ${typ==="特殊" || !typ ? `<textarea class="input" data-trait-text="${i}" rows="2" style="margin-top:6px;width:100%;border-radius:10px;" placeholder="特殊特性テキスト / 補足">${esc(tr.text||"")}</textarea>` : `<textarea class="input" data-trait-text="${i}" rows="1" style="margin-top:6px;width:100%;border-radius:10px;" placeholder="補足（任意）">${esc(tr.text||"")}</textarea>`}
-    <div data-trait-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc(traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）")}</div>
+    <div data-trait-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc(traitWikiLines(tr, editVariant).join("\n") || "（Wiki表記のプレビュー）")}</div>
     ${showEffects ? `<div id="buff-container-${prefix}" style="margin-top:8px;">${effectHtml}</div>` : ""}
     </div>
    </details>`;
@@ -20934,14 +20942,18 @@ function effectBagWikiLines(fx, banKinds){
  (fx.ranks||[]).forEach(x=>out.push(`${x.target||"自身"}の${x.stat||""}を${x.stages}段階${x.dir||""}${x.turns?`（${x.turns}T）`:""}`));
  return out;
 }
-function traitWikiLines(tr){
+function traitWikiLines(tr, side){
  if(!tr) return [];
  const trig = (tr.trigger === "被弾時") ? "攻撃された時" : (tr.trigger || "");
  const head = trig ? trig + "、" : "";
  const tail = (tr.chance !== "" && tr.chance != null) ? `［発生率${tr.chance}%］` : "";
  const bodies = [];
  if(tr.type === "ダメージ軽減"){
-  const rd = (who, rate, rb)=>{ if(who && rate !== "" && rate != null) bodies.push(`${who}から受けるダメージを${rate}%${(rb !== "" && rb != null) ? `(${rb}%)` : ""}ダウン`); };
+  const rd = (who, rate, rb)=>{
+   const value = side === "after" && rb !== "" && rb != null ? rb : rate;
+   if(!who || value === "" || value == null) return;
+   bodies.push(`${who}から受けるダメージを${value}%ダウン`);
+  };
   rd(tr.race, tr.reduce, tr.reduceRb);
   rd(tr.bulletType, tr.reduce, tr.reduceRb);
   rd("陽気", tr.yangReduce, tr.yangReduceRb);
@@ -20983,7 +20995,7 @@ function updateTraitPreviews(){
  box.querySelectorAll("[data-trait-preview]").forEach(el=>{
   const i = Number(el.getAttribute("data-trait-preview"));
   const tr = (pack.traits || [])[i];
-  el.textContent = tr ? (traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）") : "";
+  el.textContent = tr ? (traitWikiLines(tr, editVariant).join("\n") || "（Wiki表記のプレビュー）") : "";
  });
 }
 
@@ -21094,8 +21106,9 @@ function wikiParseTraitEffectLine(raw, tr){
 function importWikiIntoTraits(text){
  const raw = String(text||"").trim();
  if(!raw){ alert("テキストが空です。"); return { ok:false }; }
- if(!beforePack){ alert("編集中のキャラがありません。"); return { ok:false }; }
- ensureCharExtra(beforePack);
+ const pack = activeCharExtraPack || beforePack;
+ if(!pack){ alert("編集中のキャラがありません。"); return { ok:false }; }
+ ensureCharExtra(pack);
  const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  const traits = [];
  let cur = null;
@@ -21116,8 +21129,8 @@ function importWikiIntoTraits(text){
  const out = traits.slice(0,3);
  if(!out.length){ alert("特性を検出できませんでした。特性名の行と「・」で始まる効果行を貼り付けてください。"); return { ok:false }; }
  while(out.length < 3) out.push(createEmptyTrait());
- beforePack.traits = out;
- try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
+ pack.traits = out;
+ try{ fillBgmSkillsTraitsForm(pack); }catch(e){}
  return { ok:true, count: out.length, totalFound: traits.length, unparsed };
 }
 
@@ -21279,7 +21292,7 @@ function formatBgmSkillsTraitsHtml(pack, opts){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">特性</div>`;
    traits.forEach(tr=>{
     if(!tr) return;
-    const wl = traitWikiLines(tr);
+    const wl = traitWikiLines(tr, pack.side);
     if(!wl.length && !tr.name) return;
     h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.2);border-radius:8px;">`;
     if(tr.name) h += `<div><b>${esc(tr.name)}</b></div>`;
