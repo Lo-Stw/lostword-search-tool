@@ -342,6 +342,7 @@ body.theme-dark #detailModal a{color:#a8ceff}
 .character-bgm .bgm-title{font-weight:700}
 .spell-effect-phase{margin:8px 0;padding:8px 10px;border:1px solid var(--lw-border);border-radius:8px;color:var(--lw-ink)}
 .spell-effect-phase h4{margin:0 0 4px;font-size:inherit}
+.spell-effect-lines{font-size:13px;line-height:1.5}
 .spell-effect-lines > *{position:relative;padding-inline-start:1em}
 .spell-effect-lines > *::before{content:"・";position:absolute;inset-inline-start:0}
 .spell-effect-lines > .tag{display:table;margin-inline-start:1em}
@@ -361,12 +362,12 @@ body.theme-dark #detailModal a{color:#a8ceff}
 .skill-slot-special > .tag.hl-match::before{inset-inline-start:-1em}
 .modal .skill-slot-special > .skill-detail-line{font-weight:400!important}
 .skill-slot-special .skill-detail-line > span:not(.tag){font-size:inherit!important;font-weight:inherit}
-#detailModal .skill-slot-special .skill-effect-match{
+#detailModal :is(.skill-slot-special,.spell-effect-lines) .skill-effect-match{
  background:linear-gradient(180deg,#ffe9a8,#ffd666);
  color:#3a2e10!important;border-radius:4px;
 }
-#detailModal .skill-slot-special .skill-effect-match [class*="eff-"]{color:inherit!important}
-body.theme-dark #detailModal .skill-slot-special .skill-effect-match{
+#detailModal :is(.skill-slot-special,.spell-effect-lines) .skill-effect-match [class*="eff-"]{color:inherit!important}
+body.theme-dark #detailModal :is(.skill-slot-special,.spell-effect-lines) .skill-effect-match{
  background:linear-gradient(180deg,#5a4a18,#3d3410);color:#ffe9a8!important
 }
 .skill-detail-line{color:inherit;opacity:1}
@@ -16763,7 +16764,7 @@ function getBuffDebuffHtml(obj, opts) {
     lines = String(fallback).split(/\r?\n/).map(line=>line.trim().replace(/^・\s*/,"")).filter(Boolean).map(line=>`<div>${esc(line)}</div>`).join("");
    }
    if(opts.attackKey && opts.specialSkills){
-    lines += formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:opts.attackKey+":"+phase });
+    lines += formatLocatedSpecialSkillsHtml(opts.specialSkills, opts.attackKey+":"+phase);
    }
    if(lines) h += `<section class="spell-effect-phase" data-effect-phase="${phase}"><h4>${label}</h4><div class="spell-effect-lines">${lines}</div></section>`;
   }
@@ -20431,8 +20432,8 @@ function bindBgmSkillsTraitsForm(){
   }
  });
 }
-function formatSkillSlotSpecialSkillsHtml(ss, n){
- const html = formatSpecialSkillsHtml(ss, { activationLocation:"skill"+n, emptyText:"" });
+function formatLocatedSpecialSkillsHtml(ss, location){
+ const html = formatSpecialSkillsHtml(ss, { activationLocation:location, emptyText:"" });
  const template = document.createElement("template");
  template.innerHTML = html;
  template.content.querySelectorAll(".skill-detail-line").forEach(line=>{
@@ -20482,7 +20483,7 @@ function formatBgmSkillsTraitsHtml(pack, opts){
  if(section==="all" || section==="skillsTraits"){
   const skills = pack.skills || [];
   const slotHtmls = [1,2,3].map(n => (opts && opts.specialSkills && typeof formatSpecialSkillsHtml === "function")
-   ? formatSkillSlotSpecialSkillsHtml(opts.specialSkills, n) : "");
+   ? formatLocatedSpecialSkillsHtml(opts.specialSkills, "skill"+n) : "");
   if(skills.some((s,i)=>s && (s.name || s.cooldown || s.text || slotHtmls[i] || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">スキル</div>`;
    skills.forEach((sk,i)=>{
