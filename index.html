@@ -8437,7 +8437,7 @@ function getDamageDownList(ss){
 }
 
 /** 検索結果・詳細用のダメージ軽減表示HTML */
-function formatDamageDownLine(item){
+function formatDamageDownLine(item, options = {}){
  if(!item) return "";
  const side = item.side === "自身" ? "自身" : "味方全体";
  const n = (item.ratio !== undefined && item.ratio !== null && item.ratio !== "") ? String(item.ratio) : "n";
@@ -8452,9 +8452,9 @@ function formatDamageDownLine(item){
  if(src === "スペカ1") src = "スペルカード1";
  if(src === "スペカ2") src = "スペルカード2";
  if(!srcList.includes(src)) src = "スキル";
- return src + "：" + side + "の" + what + "から受けるダメージを" + n + "%ダウン" + specialTurnsSuffix(item);
+ return (options.hideActivationSource ? "" : src + "：") + side + "の" + what + "から受けるダメージを" + n + "%ダウン" + specialTurnsSuffix(item);
 }
-function formatDamageDownHtml(ss, matched){
+function formatDamageDownHtml(ss, matched, options = {}){
  const list = getDamageDownList(ss);
  const name = (typeof DD_SKILL === "string") ? DD_SKILL : "ダメージ軽減";
  const cls = "tag-debuff";
@@ -8470,14 +8470,14 @@ function formatDamageDownHtml(ss, matched){
  if(!list.length && !xcList.length) return `<div class="skill-detail-line">${tagWithHl(name, !!matched, cls)}</div>`;
  const parts = [];
  list.forEach(item=>{
-  let line = formatDamageDownLine(item);
+  let line = formatDamageDownLine(item, options);
   line = withXChangeOnlySuffix(line, ddObj);
   const htmlLine = mkLine(line);
   if(htmlLine) parts.push(htmlLine);
  });
  if(xcList.length){
   xcList.forEach(item=>{
-   let line = formatDamageDownLine(item);
+   let line = formatDamageDownLine(item, options);
    line = withXChangeOnlySuffix(line, { xChangeOnly:true });
    const htmlLine = mkLine(line);
    if(htmlLine) parts.push(htmlLine);
@@ -8557,10 +8557,10 @@ function specialTurnsSuffix(effect){
  const turns = String(effect?.turns ?? "");
  return /^\d+$/.test(turns) ? "(" + turns + "T)" : "";
 }
-function formatSpecialSkillDetailText(name, d){
+function formatSpecialSkillDetailText(name, d, options = {}){
  if(!d?.enabled) return "";
  if(["持続","スペルゲージ遅延","永続バフ","永続デバフ"].includes(name) || isRank2SkillName(name)){
-  return formatSpecialSkillBaseText(name, d);
+  return formatSpecialSkillBaseText(name, d, options);
  }
  const appendTurns = (text, effect)=>{
   const suffix = specialTurnsSuffix(effect);
@@ -8568,11 +8568,11 @@ function formatSpecialSkillDetailText(name, d){
   return text ? text.split("\n").map(line=>line ? line + suffix : line).join("\n") : suffix;
  };
  if(isRowSourceSpecialSkill(name) && Array.isArray(d.list) && d.list.some(specialTurnsSuffix)){
-  return d.list.filter(Boolean).map(item=>appendTurns(formatSpecialSkillBaseText(name, { ...d, list:[item] }), item)).filter(Boolean).join("\n");
+  return d.list.filter(Boolean).map(item=>appendTurns(formatSpecialSkillBaseText(name, { ...d, list:[item] }, options), item)).filter(Boolean).join("\n");
  }
- return appendTurns(formatSpecialSkillBaseText(name, d), d);
+ return appendTurns(formatSpecialSkillBaseText(name, d, options), d);
 }
-function formatSpecialSkillBaseText(name, d){
+function formatSpecialSkillBaseText(name, d, options = {}){
  if(!d || !d.enabled) return "";
  const bits = [];
  if(name === "ファスト" || name === "チャージ"){
@@ -8603,7 +8603,7 @@ function formatSpecialSkillBaseText(name, d){
 
  if(name === "RANKⅡバフ" || name === "RANKⅡデバフ"){
   const list = Array.isArray(d.list) ? d.list : [];
-  return list.map(item => formatRank2DetailLine(item, name)).filter(Boolean).join(String.fromCharCode(10));
+  return list.map(item => formatRank2DetailLine(item, name, options)).filter(Boolean).join(String.fromCharCode(10));
  }
  if(name === "永続バフ" || name === "永続デバフ"){
   const list = Array.isArray(d.list) ? d.list : [];
@@ -8769,7 +8769,7 @@ if(name === "蓄積"){
    const n = (it.ratio !== "" && it.ratio != null) ? String(it.ratio) : "n";
    const tg = it.target === "自身" ? "自身" : "味方全体";
    const toSt = it.toStat || "各ステータス";
-   return "【" + src + "】自身の" + fromSt + "の" + n + "%を" + tg + "の" + toSt + "に上乗せする";
+   return (options.hideActivationSource ? "" : "【" + src + "】") + "自身の" + fromSt + "の" + n + "%を" + tg + "の" + toSt + "に上乗せする";
   }).filter(Boolean);
   return parts.join(String.fromCharCode(10));
  }
@@ -9009,7 +9009,7 @@ function normalizeSpecialSkillsObject(ss){
  return out;
 }
 
-function formatRank2DetailLine(item, skillName){
+function formatRank2DetailLine(item, skillName, options = {}){
  let src = pickRank2Source(item) || "";
  if(src === "ラストワード") src = "LASTWORD";
  let tgt = String((item && (item.target || item.to)) || "").trim();
@@ -9022,12 +9022,12 @@ function formatRank2DetailLine(item, skillName){
  const st = pickRank2Stat(item);
  const stageVal = pickRank2Stage(item);
  const n = (stageVal !== "" && stageVal != null) ? String(stageVal) : "n";
- const srcLabel = src || "スキル";
+ const srcLabel = options.hideActivationSource ? "" : (src || "スキル") + ":";
  if(!st && !src && !tgt) return "";
  if(isDebuff){
-  return srcLabel + ":" + (tgt || "相手") + "の" + (st || "？") + "Ⅱを" + n + "段階ダウン" + specialTurnsSuffix(item);
+  return srcLabel + (tgt || "相手") + "の" + (st || "？") + "Ⅱを" + n + "段階ダウン" + specialTurnsSuffix(item);
  }
- return srcLabel + ":" + (tgt || "自身") + "の" + (st || "？") + "Ⅱを" + n + "段階アップ" + specialTurnsSuffix(item);
+ return srcLabel + (tgt || "自身") + "の" + (st || "？") + "Ⅱを" + n + "段階アップ" + specialTurnsSuffix(item);
 }
 
 
@@ -9174,7 +9174,7 @@ function formatSpecialSkillsContent(ss, options){
    const pushRank2List = (lst, asXc)=>{
     (lst||[]).forEach(item=>{
      if(!item) return;
-     let detail = formatRank2DetailLine(item, x);
+     let detail = formatRank2DetailLine(item, x, options);
      detail = withXChangeOnlySuffix(detail, asXc ? { xChangeOnly:true } : ss[x]);
      if(detail){
       parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(detail)}</span></div>`);
@@ -9191,7 +9191,7 @@ function formatSpecialSkillsContent(ss, options){
    const matched = isFilterMatch(x, selected.char);
    const cls = x === "永続バフ" ? "tag-buff" : "tag-debuff";
    const render = (d, xc = false)=>{
-    const detail = formatSpecialSkillDetailText(x, { ...d, enabled:true });
+    const detail = formatSpecialSkillDetailText(x, { ...d, enabled:true }, options);
     if(!detail) return false;
     detail.split("\n").forEach(line=>{
      const text = withXChangeOnlySuffix(line, xc ? { xChangeOnly:true } : d);
@@ -9236,10 +9236,10 @@ function formatSpecialSkillsContent(ss, options){
     parts.push(formatSpecialSkillsContent({[x]:{ ...ss[x].xc, enabled:true, xcEnabled:false, xChangeOnly:true }}, { ...options, emptyText:"" }));
    }
   }else{
-   let detail = formatSpecialSkillDetailText(x, ss[x]);
+   let detail = formatSpecialSkillDetailText(x, ss[x], options);
    detail = withXChangeOnlySuffix(detail, ss[x]);
    if(ss[x] && ss[x].xcEnabled && ss[x].xc){
-    let xcDetail = formatSpecialSkillDetailText(x, Object.assign({}, ss[x].xc, { enabled:true }));
+    let xcDetail = formatSpecialSkillDetailText(x, Object.assign({}, ss[x].xc, { enabled:true }), options);
     xcDetail = withXChangeOnlySuffix(xcDetail, { xChangeOnly:true });
     if(xcDetail){
      detail = detail ? (detail + String.fromCharCode(10) + xcDetail) : xcDetail;
@@ -9272,7 +9272,7 @@ function formatSpecialSkillsContent(ss, options){
   const ddMatched = (typeof isFilterMatch === "function")
    ? (isFilterMatch(DD_SKILL, selected.char) || isFilterMatch(DD_SKILL_LEGACY, selected.char) || isFilterMatch(DD_SKILL, selected.dd))
    : false;
-  const dd = formatDamageDownHtml(ss, ddMatched);
+  const dd = formatDamageDownHtml(ss, ddMatched, options);
   if(dd) parts.push(dd);
  }
  return parts.join("") || (options.emptyText || "");
@@ -20433,7 +20433,7 @@ function bindBgmSkillsTraitsForm(){
  });
 }
 function formatLocatedSpecialSkillsHtml(ss, location){
- const html = formatSpecialSkillsHtml(ss, { activationLocation:location, emptyText:"" });
+ const html = formatSpecialSkillsHtml(ss, { activationLocation:location, hideActivationSource:SPECIAL_SPELL_LOC_RE.test(location), emptyText:"" });
  const template = document.createElement("template");
  template.innerHTML = html;
  template.content.querySelectorAll(".skill-detail-line").forEach(line=>{
