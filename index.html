@@ -3532,7 +3532,7 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
   <div id="bgmLinksEditor"></div>
   <button type="button" class="btn-add" id="addBgmLinkBtn" style="margin-bottom:12px;">＋ リンクを追加</button>
 
-  <div class="mini" style="font-weight:700;margin:10px 0 6px;">スキル（1〜3）—手動入力</div>
+  <div class="mini" style="font-weight:700;margin:10px 0 6px;">スキル（1〜3）</div>
   <div id="charSkillsEditor"></div>
   <div class="mini" style="font-weight:700;margin:14px 0 6px;">Wiki取込（任意）</div>
   <div style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
@@ -3544,7 +3544,7 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
     <span class="mini" id="wikiSkillsImportStatus" style="color:#666;"></span>
    </div>
   </div>
-  <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性—手動入力（追加・削除可）</div>
+  <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性（1〜3）</div>
   <datalist id="traitTriggerList">
    <option value="攻撃された時"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
    <option value="ターン終了時"></option><option value="戦闘開始時"></option><option value="スペルカード発動時"></option>
@@ -4438,9 +4438,9 @@ function emptyPack(){
   attacks: null,
   bgm: { title:"", original:"", links:[] },
   skills: [
-   { name:"", cooldown:"", specialSlot:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
-   { name:"", cooldown:"", specialSlot:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
-   { name:"", cooldown:"", specialSlot:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
+   { name:"", cooldown:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
   ],
   traits: []
  };
@@ -4631,9 +4631,9 @@ function snapshotFormToPack(){
   attacks: JSON.parse(JSON.stringify(attackData)),
    bgm: (activeCharExtraPack && activeCharExtraPack.bgm) ? JSON.parse(JSON.stringify(activeCharExtraPack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", circle:(document.getElementById("aBgmCircle")||{}).value||"", arranger:(document.getElementById("aBgmArranger")||{}).value||"", original:"", originals:[""], links:[] },
    skills: (activeCharExtraPack && activeCharExtraPack.skills) ? JSON.parse(JSON.stringify(activeCharExtraPack.skills)) : [
-   { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
-   { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
-   { name:"", cooldown:"", specialSlot:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
+   { name:"", cooldown:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
+   { name:"", cooldown:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } }
   ],
    traits: (activeCharExtraPack && activeCharExtraPack.traits) ? JSON.parse(JSON.stringify(activeCharExtraPack.traits)) : []
  };
@@ -14514,7 +14514,9 @@ function gamerchImportIntoAttack(a, attackKey, raw){
 
 /** スキルWiki取込: Lv.10以降の効果のみ採用。上からスキル1〜3 */
 function importWikiIntoSkills(text){
- const raw = String(text||"").trim();
+ const toHalfDigits = (t)=>String(t).replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+ // 再使用ターン数の全角数字（例：４）を半角へ（スキル名内の数字はそのまま）
+ const raw = String(text||"").replace(/(再使用(?:ターン数?|T)?\s*[：:]?\s*)([０-９]+)/g, (m,a,d)=>a+toHalfDigits(d)).trim();
  if(!raw){
   alert("テキストが空です。");
   return { ok:false };
@@ -14524,7 +14526,8 @@ function importWikiIntoSkills(text){
   return { ok:false };
  }
  ensureCharExtra(beforePack);
- const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
+  .map(x => /^[・･]/.test(x) ? toHalfDigits(x).replace(/％/g,"%").replace(/．/g,".") : x);  // 効果行の数値は半角に
  // スキルブロック分割: ・で始まらない行で、かつ効果行でないものをスキル名候補に
  const skills = [];
  let cur = null;
@@ -14540,11 +14543,13 @@ function importWikiIntoSkills(text){
   let name = String(nameLine||"").trim();
   // 名前行から再使用ターンを仮取り（Lv.10側で上書き）
   let cd = "";
-  const cdm = name.match(/再使用ターン数\s*[：:】\)]?\s*(\d+)/) || name.match(/[（(]\s*再使用ターン数\s*(\d+)\s*[）)]/);
+  // 例：「異変妨害：キューイング（再使用ターン数4）」→ 名前と再使用ターン数に分離
+  const CD_RE = /[（(［\[【]?\s*再使用(?:ターン数?|T)?\s*[：:]?\s*(\d+)\s*(?:ターン|T)?\s*[）)］\]】]?/;
+  const cdm = name.match(CD_RE);
   if(cdm) cd = cdm[1];
-  name = name.replace(/[（(]?再使用ターン数\s*\d+[）)]?/g, "").replace(/[（(]\s*$/,"").trim();
+  name = name.replace(new RegExp(CD_RE.source, "g"), "").replace(/[（(\s：:]+$/,"").trim();
   name = name.replace(/\s*Lv\.?\s*\d+.*$/,"").trim();
-  cur = { name, cooldown: cd, specialSlot:"", effects: createEmptyEffectBag(), _preEffects: [], _postEffects: [], _postCd: "" };
+  cur = { name, cooldown: cd, effects: createEmptyEffectBag(), _preEffects: [], _postEffects: [], _postCd: "" };
   mode = "pre";
  }
 
@@ -14573,9 +14578,9 @@ function importWikiIntoSkills(text){
    continue;
   }
   // 再使用ターンだけの行
-  if(/再使用ターン数\s*\d+/.test(line) && !/Lv\.?\s*\d+/i.test(line) && line.length < 40){
+  if(/^[（(［\[【]?\s*再使用(?:ターン数?|T)?\s*[：:]?\s*\d+\s*(?:ターン|T)?\s*[）)］\]】]?$/.test(line)){   // 「再使用ターン数だけ」の行のみ（スキル名＋再使用ターン数の行は対象外）
    if(cur){
-    const cdm = line.match(/再使用ターン数\s*(\d+)/);
+    const cdm = line.match(/(\d+)/);
     if(cdm){
      if(mode === "post") cur._postCd = cdm[1];
      else if(!cur.cooldown) cur.cooldown = cdm[1];
@@ -14605,9 +14610,7 @@ function importWikiIntoSkills(text){
   out[i] = {
    name: s.name || "",
    cooldown: (s._postCd || s.cooldown || ""),
-   cooldownInit: (s._postCd && s.cooldown && s.cooldown !== s._postCd) ? s.cooldown : "",
-   text: "",
-   specialSlot: "",
+    text: "",
    effects: bag
   };
  }
@@ -19595,7 +19598,7 @@ function initTheme(){
 /* ===== 管理者WIP: BGM / スキル / 特性 ===== */
 let activeCharExtraPack = null;
 function createEmptySkill(){
- return { name:"", cooldown:"", cooldownInit:"", specialSlot:"", text:"", effects: createEmptyEffectBag() };
+ return { name:"", cooldown:"", text:"", effects: createEmptyEffectBag() };
 }
 function createEmptyTrait(){
  return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", extraReductions:[], banKinds:"", yangReduce:"", yinReduce:"", trigger:"", text:"", effects: createEmptyEffectBag() };
@@ -19619,6 +19622,8 @@ function ensureCharExtra(pack){
   else sk.effects = ensureEffectBagShape(sk.effects);
  });
  if(!Array.isArray(pack.traits)) pack.traits = [];
+ pack.traits = pack.traits.map(t => (t && typeof t === "object") ? t : createEmptyTrait());
+ while(pack.traits.length < 3) pack.traits.push(createEmptyTrait());
  pack.traits.forEach(t=>{
   if(t && t.effects) t.effects = ensureEffectBagShape(t.effects);
   if(t && t.trigger === "被弾時") t.trigger = "攻撃された時";
@@ -19715,9 +19720,7 @@ function fillBgmSkillsTraitsForm(pack){
     <div class="mini" style="font-weight:800;margin-bottom:6px;">スキル${i+1}</div>
     <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap;">
      <input class="input" data-skill-name="${i}" placeholder="スキル名" value="${esc(sk.name||"")}" style="flex:1;min-width:140px">
-     <input class="input" data-skill-cdinit="${i}" type="number" placeholder="再使用T（初期）" value="${esc(sk.cooldownInit||"")}" style="width:120px" title="Lv.10になる前の再使用ターン数">
-     <input class="input" data-skill-cd="${i}" type="number" placeholder="再使用T（Lv.10）" value="${esc(sk.cooldown||"")}" style="width:130px" title="Lv.10以降の再使用ターン数">
-     <input class="input" data-skill-slot="${i}" type="number" min="1" max="3" placeholder="特殊スキル箇所" value="${esc(sk.specialSlot||"")}" style="width:130px" title="特殊スキルが何番のスキルにあるか">
+     <input class="input" data-skill-cd="${i}" type="number" min="0" placeholder="再使用ターン数" value="${esc(sk.cooldown||"")}" style="width:130px">
     </div>
     <div id="buff-container-${prefix}">${effectHtml}</div>
      <textarea class="input" data-skill-text="${i}" rows="2" style="margin-top:8px;width:100%;border-radius:10px;" placeholder="補足（効果欄で表せない内容・条件など／任意）">${esc(sk.text||"")}</textarea>
@@ -19730,16 +19733,10 @@ function fillBgmSkillsTraitsForm(pack){
   skBox.querySelectorAll("[data-skill-cd]").forEach(inp=>{
    inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cd")); pack.skills[i].cooldown = inp.value; };
   });
-  skBox.querySelectorAll("[data-skill-cdinit]").forEach(inp=>{
-   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cdinit")); pack.skills[i].cooldownInit = inp.value; };
-  });
   skBox.querySelectorAll("[data-skill-text]").forEach(inp=>{
    inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-text")); pack.skills[i].text = inp.value; };
   });
   skBox.oninput = skBox.onchange = updateSkillPreviews;
-  skBox.querySelectorAll("[data-skill-slot]").forEach(inp=>{
-   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-slot")); pack.skills[i].specialSlot = inp.value; };
-  });
  }
  const trBox = document.getElementById("charTraitsEditor");
  if(trBox){
@@ -19788,7 +19785,7 @@ function fillBgmSkillsTraitsForm(pack){
    const showEffects = typ && typ !== "特殊" && typ !== "ダメージ軽減";
    return `
    <div style="border:1px solid rgba(160,130,70,.35);border-radius:10px;padding:10px;margin-bottom:8px;">
-    <button type="button" class="btn-del" data-trait-del="${i}">削除</button>
+    <div class="row" style="justify-content:space-between;align-items:center;"><div class="mini" style="font-weight:800;">特性${i+1}</div><button type="button" class="btn-del" data-trait-del="${i}">クリア</button></div>
     <input class="input" data-trait-name="${i}" placeholder="特性名" value="${esc(tr.name||"")}" style="margin-top:4px;width:100%;font-weight:700;">
     <div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap;">
      <select class="select" data-trait-type="${i}" style="min-width:150px">
@@ -19803,7 +19800,7 @@ function fillBgmSkillsTraitsForm(pack){
     <div data-trait-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc(traitWikiLines(tr).join("\n") || "（Wiki表記のプレビュー）")}</div>
     ${showEffects ? `<div id="buff-container-${prefix}" style="margin-top:8px;">${effectHtml}</div>` : ""}
    </div>`;
-  }).join("") + `<button type="button" class="btn-add" id="addTraitBtn">＋ 特性を追加</button>`;
+  }).join("");
 
   trBox.querySelectorAll("[data-trait-type]").forEach(sel=>{
    sel.onchange = ()=>{
@@ -19856,11 +19853,9 @@ function fillBgmSkillsTraitsForm(pack){
    sel.oninput = sel.onchange = ()=>{ pack.traits[Number(sel.getAttribute("data-trait-trigger"))].trigger = sel.value.trim(); };
   });
   trBox.querySelectorAll("[data-trait-del]").forEach(btn=>{
-   btn.onclick = ()=>{ pack.traits.splice(Number(btn.getAttribute("data-trait-del")),1); fillBgmSkillsTraitsForm(pack); };
+   btn.onclick = ()=>{ if(!confirm("この特性の入力内容をクリアしますか？")) return; pack.traits[Number(btn.getAttribute("data-trait-del"))] = createEmptyTrait(); fillBgmSkillsTraitsForm(pack); };
   });
   trBox.oninput = trBox.onchange = updateTraitPreviews;
-  const addT = document.getElementById("addTraitBtn");
-  if(addT) addT.onclick = ()=>{ pack.traits.push(createEmptyTrait()); fillBgmSkillsTraitsForm(pack); };
  }
 }
 
@@ -20058,6 +20053,7 @@ function importWikiIntoTraits(text){
  }
  const out = traits.slice(0,3);
  if(!out.length){ alert("特性を検出できませんでした。特性名の行と「・」で始まる効果行を貼り付けてください。"); return { ok:false }; }
+ while(out.length < 3) out.push(createEmptyTrait());
  beforePack.traits = out;
  try{ fillBgmSkillsTraitsForm(beforePack); }catch(e){}
  return { ok:true, count: out.length, totalFound: traits.length, unparsed };
@@ -20167,8 +20163,7 @@ function formatBgmSkillsTraitsHtml(pack, opts){
     const hasFx = sk.effects && Object.values(sk.effects).some(a=>Array.isArray(a)&&a.length);
     if(!sk.name && !sk.cooldown && !hasFx && !sk.text) return;
     h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
-    h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">(${sk.cooldownInit?esc(sk.cooldownInit)+"T→":""}${esc(sk.cooldown)}T)</span>`:""}</div>`;
-    if(sk.specialSlot) h += `<div class="mini">特殊スキル：スキル${esc(sk.specialSlot)}</div>`;
+    h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">(${esc(sk.cooldown)}T)</span>`:""}</div>`;
     skillWikiLines(sk).forEach(x=>{ h += `<div class="muted">・${esc(x)}</div>`; });
     h += `</div>`;
    });
