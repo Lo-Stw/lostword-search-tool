@@ -8699,8 +8699,16 @@ function specialTurnsSuffix(effect){
  const turns = String(effect?.turns ?? "");
  return /^\d+$/.test(turns) ? "(" + turns + "T)" : "";
 }
+function formatBanReleaseEffect(effect, source = "", options = {}){
+ const target = effect?.target || "自身";
+ const count = hasBanReleaseCount(effect) ? String(effect.count) : "n";
+ const prefix = source && !options.hideActivationSource ? source + ":" : "";
+ const bonus = effect?.bonusPct === "" || effect?.bonusPct == null ? "" : `［追加効果${effect.bonusPct}%で＋1］`;
+ return `${prefix}${target}の禁止状態、つよさ低下を${count}つ回復${specialTurnsSuffix(effect)}${bonus}`;
+}
 function formatSpecialSkillDetailText(name, d, options = {}){
  if(!d?.enabled) return "";
+ if(name === "禁止解除") return formatSpecialSkillBaseText(name, d, options);
  if(["持続","スペルゲージ遅延","永続バフ","永続デバフ"].includes(name) || isRank2SkillName(name)){
   return formatSpecialSkillBaseText(name, d, options);
  }
@@ -8767,46 +8775,34 @@ function formatSpecialSkillBaseText(name, d, options = {}){
  if(name === "禁止解除"){
   const linked = Array.isArray(d.linkedBanReleases) ? d.linkedBanReleases : [];
   const legacy = hasLegacyBanReleaseEffect(d);
-  if(legacy) d = normalizeBanReleaseData({ ...d });
-  const parts = [];
-  const fmtSide = (label, on, sk, skc, spellItems)=>{
-   if(!on) return;
-   const sub = [];
-   if(sk) sub.push(skc !== "" && skc != null ? `スキル${skc}個` : "スキル");
-   const items = Array.isArray(spellItems) ? spellItems : [];
-   if(items.length){
-    items.forEach(it=>{
-     if(!it || !it.from) return;
-     const n = (it.count !== "" && it.count != null) ? `${it.count}個` : "";
-     sub.push(n ? `${it.from} ${n}` : it.from);
-    });
+  const lines = [];
+  if(legacy){
+   const normalized = normalizeBanReleaseData({ ...d });
+   const configuredSource = pickRank2Source(normalized);
+   for(const side of ["self", "team"]){
+    if(!normalized[side]) continue;
+    const target = side === "self" ? "自身" : "味方全体";
+    if(normalized[side+"Skill"]){
+     const source = /^スキル/.test(configuredSource) ? configuredSource : "スキル";
+     lines.push(formatBanReleaseEffect({target, count:normalized[side+"SkillCount"], turns:normalized.turns}, source, options));
+    }
+    if(normalized[side+"Spell"]){
+     const spells = normalized[side+"SpellItems"] || [];
+     if(spells.length){
+      spells.forEach(item=>{
+       if(!item?.from) return;
+       const source = configuredSource === item.from || configuredSource.startsWith(item.from + "・") ? configuredSource : item.from;
+       lines.push(formatBanReleaseEffect({target, count:item.count, turns:normalized.turns}, source, options));
+      });
+     }else{
+      const source = /^(スペルカード|LASTWORD)/.test(configuredSource) ? configuredSource : "スペカ";
+      lines.push(formatBanReleaseEffect({target, count:normalized[side+"SpellCount"], turns:normalized.turns}, source, options));
+     }
+    }
    }
-   if(sub.length || d[label === "自身" ? "selfSpell" : "teamSpell"]) parts.push(sub.length ? `${label}（${sub.join("・")}）` : `${label}（スペカ）`);
-  };
-  fmtSide("自身", d.self, d.selfSkill, d.selfSkillCount, d.selfSpellItems);
-  fmtSide("味方全体", d.team, d.teamSkill, d.teamSkillCount, d.teamSpellItems);
-  if(parts.length > 1) parts.splice(0, parts.length, parts.join(" / "));
-  linked.filter(hasBanReleaseCount).forEach(row=>{
-   const count = row.count;
-   const bonus = row.bonusPct === "" || row.bonusPct == null ? "" : `［追加効果${row.bonusPct}%で＋1］`;
-   parts.push(`${row.source}：${row.target || "自身"}の禁止状態・つよさ低下を${count}つ回復${specialTurnsSuffix(row)}${bonus}`);
-  });
-  if(!parts.length && legacy){
-   // 旧形式フォールバック
-   if(d.target) bits.push(d.target);
-   if(d.skill){
-    let t = "スキル";
-    if(d.skillCount !== "" && d.skillCount != null) t += `${d.skillCount}個`;
-    bits.push(t);
-   }
-   if(d.spell){
-    let t = "スペカ";
-    if(d.spellCount !== "" && d.spellCount != null) t += `${d.spellCount}個`;
-    bits.push(t);
-   }
-   return bits.join(" · ") || "";
   }
-  return parts.join("\n");
+  linked.filter(hasBanReleaseCount).forEach(row=>lines.push(formatBanReleaseEffect(row, row.source, options)));
+  return lines.join("\n");
  }
  if(name === "秘密封印"){
   const lines = [];
@@ -8846,7 +8842,11 @@ function formatSpecialSkillBaseText(name, d, options = {}){
    if(eff === "霊力") return "ターン開始時、" + tg + "の霊力を" + n + "上昇(" + t + "T)";
    if(eff === "体力回復") return "ターン開始時、" + tg + "の体力を" + n + "%回復(" + t + "T)";
    if(eff === "結界増加") return "ターン開始時、" + tg + "の結界を" + n + "枚増加(" + t + "T)";
-   if(eff === "禁止解除") return "ターン開始時、" + tg + "の禁止状態、つよさ低下を" + n + "つ回復(" + t + "T)";
+   if(eff === "禁止解除"){
+    const source = pickRank2Source(it) || pickRank2Source(d);
+    const prefix = source && !options.hideActivationSource ? source + ":" : "";
+    return prefix + "ターン開始時、" + formatBanReleaseEffect({ target:tg, count:n }) + "(" + t + "T)";
+   }
    const bits = [];
    if(tg) bits.push(tg);
    if(eff) bits.push(eff);
@@ -12378,9 +12378,7 @@ function formatSupportEffectsHtml(bag){
  });
  (bag.banReleases||[]).forEach(x=>{
   if(!x || x.count==="" || x.count==null) return;
-  const tgt = x.target || "自身";
-  let line = `${tgt}の禁止状態・つよさ低下を${x.count}つ回復` + specialTurnsSuffix(x) + bonusTxt(x);
-  const text = esc(line);
+  const text = esc(formatBanReleaseEffect(x));
   h += `<div style="margin:3px 0;">${(selected.char||[]).includes("禁止解除") ? `<mark class="hl">${text}</mark>` : `<span>${text}</span>`}</div>`;
  });
  (bag.heals||[]).forEach(x=>{
@@ -20687,7 +20685,7 @@ function fillBgmSkillsTraitsForm(pack){
    } else if(typ === "禁止解除"){
     extra = `
      <div style="margin-top:6px;">
-      <div class="mini">解除する状態（Wikiの表記どおり）</div>
+      <div class="mini">取り込んだ解除対象（保存用）</div>
       <input class="input" data-trait-bankinds="${i}" placeholder="例：禁止状態、つよさ低下" value="${esc(tr.banKinds||"")}">
      </div>`;
    }
@@ -20799,7 +20797,7 @@ function effectBagWikiLines(fx, banKinds){
  fx = fx || {};
  const out = [];
  (fx.heals||[]).forEach(h=>{ if(h.percent !== "" && h.percent != null) out.push(`${h.target||"自身"}の体力を${h.percent}%回復`); });
- (fx.banReleases||[]).filter(hasBanReleaseCount).forEach(b=>out.push(`${b.target||"自身"}の${banKinds || "禁止状態"}から${b.count}つ回復${specialTurnsSuffix(b)}`));
+ (fx.banReleases||[]).filter(hasBanReleaseCount).forEach(b=>out.push(formatBanReleaseEffect(b)));
  (fx.spiritPowers||[]).forEach(x=>out.push(`${x.target||"自身"}の霊力を${x.amount}上昇`));
  (fx.barriers||[]).forEach(x=>out.push(`${x.target||"自身"}の結界を${x.stacks}枚増加`));
  (fx.barrierHeals||[]).forEach(x=>out.push(`${x.target||"自身"}の結界異常を${x.count}つ回復`));
