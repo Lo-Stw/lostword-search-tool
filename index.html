@@ -12864,7 +12864,9 @@ function initEditors(){
     <div class="mini">名前</div>
     <input class="input" value="${esc(a.name)}" data-k="${key}" data-p="name" data-attack-name="${key}">
    </div>
-   <div class="section" style="padding:12px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
+   <details class="char-extra-entry" data-bullet-import="full">
+    <summary>Wiki取込（この${label}のバレット）</summary>
+    <div class="char-extra-entry-body char-extra-wiki">
     <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（この${label}のバレット）</div>
     <div class="mini" style="margin-bottom:6px;color:#666;line-height:1.45;">Wikiからこの攻撃の表だけをwikiwiki / Gamerch の表をコピーして貼り付け可。攻撃前／後効果は無視されます。</div>
     <textarea id="wiki-attack-paste-${key}" class="input" rows="5" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;ディフェクティブミラクル&#10;全体攻撃　陽気のみ&#10;バレット2-2-1型　max136CP&#10;0　星属性.jpg　欠陥ある奇跡　陽気　光弾.jpg　3.93　x15　…&#10;1　木属性.jpg　欠落ある奇跡　…"></textarea>
@@ -12872,7 +12874,19 @@ function initEditors(){
      <button type="button" class="btn-sm" data-wiki-attack-import="${key}" style="font-weight:700;">この攻撃に取り込む</button>
      <span class="mini" id="wiki-attack-status-${key}" style="color:#666;"></span>
     </div>
-   </div>
+    </div>
+   </details>
+   <details class="char-extra-entry" data-bullet-import="stats">
+    <summary>威力・命中・CRIのみ取り込み</summary>
+    <div class="char-extra-entry-body char-extra-wiki">
+     <div class="mini" style="margin-bottom:6px;">Wikiのバレット表、または1行ごとに「威力 / 命中 / CRI」を順番に貼り付けます。空欄は - と入力でき、既存値を維持します。</div>
+     <textarea id="stats-attack-paste-${key}" class="input" rows="5" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;3.08 / 80 / 10&#10;3.93 / 80 / 10&#10;5.24 / - / 10"></textarea>
+     <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+      <button type="button" class="btn-sm" data-stats-attack-import="${key}">威力・命中・CRIを取り込む</button>
+      <span class="mini" id="stats-attack-status-${key}" role="status" aria-live="polite"></span>
+     </div>
+    </div>
+   </details>
    <div class="section" style="padding:10px;background:#f7f3ea;border:1px dashed rgba(160,130,70,.45);border-radius:10px;">
     <div class="mini" style="font-weight:700;margin-bottom:6px;">この内容を別枠へ移動／コピー</div>
     <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
@@ -12950,7 +12964,10 @@ function initEditors(){
       </div>
       <button type="button" class="btn-sm" id="bulk-apply-${key}" style="font-weight:700;">一括適用</button>
      </div>
-     <div class="mini" style="margin-bottom:4px;">テキスト取込（1行＝1バレット。区切りは / ・ , ・ タブ など）</div>
+     <details class="char-extra-entry" data-bullet-import="bulk">
+     <summary>テキスト取込（弾名・弾種など）</summary>
+     <div class="char-extra-entry-body">
+     <div class="mini" style="margin-bottom:4px;">1行＝1バレット。区切りは / ・ , ・ タブ など</div>
      <textarea id="bulk-import-${key}" class="input" rows="4" style="border-radius:10px;width:100%;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;拡散符 / 通常弾 / 火 / 陽気 / 3&#10;集中符,レーザー弾,水,陰気,2&#10;名前	尖弾	木	陽気	1"></textarea>
      <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center;">
       <select class="select" id="bulk-import-mode-${key}" style="max-width:200px;">
@@ -12960,6 +12977,8 @@ function initEditors(){
       <button type="button" class="btn-sm" id="bulk-import-btn-${key}" style="font-weight:700;">テキストを取り込む</button>
      </div>
      <div class="mini" style="margin-top:6px;color:#666;">列の目安：弾名 / 弾種 / 属性 / 陽気or陰気 / 弾数（順不同でもキーワードから推定します）</div>
+     </div>
+     </details>
     </div>
     <div id="bullets-container-${key}"></div>
    </div>
@@ -14901,6 +14920,91 @@ function gamerchExtractRows(raw){
 }
 
 
+// バレットの並びを保ち、読み取れた3項目だけを反映する。
+function parseBulletStatsOnly(raw, attackKey){
+ const text = String(raw || "").replace(/\r\n?/g,"\n").trim();
+ if(!text) return { error:"テキストを入力してください。" };
+ const fields = ["power","accuracy","critical"];
+ let rows = [];
+ if(isGamerchPaste(text)){
+  const headers = text.split("\n").filter(line=>/^(拡散ショット|集中ショット|スペルカード[1１2２]|LASTWORD|ラストワード|ラスワ)(?:[\t\u3000]+.*)?$/i.test(line.trim()));
+  const labels = {spread:/^拡散ショット/,focus:/^集中ショット/,spell1:/^スペルカード[1１]/,spell2:/^スペルカード[2２]/,lastWord:/^(LASTWORD|ラストワード|ラスワ)/i};
+  if(headers.length > 1 && !headers.some(line=>labels[attackKey]?.test(line.trim()))) return {error:"この攻撃の表が見つかりません。該当する表を貼り付けてください。"};
+  const parsed = gamerchExtractRows(gamerchSliceForKey(text,attackKey));
+  if(!parsed.rows.length || parsed.rows.some(row=>!row.count && !(/属性/.test(row.detail || "") && /陽気|陰気/.test(row.detail || "")))) return {error:"バレットの行を判別できません。表全体を貼り付けてください。"};
+  rows = parsed.rows.map(row=>Object.fromEntries(fields.map(key=>[key,row[key] ?? ""])));
+ }else{
+  const lines = text.normalize("NFKC").split("\n").map(line=>line.trim()).filter(Boolean);
+  const wikiRows = [];
+  for(const line of lines){
+   const tokens = wikiFlattenTableLine(line).split(/\t+|\s+/).map(wikiNormToken).filter(Boolean);
+   const kindIndex = tokens.findIndex(t=>t === "陽気" || t === "陰気");
+   const attrIndex = tokens.findIndex(t=>/^[日月火水木金土星無]属性$/.test(t));
+   if(attrIndex < 0) continue;
+   if(kindIndex < 0){
+    if(/^[0-3]$/.test(tokens[0] || "") || tokens.some(t=>!!wikiParseBulletType(t))) return {error:"Wikiの陽気・陰気の列を判別できません。表を確認してください。"};
+    continue;
+   }
+   if(attrIndex >= kindIndex){
+    if(/^[0-3]$/.test(tokens[0] || "")) return {error:"Wikiの属性・陽気・陰気の列を判別できません。表を確認してください。"};
+    continue;
+   }
+   const typeIndex = tokens.findIndex((t,i)=>i > kindIndex && !!wikiParseBulletType(t));
+   if(typeIndex < 0){
+    if(/^[0-3]$/.test(tokens[0] || "")) return {error:"Wikiの弾種を判別できません。表全体を貼り付けてください。"};
+    continue;
+   }
+   const cells = tokens.slice(typeIndex+1,typeIndex+5);
+   const num = /^(?:\d+(?:\.\d+)?|-)$/;
+   const pct = /^(?:\d+(?:\.\d+)?%?|-)$/;
+   if(cells.length<4 || !num.test(cells[0]) || !/^(?:[xX×]?\d+|\d+発|-)$/.test(cells[1]) || !pct.test(cells[2]) || !pct.test(cells[3])) return {error:"Wikiの威力・弾数・命中・CRIの列を判別できません。表を確認してください。"};
+   wikiRows.push({power:cells[0]==="-"?"":cells[0],accuracy:cells[2]==="-"?"":cells[2].replace(/%$/, ""),critical:cells[3]==="-"?"":cells[3].replace(/%$/, "")});
+  }
+  if(wikiRows.length){
+   rows = wikiRows;
+  }else{
+   for(const line of lines){
+    if(/^(?:威力\s*[/,\t]\s*命中(?:率)?\s*[/,\t]\s*CRI(?:率)?)$/i.test(line)) continue;
+    const cells = line.split(/\s*[/,\t]\s*/);
+    const number = /^(?:\d+(?:\.\d+)?%?|-)$/;
+    if(cells.length === 3 && cells.every(c=>number.test(c))){
+     rows.push(Object.fromEntries(fields.map((key,i)=>[key,cells[i] === "-" ? "" : cells[i].replace(/%$/, "")])));
+     continue;
+    }
+    const labeled = gamerchParseBulletStats(line);
+    const rest = line.replace(/(?:威力|命中(?:率)?|CRI(?:率|確率)?|クリティカル(?:率|確率)?)\s*[:：]?\s*\d+(?:\.\d+)?%?/gi, "").replace(/[\s/,;]+/g, "");
+    if(!rest && fields.some(key=>labeled[key] !== "")){ rows.push(labeled); continue; }
+    return {error:"行を判別できません。1行に威力 / 命中 / CRIの順で入力し、空欄は - にしてください。"};
+   }
+  }
+ }
+ if(rows.length>6) return {error:"バレットは6発までです。この攻撃の表だけを貼り付けてください。"};
+ if(!rows.length || !rows.some(row=>fields.some(key=>row[key] !== "" && row[key] != null))) return {error:"威力・命中・CRIの数値が見つかりませんでした。"};
+ return {rows};
+}
+function importBulletStatsOnly(attackKey, raw){
+ const attack = attackData[attackKey];
+ const status = document.getElementById("stats-attack-status-"+attackKey);
+ const show = message=>{ if(status) status.textContent=message; };
+ if(!attack || attack.range === "補助"){ show("バレットのない攻撃には取り込めません。"); return; }
+ const parsed = parseBulletStatsOnly(raw,attackKey);
+ if(parsed.error){ show(parsed.error); return; }
+ if(!Array.isArray(attack.bullets)) attack.bullets = [];
+ let changed = 0;
+ parsed.rows.forEach((row,i)=>{
+  const fields = ["power","accuracy","critical"].filter(key=>row[key] !== "" && row[key] != null);
+  if(!fields.length) return;
+  if(!attack.bullets[i]) attack.bullets[i] = createBulletStructure(i+1);
+  fields.forEach(key=>{
+   attack.bullets[i][key] = String(row[key]);
+   const input = document.getElementById(`blt-${attackKey}-${i+1}-${key}`);
+   if(input) input.value = String(row[key]);
+  });
+  changed++;
+ });
+ show(`${changed}発の数値を取り込みました。`);
+}
+
 function refreshAttackEditorAfterImport(attackKey){
  const a = attackData[attackKey];
  if(!a) return;
@@ -15355,8 +15459,24 @@ function importWikiIntoAttack(attackKey, text){
   if(as && typeof buildSpecialControlsForObject === "function")
    buildSpecialControlsForObject("att-"+attackKey, a, as);
  }catch(e){}
- // rebuild attack UI partially - initEditors is heavy but reliable
- try{ initEditors(); }catch(e){}
+ // 再描画時も、この攻撃の開閉状態と未送信の貼り付け内容を保つ。
+ const previousBody = document.getElementById("attack-body-"+attackKey);
+ const importState = {
+  attackOpen: !!previousBody?.closest(".attack-accordion")?.classList.contains("open"),
+  sections: [...(previousBody?.querySelectorAll("[data-bullet-import]") || [])].map(el=>[el.dataset.bulletImport, el.open]),
+  fields: ["wiki-attack-paste-","stats-attack-paste-","bulk-import-","bulk-import-mode-"].map(prefix=>[prefix,document.getElementById(prefix+attackKey)?.value])
+ };
+ try{
+  initEditors();
+  const body = document.getElementById("attack-body-"+attackKey);
+  const wrapper = body?.closest(".attack-accordion");
+  if(importState.attackOpen && body && wrapper){
+   body.classList.add("open"); wrapper.classList.add("open");
+   const icon=wrapper.querySelector(".attack-acc-icon"); if(icon) icon.textContent="▲";
+  }
+  importState.sections.forEach(([name,open])=>{const el=body?.querySelector(`[data-bullet-import="${name}"]`); if(el) el.open=open;});
+  importState.fields.forEach(([prefix,value])=>{const el=document.getElementById(prefix+attackKey); if(el && value != null) el.value=value;});
+ }catch(e){ console.warn(e); }
 
  const st = document.getElementById("wiki-attack-status-"+attackKey);
  const msg = (nameSet ? "名前・" : "") + "バレット" + list.length + "発" + (usedSpecials.size ? " 特殊"+usedSpecials.size+"種" : "");
@@ -15398,6 +15518,15 @@ function bindPerAttackWikiImport(){
    const key = btn.getAttribute("data-wiki-attack-import");
    const ta = document.getElementById("wiki-attack-paste-"+key);
    importWikiIntoAttack(key, ta ? ta.value : "");
+  };
+ });
+ document.querySelectorAll("[data-stats-attack-import]").forEach(btn=>{
+  if(btn.dataset.boundStats) return;
+  btn.dataset.boundStats = "1";
+  btn.onclick = ()=>{
+   const key = btn.getAttribute("data-stats-attack-import");
+   const ta = document.getElementById("stats-attack-paste-"+key);
+   importBulletStatsOnly(key, ta ? ta.value : "");
   };
  });
  const abBtn = document.getElementById("wikiAbilityImportBtn");
