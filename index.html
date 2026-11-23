@@ -338,17 +338,20 @@ body.theme-dark #detailModal a{color:#a8ceff}
 .skill-effect-text,.trait-effect-text{color:var(--lw-ink);font-size:13px;font-weight:600;line-height:1.5}
 .skill-entry,.skill-slot-special{font-size:13px}
 .damage-attack-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.damage-compact-list{display:grid;gap:3px;margin-top:8px}
+.damage-compact-row{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;font-size:12px}
+.damage-compact-row>.damage-index-btn{white-space:nowrap}
 .damage-attack-row>.attack-acc-head{flex:1 1 8rem;min-width:0;width:auto}
 .damage-attack-row>.damage-index-btn{margin-inline-end:8px}
 .search-attack-title{padding:0;border:0;background:none;text-align:left;font-family:inherit;cursor:pointer;max-width:100%}
-.damage-index-btn{background:var(--lw-panel2);color:var(--lw-ink);border:1px solid var(--lw-border);border-radius:8px;padding:5px 8px;cursor:pointer;line-height:1.4;font-family:inherit;font-size:12px;font-weight:700}
+.damage-index-btn{color:var(--lw-ink);line-height:1.4;font-family:inherit}
 .damage-index-btn:hover,.damage-index-btn:focus-visible{border-color:var(--lw-gold)}
-#damageCalculator{width:min(700px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:var(--lw-panel);color:var(--lw-ink);border:1px solid var(--lw-border);border-radius:12px;padding:14px}
-#damageCalculator::backdrop{background:rgba(8,10,18,.7)}
+#damageCalculator{width:min(700px,calc(100% - 24px));max-height:90dvh;color:var(--lw-ink);padding:14px}
+#damageCalculator::backdrop{background:rgba(8,10,18,.72)}
 .damage-calculator-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .damage-calculator-head h2,.damage-calculator-body h3{margin:0;font-size:16px}
 .damage-attack-title{margin:8px 0;font-weight:700;overflow-wrap:anywhere}
-.damage-total{display:block;margin:10px 0;padding:8px;background:var(--lw-panel2);border-radius:8px;font-weight:700}
+.damage-total{display:block;margin:10px 0;font-weight:700}
 .damage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin:10px 0}
 .damage-grid>label{font-size:12px;min-width:0}
 .damage-grid .input{width:100%;margin-top:3px}
@@ -3346,6 +3349,7 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
     <option value="rarity">レアリティ表記順</option>
     <option value="origin">原作登場作品順</option>
     <option value="updated" data-admin-sort="1">最終更新順</option>
+    <option value="damage_desc" data-admin-sort="1" hidden disabled>火力指数 高い順（管理者のみ）</option>
     <optgroup label="ステータス 高い順">
      <option value="stat_power_desc">総合つよさ 高い順</option>
      <option value="stat_hp_desc">体力 高い順</option>
@@ -3799,9 +3803,9 @@ alter table gacha_pickups add column if not exists start_after_maint boolean def
 </div>
 </div>
 
-<dialog id="damageCalculator" aria-labelledby="damageCalculatorTitle">
+<dialog id="damageCalculator" class="modal-content" aria-labelledby="damageCalculatorTitle">
  <div class="damage-calculator-head">
-  <h2 id="damageCalculatorTitle">火力計算</h2>
+  <h2 id="damageCalculatorTitle">火力計算 <span class="tag">管理者のみ</span></h2>
   <form method="dialog"><button type="submit" class="btn-sm">閉じる</button></form>
  </div>
  <div class="damage-calculator-body"></div>
@@ -5252,8 +5256,10 @@ function toggleResultVariant(id){
  const cur = resultVariantMap[key] === "before" ? "before" : "after";
  resultVariantMap[key] = cur === "after" ? "before" : "after";
  // 再描画
- if(lastResults && lastResults.length) renderResults(lastResults);
- else search(true);
+ if(lastResults && lastResults.length){
+  if(isDamageSortActive()) lastResults = applyResultSort(lastResults);
+  renderResults(lastResults);
+ }else search(true);
 }
 
 /* 検索履歴・お気に入り（アカウント保存） */
@@ -5510,8 +5516,23 @@ function formatHardSharpRatioBadgeHtml(c){
  return `<span class="sort-stat-badge hard-sharp-ratio-badge" title="このキャラの最高倍率">${parts.join(" / ")}</span>`;
 }
 
+function isDamageSortActive(){
+ return isAdmin() && document.getElementById("sortMode")?.value === "damage_desc";
+}
 function applyResultSort(arr){
  const list = (arr || []).slice();
+ if(isDamageSortActive()){
+  const attackFilterOn = hasAttackRelatedFilter();
+  const scores = new Map(list.map(c=>{
+   const view = getViewModel(c);
+   const best = getResultAttacks(view, attackFilterOn).reduce((max,[,attack])=>{
+    const score = getBaselineDamageIndex(attack,view);
+    return score === null ? max : Math.max(max,score);
+   },-Infinity);
+   return [c,best];
+  }));
+  return list.sort((a,b)=>(scores.get(b)-scores.get(a)) || getKanaSortKey(a).localeCompare(getKanaSortKey(b),"ja"));
+ }
  // 硬質・斬裂の倍率並び（特殊弾選択時）
  const hsSorts = (typeof getActiveHardSharpRatioSort === "function") ? getActiveHardSharpRatioSort() : [];
  if(hsSorts.length){
@@ -5527,7 +5548,8 @@ function applyResultSort(arr){
   });
   return list;
  }
- const mode = (document.getElementById("sortMode")?.value) || "default";
+ const requestedMode = document.getElementById("sortMode")?.value || "default";
+ const mode = requestedMode === "damage_desc" ? "default" : requestedMode;
  const defaultRank = (mode === "default" || mode === "origin")
   ? buildDefaultRankMap(data)
   : null;
@@ -5809,6 +5831,21 @@ function setAuthButtonsDisabled(disabled){
 
 let authMode = "login"; // login | setPassword
 function renderAuthBar(msg, msgType){
+ const showDamage = isAdmin();
+ const sortEl = document.getElementById("sortMode");
+ const damageSort = sortEl?.querySelector('option[value="damage_desc"]');
+ if(damageSort){
+  damageSort.hidden = damageSort.disabled = !showDamage;
+  if(!showDamage && sortEl.value === "damage_desc"){
+   sortEl.value = "default";
+   lastResults = applyResultSort(lastResults);
+  }
+ }
+ document.querySelectorAll(".damage-compact-list,[data-damage-char]").forEach(el=>el.classList.toggle("hidden", !showDamage));
+ if(!showDamage){
+  const calculator = document.getElementById("damageCalculator");
+  if(calculator.open) calculator.close();
+ }
  try{ syncViewerData(); }catch(e){}
  const bar=document.getElementById("authBar");
  if(!bar) return;
@@ -17165,6 +17202,7 @@ function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
    "敵防御":enemyDef, "威力":b.power, "弾数":b.count, "命中率":b.sure ? 100 : b.accuracy,
    "CRI率":b.forceCritical ? 100 : b.critical, "硬質倍率":b.hard, "斬裂倍率":b.sharp
   };
+  if(num(o.hpPower)>0) requirements["最大体力"] = stats.hp > 0 ? stats.hp : null;
   if(b.hard > 0) requirements["自機防御力"] = def;
   if(b.sharp > 0) requirements["自機速力"] = speed;
   const absent = Object.entries(requirements).filter(([,v])=>v === null || v < 0).map(([k])=>k);
@@ -17187,7 +17225,8 @@ function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
   const base = b.count * b.power * num(o.level) * (1+.065*(num(o.attackLevel)-1)) * (adjustedAtk/enemyFinal);
   const value = base * hit * (1+critical*(criticalMultiplier-1)) * (o.fullBreak ? 4 : 1) *
    num(b.element,1)*percent(b.story)*percent(b.bonus)*probability(1-num(b.reduction)/100)*num(o.random,1) *
-   percent(o.damageBonus)*probability(1-num(o.damageCut)/100);
+   percent(o.damageBonus)*probability(1-num(o.damageCut)/100) *
+   percent(num(o.hpPower) * (stats.hp > 0 ? probability(num(o.currentHp,stats.hp)/stats.hp) : 0));
   if(!Number.isFinite(value) || value < 0){ missing++; return {state:"missing",absent:["計算条件の範囲"]}; }
   total += value;
   return {state:"ok",value,hit,critical};
@@ -17199,18 +17238,28 @@ function damageDisplay(value){
  return new Intl.NumberFormat("ja-JP",{maximumFractionDigits:1}).format(value);
 }
 
-function damageIndexHtml(characterId, attackKey, attack, view){
- if(attack.range === "補助" || !characterId || !view) return "";
- const rows = damageRows(attack);
+function getResultAttacks(view, attackFilterOn){
+ return getOrderedAttacks(view.attacks).filter(([key,attack,label])=>{
+  const hasBullets = (attack.bullets||[]).some(b=>b && (b.name || b.attr || b.bulletType));
+  return (attack.name || hasBullets || attack.range==="補助") && (!attackFilterOn || checkAttackMatch(attack,label,key));
+ });
+}
+function getBaselineDamageIndex(attack, view){
+ if(attack.range === "補助" || view.statsUnknown) return null;
  const options = {...DAMAGE_BASIC,level:view.rebirth && view.side==="after" ? 140 : 100};
- const calc = calculateAttackDamage(view.statsUnknown ? {} : view.stats || {}, rows, options);
- const value = calc.complete ? damageDisplay(calc.total) : "データ不足";
- return `<button type="button" class="damage-index-btn" data-damage-char="${esc(String(characterId))}" data-damage-attack="${esc(attackKey)}" data-damage-side="${esc(view.side || "")}"
+ const calc = calculateAttackDamage(view.stats || {}, damageRows(attack), options);
+ return calc.complete ? calc.total : null;
+}
+function damageIndexHtml(characterId, attackKey, attack, view){
+ if(!isAdmin() || attack.range === "補助" || !characterId || !view) return "";
+ const index = getBaselineDamageIndex(attack,view);
+ const value = index === null ? "データ不足" : damageDisplay(index);
+ return `<button type="button" class="btn-sm damage-index-btn" data-damage-char="${esc(String(characterId))}" data-damage-attack="${esc(attackKey)}" data-damage-side="${esc(view.side || "")}"
   title="3ブースト・敵防御2000の期待値。クリックで詳細計算">火力指数 ${value}</button>`;
 }
 
 const DAMAGE_STAT_FIELDS = [
- ["yangAtk","陽攻",0],["yinAtk","陰攻",0],["yangDef","陽防",0],["yinDef","陰防",0],["speed","速力",0]
+ ["hp","体力",1],["yangAtk","陽攻",0],["yinAtk","陰攻",0],["yangDef","陽防",0],["yinDef","陰防",0],["speed","速力",0]
 ];
 const DAMAGE_RANK_FIELDS = [
  ["yangAtkRank","自機 陽攻"],["yinAtkRank","自機 陰攻"],["yangDefRank","自機 陽防"],["yinDefRank","自機 陰防"],
@@ -17227,6 +17276,7 @@ const DAMAGE_ADJUSTMENTS = [
  ["yangEnemyDefBonus","敵 陽防補正 (%)",-99],["yinEnemyDefBonus","敵 陰防補正 (%)",-99],
  ["speedBonus","自機 速力補正 (%)",-99],["statReduction","ステータス低下 (%)",0,100],
  ["criChanceBonus","CRI率の加算 (ポイント)",-100,100],["criDamageBonus","CRI倍率補正 (%)",-100],
+ ["hpPower","体力畜力 最大補正 (%)",0],["currentHp","現在の体力（空欄なら最大）",0],
  ["damageBonus","追加ダメージ補正 (%)",-100],["damageCut","ダメージカット (%)",0,100]
 ];
 
@@ -17234,7 +17284,34 @@ function damageField(name,label,value,min,max,step="any"){
  return `<label>${esc(label)}<input type="number" name="${name}" value="${esc(value ?? "")}" min="${min}" ${max==null?"":'max="'+max+'"'} step="${step}" inputmode="decimal" class="input"></label>`;
 }
 
+function storyCardDamageRow(){
+ return `<div class="damage-grid" data-story-damage-row>
+  <label>補正対象<select class="input" data-story-target>
+   <optgroup label="属性">${ATTR.map(x=>`<option value="attr:${esc(x)}">${esc(x)}属性</option>`).join("")}</optgroup>
+   <optgroup label="弾種">${BULLETS.map(x=>`<option value="type:${esc(x)}">${esc(x)}</option>`).join("")}</optgroup>
+  </select></label>
+  <label>威力補正 (%)<input type="number" class="input" min="0" step="any" inputmode="decimal" data-story-percent></label>
+  <button type="button" class="btn-sm" data-story-remove>削除</button>
+ </div>`;
+}
+function storyCardCalculatorHtml(){
+ return `<details class="damage-story-card">
+  <summary>絵札設定</summary>
+  <p class="mini">一致するバレットだけに補正します。同じ対象は加算し、属性と弾種の補正は掛け合わせます。</p>
+  <div data-story-damage-list></div>
+  <button type="button" class="btn-sm" data-story-add>＋ 属性・弾種の補正を追加</button>
+  <div class="mini">ステータス補正</div>
+  ${[1,2].map(i=>`<div class="damage-grid" data-story-stat-row>
+   <label>ステータス ${i}<select class="input" data-story-stat>
+    <option value="">なし</option>${DAMAGE_STAT_FIELDS.map(([key,label])=>`<option value="${key}">${label}</option>`).join("")}
+   </select></label>
+   <label>加算値<input type="number" class="input" min="0" step="1" inputmode="numeric" data-story-stat-value></label>
+  </div>`).join("")}
+  <output class="mini" data-story-applied></output>
+ </details>`;
+}
 function openDamageCalculator(charId, attackKey, side){
+ if(!isAdmin()) return;
  const c = data.find(item=>String(item.id)===String(charId));
  if(!c) return;
  const currentSide = side || getViewSide(c);
@@ -17250,7 +17327,7 @@ function openDamageCalculator(charId, attackKey, side){
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
   <p class="mini">基準：3ブースト、攻撃Lv.5、敵の陽防・陰防2000、等倍、追加補正なし。1体あたりのダメージ期待値です。</p>
-  <output class="damage-total" aria-live="polite"></output>
+  <output class="stats-panel damage-total" aria-live="polite"></output>
   <form>
    <div class="damage-grid">
     <label>ブースト<select class="input" name="boost">${[0,1,2,3].map(i=>`<option value="${i}" ${i===3?"selected":""}>P${i}</option>`).join("")}</select></label>
@@ -17261,9 +17338,10 @@ function openDamageCalculator(charId, attackKey, side){
     ${damageField("random","乱数倍率",1,0)}
     <label class="damage-check"><input type="checkbox" name="fullBreak">フルブレイク</label>
    </div>
+   ${storyCardCalculatorHtml()}
    <details><summary>自機ステータス</summary><div class="damage-grid">${DAMAGE_STAT_FIELDS.map(([key,label,min])=>damageField(key,label,stats[key],min)).join("")}</div></details>
    <details><summary>ランク補正（バフは＋、デバフは−）</summary><div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,0,-99,99,1)+damageField(key+"2",label+"Ⅱ",0,-99,99,1)).join("")}</div></details>
-   <details><summary>結界異常・その他の補正</summary><div class="damage-grid">${DAMAGE_ADJUSTMENTS.map(([key,label,min,max,step])=>damageField(key,label,0,min,max,step)).join("")}</div></details>
+   <details><summary>結界異常・その他の補正</summary><div class="damage-grid">${DAMAGE_ADJUSTMENTS.map(([key,label,min,max,step])=>damageField(key,label,key==="currentHp" ? "" : 0,min,max,step)).join("")}</div></details>
    <h3>バレットごとの内訳</h3>
    ${rows.map(b=>`<details class="damage-bullet"><summary>${esc(b.name)} <span data-bullet-damage></span></summary>
     <div class="damage-bullet-fields">
@@ -17273,7 +17351,7 @@ function openDamageCalculator(charId, attackKey, side){
       ${damageField("power","威力",b.power,0)}${damageField("count","弾数",b.count,1,undefined,1)}
       ${damageField("accuracy","命中率 (%)",b.accuracy,0,100)}${damageField("critical","CRI率 (%)",b.critical,0,100)}
       ${damageField("hard","硬質倍率 (%)",b.hard,0)}${damageField("sharp","斬裂倍率 (%)",b.sharp,0)}
-      ${damageField("element","属性相性倍率",1,0)}${damageField("story","絵札補正 (%)",0,-100)}
+      ${damageField("element","属性相性倍率",1,0)}
       ${damageField("bonus","弾種・属性などの補正 (%)",0,-100)}${damageField("reduction","この弾へのカット (%)",0,0,100)}
       <label class="damage-check"><input type="checkbox" name="sure" ${b.sure?"checked":""}>必中</label>
       <label class="damage-check"><input type="checkbox" name="pierce" ${b.pierce?"checked":""}>貫通</label>
@@ -17284,7 +17362,7 @@ function openDamageCalculator(charId, attackKey, side){
      <p class="mini">${esc([b.attr ? b.attr+"属性" : "",b.bulletType].filter(Boolean).join("・"))}</p>
     </div></details>`).join("")}
   </form>
-  <p class="mini">スキル・スペカ前後効果、共鳴・団結、畜力、相性や絵札などは条件に合わせて入力してください。弾の途中で効果が変わる場合や擂台固有の計算は自動反映しません。</p>
+  <p class="mini">スキル・スペカ前後効果、共鳴・団結、畜力、相性などは条件に合わせて入力してください。弾の途中で効果が変わる場合や擂台固有の計算は自動反映しません。</p>
   <p class="mini"><a href="${DAMAGE_REFERENCE}" target="_blank" rel="noopener noreferrer">参考：東方ロストワード ダメージ計算 ver.2</a></p>`;
 
  const form = body.querySelector("form");
@@ -17307,15 +17385,47 @@ function openDamageCalculator(charId, attackKey, side){
    }
   }
   const configured = bulletCards.map((card,i)=>({...rows[i],...Object.fromEntries([...card.querySelectorAll("input[name],select[name]")].map(el=>[el.name,read(el)]))}));
-  const result = calculateAttackDamage(values, configured, values);
+  const modifiers = new Map();
+  form.querySelectorAll("[data-story-damage-row]").forEach(row=>{
+   const key = row.querySelector("[data-story-target]").value;
+   const pct = damageNumber(row.querySelector("[data-story-percent]").value) ?? 0;
+   modifiers.set(key,(modifiers.get(key)||0)+pct);
+  });
+  const adjustedStats = {...values};
+  form.querySelectorAll("[data-story-stat-row]").forEach(row=>{
+   const key = row.querySelector("[data-story-stat]").value;
+   const extra = damageNumber(row.querySelector("[data-story-stat-value]").value) ?? 0;
+   if(key && adjustedStats[key] != null) adjustedStats[key] += extra;
+  });
+  form.querySelector("[data-story-applied]").textContent = "絵札適用後：" + DAMAGE_STAT_FIELDS.map(([key,label])=>
+   label + " " + (adjustedStats[key] == null ? "未入力" : damageDisplay(adjustedStats[key]))
+  ).join(" ／ ");
+  configured.forEach(b=>{
+   const attr = modifiers.get("attr:"+b.attr) ?? 0;
+   const type = modifiers.get("type:"+b.bulletType) ?? 0;
+   b.story = ((1 + attr/100)*(1 + type/100)-1)*100;
+  });
+  const result = calculateAttackDamage(adjustedStats, configured, values);
   output.textContent = result.complete ? "ダメージ期待値： "+damageDisplay(result.total)
    : "計算できた弾の小計： "+damageDisplay(result.total)+"（未計算 "+result.missing+" 行）";
   result.breakdown.forEach((row,i)=>{
    const el=bulletCards[i].querySelector("[data-bullet-damage]");
    el.textContent = row.state==="locked" ? "未解放" : row.state==="missing" ? "未入力・要確認："+row.absent.join("、")
-    : damageDisplay(row.value)+"（命中 "+damageDisplay(row.hit*100)+"% / CRI "+damageDisplay(row.critical*100)+"%）";
+    : damageDisplay(row.value)+"（命中 "+damageDisplay(row.hit*100)+"% / CRI "+damageDisplay(row.critical*100)+"%）"+
+     (configured[i].story ? " 絵札 +"+damageDisplay(configured[i].story)+"%" : "");
   });
  };
+ form.addEventListener("click",ev=>{
+  if(ev.target.closest("[data-story-add]")){
+   const list = form.querySelector("[data-story-damage-list]");
+   list.insertAdjacentHTML("beforeend",storyCardDamageRow());
+   list.lastElementChild.querySelector("[data-story-target]").focus();
+  }else if(ev.target.closest("[data-story-remove]")){
+   ev.target.closest("[data-story-damage-row]").remove();
+   form.querySelector("[data-story-add]").focus();
+   refresh();
+  }
+ });
  form.addEventListener("submit",ev=>ev.preventDefault());
  form.addEventListener("input",refresh);
  refresh();
@@ -17363,7 +17473,8 @@ function renderResults(arr){
   return;
  }
 
- const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
+ const attackFilterOn = hasAttackRelatedFilter();
+ const damageSort = isDamageSortActive();
  const canEdit = isAdmin();
  const detailActive = isDetailSearchActive();
  const nameOnly = !detailActive || !!allowSimpleOnDetailSearch;
@@ -17432,6 +17543,13 @@ function renderResults(arr){
    ${formatIncompleteHtml(getInputGaps(c))}
   `;
 
+  if(nameOnly && canEdit){
+   const compact = getResultAttacks(vm, attackFilterOn).filter(([,a])=>a.range!=="補助").map(([key,a,label])=>
+    `<div class="damage-compact-row"><span>${esc(a.name || label)}</span>${damageIndexHtml(c.id,key,a,vm)}</div>`
+   ).join("");
+   if(compact) h += `<div class="damage-compact-list" aria-label="火力指数${sideLabel ? "（"+esc(sideLabel)+"）" : ""}">${compact}</div>`;
+  }
+
   if(!nameOnly){
    let tiles = "";
    // 検索していない項目は結果に出さない（属性・弾種検索時はショット/スペカ中心）
@@ -17465,19 +17583,9 @@ function renderResults(arr){
    }
    if(tiles) h += `<div class="bento-tiles two">${tiles}</div>`;
 
-   const attackFilterOn = hasAttackRelatedFilter();
-   // 特殊スキル／RANKⅡだけの検索ではショット・スペカを出さない
-   const skillSearchOnly = (typeof isSpecialSkillSearchActive === "function" && isSpecialSkillSearchActive())
-    && !attackFilterOn;
-   const visibleAttacks = skillSearchOnly ? [] : getOrderedAttacks(vm.attacks).filter(([k,a,label])=>{
-    if(!a) return false;
-    const isSupport = a.range === "補助";
-    const hasBullets = (a.bullets||[]).some(b => b && (b.name || b.attr || b.bulletType));
-    if(!a.name && !hasBullets && !isSupport) return false;
-    // 攻撃関連の条件があるときは一致したものだけ表示
-    if(attackFilterOn) return checkAttackMatch(a, label, k);
-    return true;
-   });
+   // 特殊スキルだけの検索では攻撃を省略する。火力順を選んだ場合は指数も表示する。
+   const skillSearchOnly = isSpecialSkillSearchActive() && !attackFilterOn && !damageSort;
+   const visibleAttacks = skillSearchOnly ? [] : getResultAttacks(vm, attackFilterOn);
 
    if(visibleAttacks.length){
     h += visibleAttacks
@@ -17496,7 +17604,7 @@ function renderResults(arr){
       簡易表示にする
      </label>`
   : "";
- e.innerHTML = `<div class="result-count" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">${arr.length}件${nameOnly ? "（簡易表示）" : ""}${simpleBtn}</div><div class="results-bento">${cardsHtml}</div>`;
+ e.innerHTML = `<div class="result-count" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">${arr.length}件${nameOnly ? "（簡易表示）" : ""}${damageSort ? '<span class="mini">対象のショット・スペカの最高火力順</span>' : ""}${simpleBtn}</div><div class="results-bento">${cardsHtml}</div>`;
  const chk = document.getElementById("forceSimpleDetailChk");
  if(chk){
   chk.onchange = ()=>{
