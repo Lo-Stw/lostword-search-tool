@@ -4759,7 +4759,22 @@ function isPackEmpty(pack){
   (pack.abilities.graze&&pack.abilities.graze.enabled) ||
   (pack.abilities.conversion&&Object.values(pack.abilities.conversion).some(v=>v===true||(Array.isArray(v)&&v.length)))
  );
- return !(pack.symbol || pack.type || hasStats || hasAttacks || hasSkills || hasAb);
+ const hasText = v => v != null && (typeof v === "string" ? v.trim() !== "" : (typeof v === "number" && Number.isFinite(v)) || v === true);
+ const hasEffectEntries = effects => !!(effects && Object.values(effects).some(v=>Array.isArray(v) && v.length));
+ const bgm = pack.bgm || {};
+ const hasBgm = ["title","circle","arranger","lyricist","vocal","original"].some(k=>hasText(bgm[k])) ||
+  (Array.isArray(bgm.vocals) && bgm.vocals.length > 0) ||
+  (Array.isArray(bgm.originals) && (bgm.originals.length > 1 || bgm.originals.some(hasText))) ||
+  (Array.isArray(bgm.links) && bgm.links.length > 0);
+ const hasCharSkills = Array.isArray(pack.skills) && pack.skills.some(sk=>sk && (
+  hasText(sk.name) || hasText(sk.cooldown) || hasText(sk.text) || hasEffectEntries(sk.effects)
+ ));
+ const hasCharTraits = Array.isArray(pack.traits) && pack.traits.some(tr=>tr && (
+  Object.entries(tr).some(([k,v])=>k!=="effects" && (Array.isArray(v) ? v.length > 0 : hasText(v))) ||
+  hasEffectEntries(tr.effects)
+ ));
+ const hasCharExtras = hasBgm || hasCharSkills || hasCharTraits;
+ return !(pack.symbol || pack.type || hasStats || hasAttacks || hasSkills || hasAb || hasCharExtras);
 }
 
 function setRebirthUI(enabled, preferVariant, options){
@@ -4895,10 +4910,13 @@ function packFromCharacterSide(c, side){
  const rootBgm = d.bgm || null;
  const rootCharSkills = d.charSkills || d.skillsList || null;
  const rootTraits = d.traits || null;
+  const sideBgm = p => (p && p.bgm && typeof p.bgm === "object") ? p.bgm : rootBgm;
+  const sideSkills = p => Array.isArray(p && p.skills) ? p.skills : (Array.isArray(p && p.charSkills) ? p.charSkills : rootCharSkills);
+  const sideTraits = p => Array.isArray(p && p.traits) ? p.traits : rootTraits;
 
  if(side === "after"){
   const a = (rb.after && typeof rb.after === "object") ? rb.after : null;
-  if(a && (a.attacks || a.stats || a.specialSkills || a.abilities || a.statsUnknown)){
+   if(a && (a.attacks || a.stats || a.specialSkills || a.abilities || a.statsUnknown || a.bgm || a.skills || a.charSkills || a.traits)){
    return {
     symbol: a.symbol != null ? a.symbol : (c.symbol || ""),
     type: a.type != null ? a.type : (c.type || ""),
@@ -4906,7 +4924,10 @@ function packFromCharacterSide(c, side){
     statsUnknown: !!a.statsUnknown,
     specialSkills: a.specialSkills || rootSkills,
     abilities: a.abilities || rootAbilities,
-    attacks: a.attacks || rootAttacks
+     attacks: a.attacks || rootAttacks,
+     bgm: sideBgm(a),
+     skills: sideSkills(a),
+     traits: sideTraits(a)
    };
   }
   // 転生後データがまだ無いときは転生前相当を返す（空で潰さない）
@@ -4916,7 +4937,10 @@ function packFromCharacterSide(c, side){
    stats: d.statsAfter || rootStats,
    specialSkills: rootSkills,
    abilities: rootAbilities,
-   attacks: rootAttacks
+    attacks: rootAttacks,
+    bgm: rootBgm,
+    skills: rootCharSkills,
+    traits: rootTraits
   };
  }
  // before / default
@@ -4928,7 +4952,10 @@ function packFromCharacterSide(c, side){
   specialSkills: (b && b.specialSkills) ? b.specialSkills : rootSkills,
   abilities: (b && b.abilities) ? b.abilities : rootAbilities,
   // before.attacks が空オブジェクトでも root を優先できるように
-  attacks: (b && b.attacks && Object.keys(b.attacks).length) ? b.attacks : rootAttacks
+   attacks: (b && b.attacks && Object.keys(b.attacks).length) ? b.attacks : rootAttacks,
+   bgm: sideBgm(b),
+   skills: sideSkills(b),
+   traits: sideTraits(b)
  };
 }
 
