@@ -5841,7 +5841,8 @@ function renderAuthBar(msg, msgType){
    lastResults = applyResultSort(lastResults);
   }
  }
- document.querySelectorAll(".damage-compact-list,[data-damage-char]").forEach(el=>el.classList.toggle("hidden", !showDamage));
+ document.querySelectorAll(".damage-compact-list").forEach(el=>el.classList.toggle("hidden", !isDamageSortActive()));
+ document.querySelectorAll("[data-damage-char]").forEach(btn=>btn.classList.toggle("hidden", !showDamage));
  if(!showDamage){
   const calculator = document.getElementById("damageCalculator");
   if(calculator.open) calculator.close();
@@ -17543,7 +17544,7 @@ function renderResults(arr){
    ${formatIncompleteHtml(getInputGaps(c))}
   `;
 
-  if(nameOnly && canEdit){
+  if(nameOnly && damageSort){
    const compact = getResultAttacks(vm, attackFilterOn).filter(([,a])=>a.range!=="補助").map(([key,a,label])=>
     `<div class="damage-compact-row"><span>${esc(a.name || label)}</span>${damageIndexHtml(c.id,key,a,vm)}</div>`
    ).join("");
