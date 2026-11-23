@@ -17723,6 +17723,19 @@ function storyCardCalculatorHtml(){
   <output class="mini" data-story-applied></output>
  </details>`;
 }
+const DAMAGE_AFFINITY = {
+ neutral:{ label:"等倍", multiplier:1 },
+ good:{ label:"有利属性", multiplier:2 },
+ bad:{ label:"不利属性", multiplier:.5 }
+};
+const DAMAGE_PRESET_MAX_RANK = 10;
+
+function damageAffinityMultiplier(affinity, ability){
+ const base = DAMAGE_AFFINITY[affinity]?.multiplier ?? 1;
+ const bonus = affinity === "good" || affinity === "bad" ? damageNumber(ability?.[affinity]) ?? 0 : 0;
+ return base * (1 + bonus / 100);
+}
+
 function openDamageCalculator(charId, attackKey, side){
  if(!isAdmin()) return;
  const c = data.find(item=>String(item.id)===String(charId));
@@ -17737,6 +17750,9 @@ function openDamageCalculator(charId, attackKey, side){
  if(!rows.length) rows.push(...damageRows({bullets:[{name:"バレット1"}]}));
  const defaults = {...DAMAGE_BASIC,level:getCharRebirth(c).enabled && currentSide==="after" ? 140 : 100};
  const stats = pack.statsUnknown ? {} : pack.stats || {};
+ const abilityDamageUp = pack.abilities?.damageUp || {};
+ const affinityOptions = Object.entries(DAMAGE_AFFINITY).map(([key,{label}])=>
+  `<option value="${key}">${label}（×${new Intl.NumberFormat("ja-JP",{maximumFractionDigits:6}).format(damageAffinityMultiplier(key,abilityDamageUp))}）</option>`).join("");
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
   <p class="mini">基準：3ブースト、攻撃Lv.5、敵の陽防・陰防2000、等倍、追加補正なし。1体あたりのダメージ期待値です。</p>
@@ -17749,13 +17765,26 @@ function openDamageCalculator(charId, attackKey, side){
     ${damageField("enemyYang","敵 陽防",2000,1)}
     ${damageField("enemyYin","敵 陰防",2000,1)}
     ${damageField("random","乱数倍率",1,0)}
+    <label style="grid-column:1 / -1">全バレットの属性相性<select class="input" name="affinity">${affinityOptions}</select></label>
     <label class="damage-check"><input type="checkbox" name="fullBreak">フルブレイク</label>
    </div>
    ${storyCardCalculatorHtml()}
    <details><summary>自機ステータス</summary><div class="damage-grid">${DAMAGE_STAT_FIELDS.map(([key,label,min])=>damageField(key,label,stats[key],min)).join("")}</div></details>
-   <details><summary>ランク補正（バフは＋、デバフは−）</summary><div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,0,-99,99,1)+damageField(key+"2",label+"Ⅱ",0,-99,99,1)).join("")}</div></details>
+   <p class="mini">能力の与ダメージアップ：有利 +${esc(abilityDamageUp.good || 0)}% ／ 不利 +${esc(abilityDamageUp.bad || 0)}%</p>
+   <details><summary>ランク補正（バフは＋、デバフは−）</summary>
+   <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0;">
+    <button type="button" class="btn-sm" data-rank-preset="max">バフ・デバフをMAX</button>
+    <button type="button" class="btn-sm" data-rank-preset="reset">ランク補正をリセット</button>
+   </div>
+   <p class="mini">MAX：自機 ＋${DAMAGE_PRESET_MAX_RANK} ／ 敵 −${DAMAGE_PRESET_MAX_RANK}（通常・RankⅡ）</p>
+   <div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,0,-99,99,1)+damageField(key+"2",label+"Ⅱ",0,-99,99,1)).join("")}</div></details>
    <details><summary>結界異常・その他の補正</summary><div class="damage-grid">${DAMAGE_ADJUSTMENTS.map(([key,label,min,max,step])=>damageField(key,label,key==="currentHp" ? "" : 0,min,max,step)).join("")}</div></details>
    <h3>バレットごとの内訳</h3>
+   <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0;">
+    <button type="button" class="btn-sm" data-killer-preset="on">特攻を一括で有り</button>
+    <button type="button" class="btn-sm" data-killer-preset="off">特攻を一括で無し</button>
+   </div>
+   <p class="mini">特攻付きの弾の確定CRIをまとめて切り替えます。</p>
    ${rows.map(b=>`<details class="damage-bullet"><summary>${esc(b.name)} <span data-bullet-damage></span></summary>
     <div class="damage-bullet-fields">
      <div class="damage-grid">
@@ -17764,7 +17793,8 @@ function openDamageCalculator(charId, attackKey, side){
       ${damageField("power","威力",b.power,0)}${damageField("count","弾数",b.count,1,undefined,1)}
       ${damageField("accuracy","命中率 (%)",b.accuracy,0,100)}${damageField("critical","CRI率 (%)",b.critical,0,100)}
       ${damageField("hard","硬質倍率 (%)",b.hard,0)}${damageField("sharp","斬裂倍率 (%)",b.sharp,0)}
-      ${damageField("element","属性相性倍率",1,0)}
+      <label style="grid-column:1 / -1">属性相性<select class="input" name="bulletAffinity"><option value="inherit">全体設定に従う</option>${affinityOptions}<option value="manual">倍率を手入力</option></select></label>
+      ${damageField("element","属性相性倍率（手入力）",1,0)}
       ${damageField("bonus","弾種・属性などの補正 (%)",0,-100)}${damageField("reduction","この弾へのカット (%)",0,0,100)}
       <label class="damage-check"><input type="checkbox" name="sure" ${b.sure?"checked":""}>必中</label>
       <label class="damage-check"><input type="checkbox" name="pierce" ${b.pierce?"checked":""}>貫通</label>
@@ -17781,9 +17811,13 @@ function openDamageCalculator(charId, attackKey, side){
  const form = body.querySelector("form");
  const controls = [...form.querySelectorAll("input[name],select[name]")].filter(el=>!el.closest(".damage-bullet"));
  const bulletCards = [...form.querySelectorAll(".damage-bullet")];
- const read = el=>el.type==="checkbox" ? el.checked : el.name==="kind" ? el.value : damageNumber(el.value);
+ const read = el=>el.type==="checkbox" ? el.checked : ["kind","affinity","bulletAffinity"].includes(el.name) ? el.value : damageNumber(el.value);
  const refresh = ()=>{
   const output = body.querySelector(".damage-total");
+  bulletCards.forEach(card=>{
+   const manual = card.querySelector('[name="bulletAffinity"]').value === "manual";
+   card.querySelector('[name="element"]').disabled = !manual;
+  });
   if([...form.querySelectorAll("input")].some(el=>!el.validity.valid)){
    output.textContent="入力値の範囲を確認してください。";
    bulletCards.forEach(card=>{card.querySelector("[data-bullet-damage]").textContent="";});
@@ -17814,6 +17848,8 @@ function openDamageCalculator(charId, attackKey, side){
    label + " " + (adjustedStats[key] == null ? "未入力" : damageDisplay(adjustedStats[key]))
   ).join(" ／ ");
   configured.forEach(b=>{
+   const affinity = b.bulletAffinity === "inherit" ? values.affinity : b.bulletAffinity;
+   if(affinity !== "manual") b.element = damageAffinityMultiplier(affinity,abilityDamageUp);
    const attr = modifiers.get("attr:"+b.attr) ?? 0;
    const type = modifiers.get("type:"+b.bulletType) ?? 0;
    b.story = ((1 + attr/100)*(1 + type/100)-1)*100;
@@ -17829,7 +17865,22 @@ function openDamageCalculator(charId, attackKey, side){
   });
  };
  form.addEventListener("click",ev=>{
-  if(ev.target.closest("[data-story-add]")){
+  const rankPreset = ev.target.closest("[data-rank-preset]");
+  const killerPreset = ev.target.closest("[data-killer-preset]");
+  if(rankPreset){
+   const max = rankPreset.dataset.rankPreset === "max";
+   DAMAGE_RANK_FIELDS.forEach(([key,label])=>{
+    const rank = max ? (label.startsWith("敵 ") ? -1 : 1) * DAMAGE_PRESET_MAX_RANK : 0;
+    form.elements.namedItem(key).value = rank;
+    form.elements.namedItem(key+"2").value = rank;
+   });
+   refresh();
+  }else if(killerPreset){
+   bulletCards.forEach((card,i)=>{
+    if(rows[i].killer) card.querySelector('[name="forceCritical"]').checked = killerPreset.dataset.killerPreset === "on";
+   });
+   refresh();
+  }else if(ev.target.closest("[data-story-add]")){
    const list = form.querySelector("[data-story-damage-list]");
    list.insertAdjacentHTML("beforeend",storyCardDamageRow());
    list.lastElementChild.querySelector("[data-story-target]").focus();
