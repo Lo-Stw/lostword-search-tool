@@ -3525,6 +3525,11 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
   <input id="aBgmCircle" class="input" placeholder="サークル名" style="margin-bottom:6px;">
   <div class="mini" style="margin:4px 0;">編曲者</div>
   <input id="aBgmArranger" class="input" placeholder="編曲者名" style="margin-bottom:6px;">
+  <div class="mini" style="margin:4px 0;">作詞者</div>
+  <input id="aBgmLyricist" class="input" placeholder="作詞者名" style="margin-bottom:6px;">
+  <div class="mini" style="margin:4px 0;">ボーカル（複数登録できます）</div>
+  <div id="bgmVocalsEditor"></div>
+  <button type="button" class="btn-add" id="addBgmVocalBtn" style="margin-bottom:8px;">＋ ボーカルを追加</button>
   <div class="mini" style="margin:4px 0;">原曲名（複数登録できます）</div>
   <div id="bgmOriginalsEditor"></div>
   <button type="button" class="btn-add" id="addBgmOriginalBtn" style="margin-bottom:8px;">＋ 原曲名を追加</button>
@@ -3546,7 +3551,7 @@ body.theme-dark .menu-credit a{color:#e8d5a3}
   </div>
   <div class="mini" style="font-weight:700;margin:14px 0 6px;">特性（1〜3）</div>
   <datalist id="traitTriggerList">
-   <option value="攻撃された時"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
+   <option value="攻撃された時"></option><option value="攻撃された後"></option><option value="ターン開始時"></option><option value="攻撃した時"></option>
    <option value="ターン終了時"></option><option value="戦闘開始時"></option><option value="スペルカード発動時"></option>
   </datalist>
   <div id="charTraitsEditor"></div>
@@ -4436,7 +4441,7 @@ function emptyPack(){
   specialSkills: null, // 後で fill
   abilities: null,
   attacks: null,
-  bgm: { title:"", original:"", links:[] },
+   bgm: { title:"", circle:"", arranger:"", lyricist:"", vocal:"", vocals:[], original:"", originals:[""], links:[] },
   skills: [
    { name:"", cooldown:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
    { name:"", cooldown:"", effects: { ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
@@ -4629,7 +4634,7 @@ function snapshotFormToPack(){
   specialSkills: JSON.parse(JSON.stringify(specialData)),
   abilities: JSON.parse(JSON.stringify(abilityData)),
   attacks: JSON.parse(JSON.stringify(attackData)),
-   bgm: (activeCharExtraPack && activeCharExtraPack.bgm) ? JSON.parse(JSON.stringify(activeCharExtraPack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", circle:(document.getElementById("aBgmCircle")||{}).value||"", arranger:(document.getElementById("aBgmArranger")||{}).value||"", original:"", originals:[""], links:[] },
+    bgm: (activeCharExtraPack && activeCharExtraPack.bgm) ? JSON.parse(JSON.stringify(activeCharExtraPack.bgm)) : { title:(document.getElementById("aBgmTitle")||{}).value||"", circle:(document.getElementById("aBgmCircle")||{}).value||"", arranger:(document.getElementById("aBgmArranger")||{}).value||"", lyricist:(document.getElementById("aBgmLyricist")||{}).value||"", vocal:"", vocals:[], original:"", originals:[""], links:[] },
    skills: (activeCharExtraPack && activeCharExtraPack.skills) ? JSON.parse(JSON.stringify(activeCharExtraPack.skills)) : [
    { name:"", cooldown:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
    { name:"", cooldown:"", effects:{ ranks:[], heals:[], barriers:[], barrierAbnormals:[], banReleases:[], spiritPowers:[], barrierHeals:[] } },
@@ -8968,10 +8973,24 @@ if(!window._xcPartnerNav){
   }catch(e){ console.warn(e); }
  }, true);
 }
+function hasSpecialSkillAssignedLocation(ss){
+ if(!ss || typeof ss !== "object") return false;
+ const isAssigned = item => !!(item && item.enabled && /^(spell1|spell2|lastWord):(pre|post)$/.test(String(item.activationLocation || "")));
+ return SPECIAL_SKILLS.some(name=>isAssigned(ss[name])) || isAssigned(getDamageDownSkill(ss));
+}
 function formatSpecialSkillsHtml(ss, opts){
  const options = opts || {};
  const parts = [];
  ss = normalizeSpecialSkillsObject(ss);
+ const activationLocationFilter = options.activationLocation == null ? "" : String(options.activationLocation);
+ const matchesActivationLocation = name=>{
+  let item = ss && ss[name];
+  if((name === DD_SKILL || name === DD_SKILL_LEGACY) && (!item || !item.activationLocation)) item = getDamageDownSkill(ss);
+  const location = String((item && item.activationLocation) || "");
+  if(activationLocationFilter) return location === activationLocationFilter;
+  if(options.excludeLocated) return !/^(spell1|spell2|lastWord):(pre|post)$/.test(location);
+  return true;
+ };
  const charFilters = selected.char || [];
  const filterBySearch = !!options.filterBySearch;
  const onlySelectedSkills = filterBySearch && charFilters.length > 0;
@@ -8980,6 +8999,7 @@ function formatSpecialSkillsHtml(ss, opts){
  const onlyRank2Detail = filterBySearch && !onlySelectedSkills && hasR2Detail;
  SPECIAL_SKILLS.forEach(x => {
   if(x === DD_SKILL || x === DD_SKILL_LEGACY) return; // 詳細表示は後段
+    if(!matchesActivationLocation(x)) return;
   // 検索結果画面だけ：選んだ特殊スキルに絞る
   if(onlySelectedSkills){
    const allow = charFilters.includes(x)
@@ -9130,7 +9150,7 @@ function formatSpecialSkillsHtml(ss, opts){
   || (selected.char||[]).includes(DD_SKILL_LEGACY)
   || (selected.dd||[]).includes(DD_SKILL)
   || (selected.dd||[]).includes(DD_SKILL_LEGACY);
- if(showDd){
+  if(showDd && matchesActivationLocation(DD_SKILL)){
   const ddMatched = (typeof isFilterMatch === "function")
    ? (isFilterMatch(DD_SKILL, selected.char) || isFilterMatch(DD_SKILL_LEGACY, selected.char) || isFilterMatch(DD_SKILL, selected.dd))
    : false;
@@ -9245,6 +9265,16 @@ function collectDamageDownFromSides(sides){
    特殊スキルUI作成
 ========================================================= */
 
+function specialActivationLocationOptionsHtml(current){
+ return ATTACKS
+  .filter(([key])=>["spell1","spell2","lastWord"].includes(key))
+  .flatMap(([key,label])=>[
+   { value:key+":pre", label:label+"・効果前" },
+   { value:key+":post", label:label+"・効果後" }
+  ])
+  .map(item=>`<option value="${item.value}" ${String(current||"")===item.value?"selected":""}>${esc(item.label)}</option>`)
+  .join("");
+}
 function initSpecialSkills(){
  const e=document.getElementById("specialSkillEditor");
  if(!e) return;
@@ -9263,6 +9293,7 @@ function initSpecialSkills(){
   const isEn = !!specialData[skill].enabled;
   const isXcOnly = !!specialData[skill].xChangeOnly;
   const isXcAdd = !!specialData[skill].xcEnabled;
+   const activationLocation = String(specialData[skill].activationLocation || "");
 
   const box=document.createElement("div");
   box.className="ability";
@@ -9272,6 +9303,13 @@ function initSpecialSkills(){
      ${skill}：${isEn?"あり":"なし"}
     </button>
    </div>
+    <label class="mini" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+     特殊スキルの発動箇所
+     <select class="select" id="ss-activation-location-${skill}" style="width:auto;min-width:220px;">
+      <option value="" ${!activationLocation?"selected":""}>未指定（特殊スキル欄）</option>
+      ${specialActivationLocationOptionsHtml(activationLocation)}
+     </select>
+    </label>
    <label class="mini" style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;user-select:none;">
     <input type="checkbox" id="ss-xc-only-${skill}" ${isXcOnly?"checked":""} style="width:16px;height:16px;">
     通常設定をX-Change時のみにする
@@ -9292,7 +9330,11 @@ function initSpecialSkills(){
   const detailXc=document.getElementById("sd-"+skill+"-xc");
   const xcOnlyChk=document.getElementById("ss-xc-only-"+skill);
   const xcAddChk=document.getElementById("ss-xc-add-"+skill);
+   const locationSelect=document.getElementById("ss-activation-location-"+skill);
 
+   if(locationSelect){
+    locationSelect.onchange = ()=>{ specialData[skill].activationLocation = locationSelect.value; };
+   }
   if(xcOnlyChk){
    xcOnlyChk.addEventListener("change", ()=>{
     specialData[skill].xChangeOnly = !!xcOnlyChk.checked;
@@ -16514,24 +16556,34 @@ function search(skipHistory) {
    バフ・デバフテキスト整形表示
 ========================================================= */
 
-function getBuffDebuffHtml(obj) {
+function getBuffDebuffHtml(obj, opts) {
+  opts = opts || {};
  let h = "";
  // 発動前・発動後効果（補助は常時／通常スペカはデータがあるとき・管理者向けWIP含む）
  if (obj) {
   ensureSupportEffects(obj);
   const preH = formatSupportEffectsHtml(obj.preEffects, "発動前");
   const postH = formatSupportEffectsHtml(obj.postEffects, "発動後");
+   const specialPre = opts.attackKey && opts.specialSkills
+    ? formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:opts.attackKey+":pre" })
+    : "";
+   const specialPost = opts.attackKey && opts.specialSkills
+    ? formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:opts.attackKey+":post" })
+    : "";
   const isSupport = obj.range === "補助";
-  const isAdminUser = (typeof isAdmin === "function" && isAdmin());
-  if (isSupport || preH || postH) {
-   h += preH;
-   h += postH;
-   if (!preH && obj.preEffect && String(obj.preEffect).trim()) {
-    h += `<div style="margin:4px 0;"><span class="tag tag-buff">発動前</span> <span class="muted">${esc(String(obj.preEffect).trim())}</span></div>`;
+   let preDisplay = preH;
+   let postDisplay = postH;
+   if (!preDisplay && obj.preEffect && String(obj.preEffect).trim()) {
+    preDisplay += `<div style="margin:4px 0;"><span class="tag tag-buff">発動前</span> <span class="muted">${esc(String(obj.preEffect).trim())}</span></div>`;
    }
-   if (!postH && obj.postEffect && String(obj.postEffect).trim()) {
-    h += `<div style="margin:4px 0;"><span class="tag tag-buff">発動後</span> <span class="muted">${esc(String(obj.postEffect).trim())}</span></div>`;
+   if (!postDisplay && obj.postEffect && String(obj.postEffect).trim()) {
+    postDisplay += `<div style="margin:4px 0;"><span class="tag tag-buff">発動後</span> <span class="muted">${esc(String(obj.postEffect).trim())}</span></div>`;
    }
+   if(specialPre) preDisplay += `<div class="mini" style="font-weight:700;margin:6px 0 2px;">効果前に発動する特殊スキル</div>${specialPre}`;
+   if(specialPost) postDisplay += `<div class="mini" style="font-weight:700;margin:6px 0 2px;">効果後に発動する特殊スキル</div>${specialPost}`;
+   if (isSupport || preDisplay || postDisplay) {
+    h += preDisplay;
+    h += postDisplay;
    if (isSupport) return h;
   }
  }
@@ -17269,7 +17321,7 @@ function renderAttackDetailHtml(k, a, opts){
     </div>` : "" }
     <div class="attack-acc-body" hidden>
      
-     <div>${getBuffDebuffHtml(a)}</div>
+      <div>${getBuffDebuffHtml(a, { attackKey:k, specialSkills:opts.specialSkills })}</div>
      ${isSupport ? `<div class="mini" style="margin-top:8px;padding:8px;background:#1c2330;border-radius:8px;">バレットなし</div>` : `
      ${formatAttackBuffSummaryHtml(a)}
      <div class="bullet-comp-wrap" style="margin-top:12px;">
@@ -17389,7 +17441,7 @@ function openAttackModal(id, attackKey){
    </div>
    <div class="box" style="background:#f9f9f9">
     <div class="title">ショット・スペルカード詳細</div>
-    ${renderAttackDetailHtml(attackKey, attack, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : "") })}
+    ${renderAttackDetailHtml(attackKey, attack, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : ""), specialSkills:vm.specialSkills })}
    </div>
   `;
   bindModalAttackAccordions(body);
@@ -17407,6 +17459,10 @@ function openModal(id){
  const body = document.getElementById("modalBody");
  const vm = getViewModel(c);
  const ss = vm.specialSkills || {};
+  const unassignedSpecialHtml = formatSpecialSkillsHtml(ss, { excludeLocated:true, emptyText:"" });
+  const assignedSpecialNote = hasSpecialSkillAssignedLocation(ss)
+   ? '<span class="muted">選択したスペカの効果前後に表示しています</span>'
+  : '<span class="muted">なし</span>';
  const sideLabel = vm.rebirth ? (vm.side === "after" ? "転生後" : "転生前") : "";
 
  const showModalTip = vm.rebirth && shouldShowRebirthTip();
@@ -17454,9 +17510,7 @@ function openModal(id){
   <div class="box" style="background:#f9f9f9">
    <div class="title">特殊スキル</div>
    <div>
-    ${formatSpecialSkillsHtml(ss, {
-      emptyText: '<span class="muted">なし</span>'
-    })}
+     ${unassignedSpecialHtml || assignedSpecialNote}
    </div>
   </div>
 
@@ -17474,7 +17528,7 @@ function openModal(id){
  `;
 
   getOrderedAttacks(vm.attacks).forEach(([k, a]) => {
-   h += renderAttackDetailHtml(k, a, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : "") });
+   h += renderAttackDetailHtml(k, a, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : ""), specialSkills:vm.specialSkills });
   });
 
  h += `</div>`;
@@ -19612,6 +19666,12 @@ function ensureCharExtra(pack){
  pack.bgm.title = String(pack.bgm.title || "");
  pack.bgm.circle = String(pack.bgm.circle || "");
  pack.bgm.arranger = String(pack.bgm.arranger || "");
+ pack.bgm.lyricist = String(pack.bgm.lyricist || "");
+ const legacyVocal = Array.isArray(pack.bgm.vocal) ? "" : String(pack.bgm.vocal || "");
+ let vocals = Array.isArray(pack.bgm.vocals) ? pack.bgm.vocals.map(v=>String(v == null ? "" : v)) : [];
+ if(!vocals.length && legacyVocal) vocals = [legacyVocal];
+ pack.bgm.vocals = vocals;
+ pack.bgm.vocal = vocals.find(v=>v.trim()) || "";
  const legacyOriginal = Array.isArray(pack.bgm.original) ? "" : String(pack.bgm.original || "");
  let originals = Array.isArray(pack.bgm.originals) ? pack.bgm.originals.map(v=>String(v == null ? "" : v)) : [];
  if(!originals.length) originals = [legacyOriginal];
@@ -19666,6 +19726,32 @@ function renderBgmOriginalsEditor(pack){
   };
  });
 }
+function renderBgmVocalEditor(pack){
+ const box = document.getElementById("bgmVocalsEditor");
+ if(!box || !pack) return;
+ ensureCharExtra(pack);
+ const vocals = pack.bgm.vocals.length ? pack.bgm.vocals : [""];
+ box.innerHTML = vocals.map((name, i)=>`
+  <div class="row" style="gap:6px;margin-bottom:6px;align-items:center;">
+   <input class="input" style="flex:1" data-bgm-vocal="${i}" placeholder="ボーカル ${i+1}" value="${esc(name)}">
+   <button type="button" class="btn-del" data-bgm-vocal-del="${i}">削除</button>
+  </div>`).join("");
+ box.querySelectorAll("[data-bgm-vocal]").forEach(inp=>{
+  inp.oninput = ()=>{
+   const i = Number(inp.getAttribute("data-bgm-vocal"));
+   pack.bgm.vocals[i] = inp.value;
+   pack.bgm.vocal = pack.bgm.vocals.find(v=>String(v||"").trim()) || "";
+  };
+ });
+ box.querySelectorAll("[data-bgm-vocal-del]").forEach(btn=>{
+  btn.onclick = ()=>{
+   const i = Number(btn.getAttribute("data-bgm-vocal-del"));
+   pack.bgm.vocals.splice(i, 1);
+   pack.bgm.vocal = pack.bgm.vocals.find(v=>String(v||"").trim()) || "";
+   renderBgmVocalEditor(pack);
+  };
+ });
+}
 function renderBgmLinksEditor(links, pack){
  const box = document.getElementById("bgmLinksEditor");
  if(!box) return;
@@ -19706,9 +19792,12 @@ function fillBgmSkillsTraitsForm(pack){
  const t = document.getElementById("aBgmTitle");
  const c = document.getElementById("aBgmCircle");
  const a = document.getElementById("aBgmArranger");
+ const l = document.getElementById("aBgmLyricist");
  if(t) t.value = pack.bgm.title || "";
  if(c) c.value = pack.bgm.circle || "";
  if(a) a.value = pack.bgm.arranger || "";
+ if(l) l.value = pack.bgm.lyricist || "";
+ renderBgmVocalEditor(pack);
  renderBgmOriginalsEditor(pack);
  renderBgmLinksEditor(pack.bgm.links, pack);
  const skBox = document.getElementById("charSkillsEditor");
@@ -19950,6 +20039,7 @@ function updateTraitPreviews(){
 function normalizeTraitTrigger(raw){
  const t = String(raw||"").trim();
  if(!t) return "";
+ if(/攻撃された後|被弾後/.test(t)) return "攻撃された後";
  if(/攻撃された|被弾|ダメージを受け/.test(t)) return "攻撃された時";
  if(/ターン開始/.test(t)) return "ターン開始時";
  return t;
@@ -19976,7 +20066,7 @@ function wikiParseTraitEffectLine(raw, tr){
   s = s.replace(cm[0], "").trim();
  }
  // 発動条件（文頭〜最初の「時、」）
- const tm = s.match(/^(.+?時)\s*[、,，]\s*/);
+  const tm = s.match(/^(.+?(?:時|後))\s*[、,，]\s*/);
  if(tm){
   if(!tr.trigger) tr.trigger = normalizeTraitTrigger(tm[1]);
   s = s.slice(tm[0].length).trim();
@@ -20135,7 +20225,18 @@ function bindBgmSkillsTraitsForm(){
     renderBgmOriginalsEditor(pack);
    };
   }
-  ["aBgmTitle","aBgmCircle","aBgmArranger"].forEach(id=>{
+  const addVocal = document.getElementById("addBgmVocalBtn");
+  if(addVocal && !addVocal.dataset.bound){
+   addVocal.dataset.bound = "1";
+   addVocal.onclick = ()=>{
+    const pack = activeCharExtraPack || beforePack;
+    if(!pack) return;
+    ensureCharExtra(pack);
+    pack.bgm.vocals.push("");
+    renderBgmVocalEditor(pack);
+   };
+  }
+  ["aBgmTitle","aBgmCircle","aBgmArranger","aBgmLyricist"].forEach(id=>{
   const el = document.getElementById(id);
   if(el && !el.dataset.bound){
    el.dataset.bound = "1";
@@ -20146,6 +20247,7 @@ function bindBgmSkillsTraitsForm(){
      if(id==="aBgmTitle") pack.bgm.title = el.value;
      if(id==="aBgmCircle") pack.bgm.circle = el.value;
      if(id==="aBgmArranger") pack.bgm.arranger = el.value;
+     if(id==="aBgmLyricist") pack.bgm.lyricist = el.value;
    };
   }
  });
@@ -20160,11 +20262,14 @@ function formatBgmSkillsTraitsHtml(pack, opts){
  const bgm = pack.bgm || {};
  if(section==="all" || section==="bgm"){
   const originals = Array.isArray(bgm.originals) ? bgm.originals.filter(v=>String(v||"").trim()) : (bgm.original ? [bgm.original] : []);
-  if(bgm.title || bgm.circle || bgm.arranger || originals.length || (bgm.links||[]).length){
+   const vocals = Array.isArray(bgm.vocals) ? bgm.vocals.filter(v=>String(v||"").trim()) : (bgm.vocal ? [bgm.vocal] : []);
+   if(bgm.title || bgm.circle || bgm.arranger || bgm.lyricist || vocals.length || originals.length || (bgm.links||[]).length){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">BGM</div>`;
    if(bgm.title) h += `<div><b>${esc(bgm.title)}</b></div>`;
    if(bgm.circle) h += `<div class="muted">サークル：${esc(bgm.circle)}</div>`;
    if(bgm.arranger) h += `<div class="muted">編曲：${esc(bgm.arranger)}</div>`;
+    if(bgm.lyricist) h += `<div class="muted">作詞：${esc(bgm.lyricist)}</div>`;
+    if(vocals.length) h += `<div class="muted">ボーカル：${vocals.map(v=>esc(v)).join(" / ")}</div>`;
    originals.forEach((name, i)=>{ h += `<div class="muted">原曲${i ? (i+1) : ""}：${esc(name)}</div>`; });
    (bgm.links||[]).forEach(lk=>{
     if(!lk || !lk.url) return;
@@ -20176,12 +20281,12 @@ function formatBgmSkillsTraitsHtml(pack, opts){
  }
  if(section==="all" || section==="skillsTraits"){
   const skills = pack.skills || [];
-  if(skills.some(s=>s && (s.name || s.cooldown || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
+   if(skills.some(s=>s && (s.name || s.cooldown || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">スキル</div>`;
    skills.forEach((sk,i)=>{
     if(!sk) return;
     const hasFx = sk.effects && Object.values(sk.effects).some(a=>Array.isArray(a)&&a.length);
-    if(!sk.name && !sk.cooldown && !hasFx && !sk.text) return;
+     if(!sk.name && !sk.cooldown && !hasFx && !sk.text) return;
     h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
     h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">(${esc(sk.cooldown)}T)</span>`:""}</div>`;
     skillWikiLines(sk).forEach(x=>{ h += `<div class="muted">・${esc(x)}</div>`; });
