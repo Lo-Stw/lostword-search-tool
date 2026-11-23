@@ -4786,8 +4786,8 @@ function loadPackToForm(pack){
  }else{
   resetAttackData();
  }
- initEditors();
  initSpecialSkills();
+ initEditors();
  try{ updateLinkHelp(); }catch(e){}
   initAbilities();
   try{ ensureCharExtra(p); fillBgmSkillsTraitsForm(p); bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
@@ -8965,7 +8965,7 @@ function normalizeSpecialSkillsObject(ss){
    });
    if(d.xc.list.some(it => it && (pickRank2Stat(it) || pickRank2Stage(it)))){
     d.xc.enabled = true;
-    d.xcEnabled = true;
+    if(d.xcEnabled == null) d.xcEnabled = true;
    }
   }
   if(d.xChangeOnly) d.xChangeOnly = true;
@@ -9102,7 +9102,9 @@ function hasSpecialSkillAssignedLocation(ss){
  const isAssigned = item => {
   if(!item || !item.enabled) return false;
   if(getActivationLocations(item).some(l => /^(spell1|spell2|lastWord):(pre|post)$/.test(l))) return true;
-  if(Array.isArray(item.list) && item.list.some(it => /・効果前$|・効果後$/.test(String((it&&it.source)||"")))) return true;
+  const spellRow = it => /・効果前$|・効果後$/.test(String(it?.source || ""));
+  if(Array.isArray(item.list) && item.list.some(spellRow)) return true;
+  if(item.xcEnabled && Array.isArray(item.xc?.list) && item.xc.list.some(spellRow)) return true;
   return false;
  };
  return SPECIAL_SKILLS.some(name=>isAssigned(ss[name])) || isAssigned(getDamageDownSkill(ss));
@@ -9121,6 +9123,7 @@ function formatSpecialSkillsHtml(ss, opts){
    if(locs.some(l => l === activationLocationFilter)) return true;
    // 項目ごとの source（RANKⅡ・永続・蓄積・ダメ軽減など）
    if(item && Array.isArray(item.list) && item.list.some(it => sourceMatchesActivationLocation(it && it.source, activationLocationFilter))) return true;
+   if(isRank2SkillName(name) && item?.xcEnabled && Array.isArray(item.xc?.list) && item.xc.list.some(it => sourceMatchesActivationLocation(it?.source, activationLocationFilter))) return true;
    return false;
   }
   if(options.excludeLocated){
@@ -9156,10 +9159,13 @@ function formatSpecialSkillsHtml(ss, opts){
   const isRank2 = isRank2SkillName(x);
   if(isRank2){
    let list = Array.isArray(ss[x].list) ? ss[x].list.slice() : [];
-   // 発動箇所（効果前/後など）で行を絞る
+   let xcList = ss[x].xcEnabled && Array.isArray(ss[x].xc?.list) ? ss[x].xc.list : [];
+   // 通常・X-Change の両方で発動箇所（効果前/後など）を絞る。
    if(activationLocationFilter){
-    list = list.filter(item => item && sourceMatchesActivationLocation(item.source, activationLocationFilter));
-    if(!list.length) return;
+    const matchesSource = item => item && sourceMatchesActivationLocation(item.source, activationLocationFilter);
+    list = list.filter(matchesSource);
+    xcList = xcList.filter(matchesSource);
+    if(!list.length && !xcList.length) return;
    }
    // RANKⅡ詳細条件に合う行だけ
    if(hasR2Detail){
@@ -9199,10 +9205,8 @@ function formatSpecialSkillsHtml(ss, opts){
     });
    };
    if(list.length) pushRank2List(list, false);
-   else parts.push(tagWithHl(x, matched, cls));
-   if(ss[x].xcEnabled && ss[x].xc && Array.isArray(ss[x].xc.list) && ss[x].xc.list.length){
-    pushRank2List(ss[x].xc.list, true);
-   }
+   else if(!activationLocationFilter) parts.push(tagWithHl(x, matched, cls));
+   pushRank2List(xcList, true);
   }else if(x === "永続バフ" || x === "永続デバフ"){
    let list = Array.isArray(ss[x].list) ? ss[x].list.slice() : [];
    if(activationLocationFilter){
@@ -9428,25 +9432,51 @@ function specialActivationLocationChoices(skill){
  });
  return items;
 }
-function specialActivationLocationOptionsHtml(current, skill){
- // 後方互換（単一select用）。新規UIは multi チェックボックスを使う
- const cur = String(current||"");
- return specialActivationLocationChoices(skill)
-  .map(item=>`<option value="${item.value}" ${cur===item.value?"selected":""}>${esc(item.label)}</option>`)
-  .join("");
-}
-function specialActivationLocationMultiHtml(skill, currentLocs){
- const locs = Array.isArray(currentLocs) ? currentLocs.map(String) : (currentLocs ? [String(currentLocs)] : []);
+function renderSpecialActivationLocations(container, skill, item){
  const choices = specialActivationLocationChoices(skill);
- if(!choices.length) return "";
- return `<div class="ss-act-loc-multi" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">` +
-  choices.map(c=>{
-   const on = locs.includes(c.value);
-   return `<label class="mini" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid ${on?"#5c4a7a":"rgba(160,130,70,.4)"};border-radius:999px;background:${on?"rgba(92,74,122,.12)":"#fffef8"};cursor:pointer;user-select:none;">
-    <input type="checkbox" data-ss-act-loc="${esc(c.value)}" ${on?"checked":""} style="width:14px;height:14px;margin:0;">${esc(c.label)}
-   </label>`;
-  }).join("") +
-  `</div><div class="mini" style="margin-top:4px;color:#666;">複数選択可（スペカごとに効果前・効果後を分けて指定できます）</div>`;
+ const locs = [...new Set(getActivationLocations(item))];
+ container.innerHTML = "";
+ function addRow(current, index){
+  const row = document.createElement("div");
+  row.className = "row";
+  const select = document.createElement("select");
+  select.className = "select";
+  select.setAttribute("aria-label", "発動箇所");
+  select.add(new Option("発動箇所を選択", "", !current, !current));
+  if(current && !choices.some(c => c.value === current)){
+   select.add(new Option(current, current, true, true));
+  }
+  choices.filter(c => c.value === current || !locs.includes(c.value)).forEach(c=>{
+   select.add(new Option(c.label, c.value, c.value === current, c.value === current));
+  });
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "btn-del";
+  del.textContent = "削除";
+  function save(value){
+   const next = locs.slice();
+   if(index < next.length) next.splice(index, 1, value);
+   else next.push(value);
+   setActivationLocations(item, next.filter(Boolean));
+   renderSpecialActivationLocations(container, skill, item);
+  }
+  select.onchange = ()=>save(select.value);
+  del.onclick = ()=>save("");
+  row.append(select, del);
+  container.insertBefore(row, add);
+  return select;
+ }
+ const add = document.createElement("button");
+ add.type = "button";
+ add.className = "sub";
+ add.textContent = "＋ 発動箇所を追加";
+ add.disabled = !choices.some(c => !locs.includes(c.value));
+ container.appendChild(add);
+ locs.forEach(addRow);
+ add.onclick = ()=>{
+  add.disabled = true;
+  addRow("", locs.length).focus();
+ };
 }
 function initSpecialSkills(){
  const e=document.getElementById("specialSkillEditor");
@@ -9466,7 +9496,6 @@ function initSpecialSkills(){
   const isEn = !!specialData[skill].enabled;
   const isXcOnly = !!specialData[skill].xChangeOnly;
   const isXcAdd = !!specialData[skill].xcEnabled;
-   const activationLocs = getActivationLocations(specialData[skill]);
 
   const box=document.createElement("div");
   box.className="ability";
@@ -9479,7 +9508,7 @@ function initSpecialSkills(){
     <div class="mini" style="margin-top:8px;font-weight:700;">特殊スキルの発動箇所</div>
     ${isRowSourceSpecialSkill(skill)
       ? `<div class="mini" style="color:#6b4f96;margin-top:4px;">※下の各項目の「発動箇所」で指定します（スキル1〜3／スペカ効果前・効果後を項目ごとに分けられます）</div>`
-      : specialActivationLocationMultiHtml(skill, activationLocs)}
+      : ""}
     <div id="ss-activation-wrap-${skill}"></div>
    <label class="mini" style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;user-select:none;">
     <input type="checkbox" id="ss-xc-only-${skill}" ${isXcOnly?"checked":""} style="width:16px;height:16px;">
@@ -9501,26 +9530,13 @@ function initSpecialSkills(){
   const detailXc=document.getElementById("sd-"+skill+"-xc");
   const xcOnlyChk=document.getElementById("ss-xc-only-"+skill);
   const xcAddChk=document.getElementById("ss-xc-add-"+skill);
-   // 発動箇所（複数可）
-   box.querySelectorAll("[data-ss-act-loc]").forEach(chk=>{
-    chk.addEventListener("change", ()=>{
-     if(!specialData[skill]) specialData[skill] = { enabled:true };
-     const wrap = chk.closest(".ss-act-loc-multi") || box;
-     const locs = [...wrap.querySelectorAll("[data-ss-act-loc]:checked")].map(el=>el.getAttribute("data-ss-act-loc"));
-     setActivationLocations(specialData[skill], locs);
-     // 見た目更新
-     wrap.querySelectorAll("label").forEach(lab=>{
-      const c = lab.querySelector("[data-ss-act-loc]");
-      if(!c) return;
-      const on = c.checked;
-      lab.style.borderColor = on ? "#5c4a7a" : "rgba(160,130,70,.4)";
-      lab.style.background = on ? "rgba(92,74,122,.12)" : "#fffef8";
-     });
-    });
-   });
+  if(!isRowSourceSpecialSkill(skill)){
+   renderSpecialActivationLocations(box.querySelector('[id^="ss-activation-wrap-"]'), skill, specialData[skill]);
+  }
   if(xcOnlyChk){
    xcOnlyChk.addEventListener("change", ()=>{
     specialData[skill].xChangeOnly = !!xcOnlyChk.checked;
+    if(isRank2SkillName(skill)) refreshSpellRank2Editors();
    });
   }
   if(xcAddChk){
@@ -9538,6 +9554,7 @@ function initSpecialSkills(){
      detailXc.style.display = "none";
      detailXc.classList.remove("show");
     }
+    if(isRank2SkillName(skill)) refreshSpellRank2Editors();
    });
   }
 
@@ -9568,6 +9585,7 @@ function initSpecialSkills(){
      detailXc.style.display = "none";
      detailXc.classList.remove("show");
     }
+    if(isRank2SkillName(skill)) refreshSpellRank2Editors();
    };
   }
 
@@ -10731,14 +10749,13 @@ function buildSpecialDetail(skill, e){
 }
 
 
-function defaultRank2Item(skill){
- return { source:"スキル", target: (String(skill||"").includes("デバフ") ? "対象" : "自身"), stat:"", stage:"" };
+function defaultRank2Item(skill, source = "スキル"){
+ return { source, target: (String(skill||"").includes("デバフ") ? "相手" : "自身"), stat:"", stage:"" };
 }
-function renderRank2List(skill, container){
- if(container){ container.setAttribute("data-rank2-skill", skill); }
- const d = getSpecialSkillData(skill);
+function renderRank2List(skill, container, d = getSpecialSkillData(skill), source = ""){
+ container.setAttribute("data-rank2-skill", skill);
  if(!d.list || !Array.isArray(d.list)) d.list = [];
- if(d.list.length === 0) d.list.push({ source:"スキル", target: skill.includes("デバフ")?"相手":"自身", stat:"", stage:"" });
+ if(!source && d.list.length === 0) d.list.push(defaultRank2Item(skill));
  // 親オブジェクトに直置きされた古い形式を list へ取り込む
  if(d.list.length === 1 && !d.list[0].stat && !d.list[0].stage && (d.stat || d.stage || d.rank)){
   d.list[0].stat = d.stat || d.list[0].stat || "";
@@ -10747,14 +10764,15 @@ function renderRank2List(skill, container){
  }
  let html = "";
  d.list.forEach((item, idx)=>{
+  if(source && (!d.enabled || item.source !== source)) return;
   const src = item.source === "ラストワード" ? "LASTWORD" : (item.source || "スキル");
   html += `
    <div class="rank-item" data-rank2-item="${idx}" style="border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:6px; background:#fff;">
     <button type="button" class="btn-del" data-rank2-del="${idx}">削除</button>
-    <div class="mini">発動箇所</div>
+    ${source ? "" : `<div class="mini">発動箇所</div>
     <select class="select" data-rank2-field="source" data-rank2-idx="${idx}">
      ${RANK2_SOURCES.map(x=>`<option value="${esc(x)}" ${src===x?"selected":""}>${esc(x)}</option>`).join("")}
-    </select>
+    </select>`}
     <div class="mini" style="margin-top:6px">対象</div>
     <select class="select" data-rank2-field="target" data-rank2-idx="${idx}">
      ${(skill.includes("デバフ")
@@ -10776,48 +10794,77 @@ function renderRank2List(skill, container){
      ${RANK2_STATS.map(x=>`<option value="${x}" ${String(item.stat||"")===x?"selected":""}>${x}</option>`).join("")}
     </select>
     <div class="mini" style="margin-top:6px;font-weight:700;color:#7a1f1f">段階（必須）</div>
-    <input class="input" type="number" inputmode="numeric" placeholder="例：2" data-rank2-field="stage" data-rank2-idx="${idx}" value="${item.stage != null && item.stage !== "" ? item.stage : (item.rank != null && item.rank !== "" ? item.rank : "")}" style="border:2px solid #c9a24a;font-size:16px">
+    <input class="input" type="number" inputmode="numeric" placeholder="例：2" data-rank2-field="stage" data-rank2-idx="${idx}" value="${item.stage != null && item.stage !== "" ? esc(item.stage) : (item.rank != null && item.rank !== "" ? esc(item.rank) : "")}" style="border:2px solid #c9a24a;font-size:16px">
    </div>`;
  });
  html += `<button type="button" class="sub" data-rank2-add style="margin-top:4px">＋ RANKⅡ効果を追加</button>`;
  container.innerHTML = html;
- // 確実に specialData へ反映
+ const refreshPeers = ()=>{
+  if(source){
+   const primary = document.getElementById("sd-" + skill);
+   const xc = document.getElementById("sd-" + skill + "-xc");
+   if(d === specialData[skill] && primary){
+    renderRank2List(skill, primary, d);
+   }else if(xc){
+    renderRank2List(skill, xc, d);
+   }
+  }
+  refreshSpellRank2Editors(container.closest("[data-spell-rank2]"));
+ };
  container.querySelectorAll("[data-rank2-field]").forEach(el=>{
-  const sync = ()=>{
-   const idx = Number(el.getAttribute("data-rank2-idx"));
-   const field = el.getAttribute("data-rank2-field");
-   if(!specialData[skill]) specialData[skill] = { enabled:true, list:[] };
-   if(!Array.isArray(specialData[skill].list)) specialData[skill].list = [];
-   if(!specialData[skill].list[idx]) specialData[skill].list[idx] = { source:"スキル", target:(typeof skill!=="undefined" && skill.includes && skill.includes("デバフ"))?"対象":"自身", stat:"", stage:"" };
-   specialData[skill].list[idx][field] = el.value;
-   specialData[skill].enabled = true;
-  };
-  el.addEventListener("change", sync);
-  el.addEventListener("input", sync);
+  el.addEventListener(el.tagName === "SELECT" ? "change" : "input", ()=>{
+   const idx = Number(el.dataset.rank2Idx);
+   d.list[idx][el.dataset.rank2Field] = el.value;
+   refreshPeers();
+  });
  });
  container.querySelectorAll("[data-rank2-del]").forEach(btn=>{
-  btn.addEventListener("click", (ev)=>{
-   ev.preventDefault();
-   const idx = Number(btn.getAttribute("data-rank2-del"));
-   if(specialData[skill] && Array.isArray(specialData[skill].list)){
-    specialData[skill].list.splice(idx, 1);
-    if(specialData[skill].list.length === 0){
-     specialData[skill].list.push({ source:"スキル", target:(typeof skill!=="undefined" && skill.includes && skill.includes("デバフ"))?"対象":"自身", stat:"", stage:"" });
-    }
-    renderRank2List(skill, container);
+  btn.onclick = ()=>{
+   d.list.splice(Number(btn.dataset.rank2Del), 1);
+   if(!d.list.length){
+    // 削除後に旧形式の項目が復活しないようにする。
+    delete d.stat;
+    delete d.stage;
+    delete d.rank;
+    delete d.source;
    }
+   renderRank2List(skill, container, d, source);
+   refreshPeers();
+  };
+ });
+ container.querySelector("[data-rank2-add]").onclick = ()=>{
+  d.list.push(defaultRank2Item(skill, source || undefined));
+  const toggle = source && d === specialData[skill] && document.getElementById("ss-" + skill);
+  if(toggle && !d.enabled){
+   toggle.click();
+   return;
+  }
+  d.enabled = true;
+  renderRank2List(skill, container, d, source);
+  refreshPeers();
+ };
+}
+
+function refreshSpellRank2Editors(skip){
+ document.querySelectorAll("[data-spell-rank2]").forEach(mount=>{
+  if(mount === skip) return;
+  const source = ACT_LOC_TO_SOURCE[mount.dataset.spellRank2];
+  if(!source) return;
+  mount.replaceChildren();
+  ["RANKⅡバフ", "RANKⅡデバフ"].forEach(skill=>{
+   const d = getSpecialSkillData(skill);
+   const addPanel = (data, suffix)=>{
+    const heading = document.createElement("div");
+    heading.className = "mini";
+    heading.textContent = skill + suffix;
+    const panel = document.createElement("div");
+    mount.append(heading, panel);
+    renderRank2List(skill, panel, data, source);
+   };
+   addPanel(d, d.xChangeOnly ? "（X-Change時のみ）" : "");
+   if(d.enabled && d.xcEnabled && d.xc) addPanel(d.xc, "（X-Change追加設定）");
   });
  });
- const addBtn = container.querySelector("[data-rank2-add]");
- if(addBtn){
-  addBtn.addEventListener("click", (ev)=>{
-   ev.preventDefault();
-   if(!specialData[skill].list) specialData[skill].list = [];
-   specialData[skill].list.push({ source:"スキル", target:(typeof skill!=="undefined" && skill.includes && skill.includes("デバフ"))?"対象":"自身", stat:"", stage:"" });
-   specialData[skill].enabled = true;
-   renderRank2List(skill, container);
-  });
- }
 }
 
 function updateRank2Item(skill, idx, key, value){
@@ -10892,6 +10939,7 @@ function syncRank2FieldsFromDom(){
   }
   specialData[skill].enabled = true;
   if(isXc){
+   if(!specialData[skill].xcEnabled) return;
    if(!specialData[skill].xc) specialData[skill].xc = { enabled:true, list:[] };
    specialData[skill].xc.list = list;
    specialData[skill].xc.enabled = true;
@@ -11789,6 +11837,7 @@ function refreshBuffDebuffContainer(prefix) {
     html += renderBuffDebuffFields(prefix, obj, "ショット・スペカ全体のつよさ変化");
    }
    containerEl.innerHTML = html;
+   refreshSpellRank2Editors();
    return;
   }
   containerEl.innerHTML = renderBuffDebuffFields(prefix, obj, "ショット・スペカ全体のつよさ変化");
@@ -11822,7 +11871,9 @@ function renderSupportEffectBlock(prefix, phase, title, color){
  const obj = getTargetObjectByPrefix(prefix);
  ensureSupportEffects(obj);
  const bag = phase === "pre" ? obj.preEffects : obj.postEffects;
- const rankStats = (typeof getEffectRankStats==="function") ? getEffectRankStats() : (STAT_TARGETS||[]);
+ const spellLocation = prefix.startsWith("att-") ? prefix.slice(4) + ":" + phase : "";
+ const isSpellPhase = !!ACT_LOC_TO_SOURCE[spellLocation];
+ const rankStats = isSpellPhase ? STAT_TARGETS : getEffectRankStats();
  const abList = (typeof ABNORMAL !== "undefined" && ABNORMAL.length) ? ABNORMAL : ["毒霧","帯電","燃焼","凍結","暗闇"];
  const T_ALL = (typeof EFFECT_TARGETS_ALL!=="undefined") ? EFFECT_TARGETS_ALL : ["自身","味方全体","相手単体","相手全体"];
  const T_ALLY = (typeof EFFECT_TARGETS_ALLY!=="undefined") ? EFFECT_TARGETS_ALLY : ["自身","味方全体"];
@@ -11848,6 +11899,7 @@ function renderSupportEffectBlock(prefix, phase, title, color){
  });
  html += `<button type="button" class="btn-add" onclick="addSupportBagItem('${prefix}','${phase}','barrierAbnormals')">＋ 結界異常付与</button>`;
 
+ if(isSpellPhase) html += `<div data-spell-rank2="${spellLocation}"></div>`;
  html += `<div class="mini" style="font-weight:700;margin:12px 0 4px;">つよさ上昇・低下</div>`;
  (bag.ranks||[]).forEach((r, idx)=>{
   const tgt = T_ALL.includes(r.target) ? r.target : (r.target==="対象"?"相手単体":"味方全体");
@@ -11856,7 +11908,7 @@ function renderSupportEffectBlock(prefix, phase, title, color){
    <button type="button" class="btn-del" onclick="removeSupportRank('${prefix}','${phase}',${idx})">削除</button>
    <div class="row3" style="margin-top:4px;">
     <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'target',this.value)">${T_ALL.map(t=>`<option value="${t}" ${tgt===t?"selected":""}>${t}</option>`).join("")}</select>
-    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'stat',this.value)"><option value="">ステータス</option>${rankStats.map(s=>`<option value="${s}" ${r.stat===s?"selected":""}>${s}</option>`).join("")}</select>
+    <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'stat',this.value)"><option value="">ステータス</option>${[...new Set([...rankStats, ...(r.stat ? [r.stat] : [])])].map(s=>`<option value="${esc(s)}" ${r.stat===s?"selected":""}>${esc(s)}</option>`).join("")}</select>
     <select class="select" onchange="updateSupportRank('${prefix}','${phase}',${idx},'dir',this.value)"><option value="アップ" ${dir==="アップ"?"selected":""}>アップ</option><option value="ダウン" ${dir==="ダウン"?"selected":""}>ダウン</option></select>
    </div>
    <div class="row3" style="margin-top:6px;">
