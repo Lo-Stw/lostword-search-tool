@@ -4440,7 +4440,7 @@ function hasDurationBanRelease(ss){
 function collectActiveSpecialLabels(ss){
   const active = [];
   if(!ss || typeof ss !== "object") return active;
-  SPECIAL_SKILLS.forEach(x=>{ if(ss[x]?.enabled && !active.includes(x)) active.push(x); });
+  SPECIAL_SKILLS.forEach(x=>{ if(ss[x]?.enabled && (x !== "禁止解除" || hasDisplayableBanRelease(ss[x])) && !active.includes(x)) active.push(x); });
   try{ if(typeof hasDamageDownSkill === "function" && hasDamageDownSkill(ss) && !active.includes(DD_SKILL)) active.push(DD_SKILL); }catch(e){}
   if(hasDurationBanRelease(ss)){
     if(!active.includes("持続(禁止解除)")) active.push("持続(禁止解除)");
@@ -5095,9 +5095,23 @@ function banReleaseRows(pack, attacks){
 function hasLegacyBanRelease(d){
  return !!(d && (d.self || d.team || d.skill || d.spell || d.scope || d.target || d.selfSkill || d.teamSkill || d.selfSpell || d.teamSpell || d.selfSpellItems?.length || d.teamSpellItems?.length));
 }
+function hasBanReleaseCount(effect){
+ return String(effect?.count ?? "").trim() !== "";
+}
+function hasLegacyBanReleaseEffect(d){
+ if(!d) return false;
+ const normalized = normalizeBanReleaseData({ ...d });
+ return ["self","team"].some(side=>normalized[side] && (
+  normalized[side+"Skill"] || normalized[side+"Spell"]
+ ));
+}
+function hasDisplayableBanRelease(d){
+ return !!d?.enabled && (d.linkedBanReleases?.some(hasBanReleaseCount) ||
+  hasLegacyBanReleaseEffect(d) || (d.xcEnabled && hasLegacyBanReleaseEffect(d.xc)));
+}
 function specialSkillsWithBanReleases(pack){
  const ss = pack?.specialSkills;
- const rows = banReleaseRows(pack);
+ const rows = banReleaseRows(pack).filter(hasBanReleaseCount);
  if(!rows.length) return ss;
  const old = ss?.["禁止解除"] || {};
  return { ...(ss || {}), "禁止解除": { ...old, enabled:true, linkedBanReleases:rows, _banDerivedEnabled: !!old._banDerivedEnabled || !old.enabled } };
@@ -7828,8 +7842,8 @@ function normalizeBanReleaseData(d){
 
 function matchBanReleaseDetail(ss){
  const d0 = ss && ss["禁止解除"];
- if(!d0 || !d0.enabled) return false;
- const d = hasLegacyBanRelease(d0) ? normalizeBanReleaseData(d0) : d0;
+ if(!hasDisplayableBanRelease(d0)) return false;
+ const d = hasLegacyBanRelease(d0) ? normalizeBanReleaseData({ ...d0 }) : d0;
  const wantSkill = !!document.getElementById("fBanSkill")?.checked;
  const wantSpell = !!document.getElementById("fBanSpell")?.checked;
  const skc = (document.getElementById("fBanSkillCount")?.value || "").trim();
@@ -7839,7 +7853,7 @@ function matchBanReleaseDetail(ss){
  if(d.selfSkill) skillSides.push(String(d.selfSkillCount ?? ""));
  if(d.teamSkill) skillSides.push(String(d.teamSkillCount ?? ""));
  const spellSides = [];
- (d.linkedBanReleases || []).forEach(row=>{
+ (d.linkedBanReleases || []).filter(hasBanReleaseCount).forEach(row=>{
   if(/^スキル/.test(row.source)) skillSides.push(String(row.count ?? ""));
   else if(/^(スペルカード|LASTWORD)/.test(row.source)) spellSides.push(String(row.count ?? ""));
  });
@@ -8752,8 +8766,8 @@ function formatSpecialSkillBaseText(name, d, options = {}){
 
  if(name === "禁止解除"){
   const linked = Array.isArray(d.linkedBanReleases) ? d.linkedBanReleases : [];
-  const legacy = hasLegacyBanRelease(d);
-  if(legacy) normalizeBanReleaseData(d);
+  const legacy = hasLegacyBanReleaseEffect(d);
+  if(legacy) d = normalizeBanReleaseData({ ...d });
   const parts = [];
   const fmtSide = (label, on, sk, skc, spellItems)=>{
    if(!on) return;
@@ -8767,13 +8781,13 @@ function formatSpecialSkillBaseText(name, d, options = {}){
      sub.push(n ? `${it.from} ${n}` : it.from);
     });
    }
-   parts.push(sub.length ? `${label}（${sub.join("・")}）` : label);
+   if(sub.length || d[label === "自身" ? "selfSpell" : "teamSpell"]) parts.push(sub.length ? `${label}（${sub.join("・")}）` : `${label}（スペカ）`);
   };
   fmtSide("自身", d.self, d.selfSkill, d.selfSkillCount, d.selfSpellItems);
   fmtSide("味方全体", d.team, d.teamSkill, d.teamSkillCount, d.teamSpellItems);
   if(parts.length > 1) parts.splice(0, parts.length, parts.join(" / "));
-  linked.forEach(row=>{
-   const count = row.count === "" || row.count == null ? "?" : row.count;
+  linked.filter(hasBanReleaseCount).forEach(row=>{
+   const count = row.count;
    const bonus = row.bonusPct === "" || row.bonusPct == null ? "" : `［追加効果${row.bonusPct}%で＋1］`;
    parts.push(`${row.source}：${row.target || "自身"}の禁止状態・つよさ低下を${count}つ回復${specialTurnsSuffix(row)}${bonus}`);
   });
@@ -9268,6 +9282,7 @@ function formatSpecialSkillsContent(ss, options){
  const onlyRank2Detail = filterBySearch && !onlySelectedSkills && hasR2Detail;
  SPECIAL_SKILLS.forEach(x => {
   if(x === DD_SKILL || x === DD_SKILL_LEGACY) return; // 詳細表示は後段
+  if(x === "禁止解除" && !hasDisplayableBanRelease(ss?.[x])) return;
   // 検索結果画面だけ：選んだ特殊スキルに絞る
   if(onlySelectedSkills){
    const allow = charFilters.includes(x)
@@ -10830,7 +10845,10 @@ function buildSpecialDetail(skill, e){
   const idx = select.dataset.specialSource;
   const item = idx === "" ? d : d.list?.[Number(idx)];
   if(item && select.value) item.source = select.value;
-  if(skill === "禁止解除" && e.dataset.specialPanel === "primary" && migrateLocatedLegacyBanRelease()) syncBanReleaseEditor();
+  if(skill === "禁止解除" && e.dataset.specialPanel === "primary" && migrateLocatedLegacyBanRelease()){
+   syncBanReleaseEditor();
+   refreshBanEffectLocations();
+  }
  };
  e.oninput = ev=>{
   const input = ev.target;
@@ -11298,8 +11316,10 @@ function saveSpecialField(skill,el,e){
    d.teamSkill = false; d.teamSpell = false; d.teamSkillCount = ""; d.teamSpellCount = ""; d.teamSpellItems = [];
   }
   normalizeBanReleaseData(d);
-  if(e.dataset.specialPanel === "primary" && migrateLocatedLegacyBanRelease()) syncBanReleaseEditor();
-  else buildSpecialDetail(skill, e);
+  if(e.dataset.specialPanel === "primary" && migrateLocatedLegacyBanRelease()){
+   syncBanReleaseEditor();
+   refreshBanEffectLocations();
+  }else buildSpecialDetail(skill, e);
   return;
  }
  // 旧フィールド互換
@@ -12257,35 +12277,40 @@ function refreshBanEffectLocations(){
  ["spell1","spell2","lastWord"].forEach(key=>refreshBuffDebuffContainer("att-"+key));
 }
 function bindBanReleaseEditor(panel){
- const rowAt = i=>banReleaseRows(activeCharExtraPack || beforePack, attackData)[i];
- panel.querySelectorAll("[data-ban-linked-field]").forEach(el=>{
-  el.addEventListener(el.tagName === "SELECT" ? "change" : "input", ()=>{
-   const row = rowAt(Number(el.dataset.banLinkedIndex));
-   const bag = row && banEditorBag(row.source);
-   const item = bag?.banReleases[row.index];
-   if(!item) return;
-   const field = el.dataset.banLinkedField;
-   if(field === "source"){
-    const dest = banEditorBag(el.value);
-    if(!dest) return;
-    bag.banReleases.splice(row.index,1);
-    dest.banReleases.push(item);
-    syncBanReleaseEditor();
-   }else{
-    item[field] = el.value;
-    specialData["禁止解除"].linkedBanReleases = banReleaseRows(activeCharExtraPack || beforePack, attackData);
-   }
+ const rows = banReleaseRows(activeCharExtraPack || beforePack, attackData);
+ panel.querySelectorAll("[data-ban-linked-row]").forEach((element, i)=>{
+  let source = rows[i].source;
+  const item = banEditorBag(source)?.banReleases[rows[i].index];
+  if(!item) return;
+  element.querySelectorAll("[data-ban-linked-field]").forEach(el=>{
+   el.addEventListener(el.tagName === "SELECT" ? "change" : "input", ()=>{
+    const field = el.dataset.banLinkedField;
+    if(field === "source"){
+     const from = banEditorBag(source);
+     const dest = banEditorBag(el.value);
+     const index = from?.banReleases.indexOf(item) ?? -1;
+     if(!dest || index < 0){ el.value = source; return; }
+     if(from === dest) return;
+     from.banReleases.splice(index, 1);
+     dest.banReleases.push(item);
+     source = el.value;
+    }else{
+     item[field] = el.value;
+    }
+    // 行の表示順を変えず、移動後も同じ効果を編集できるようにする。
+    syncBanReleaseEditor(false);
+    refreshBanEffectLocations();
+   });
+  });
+  element.querySelector("[data-ban-linked-delete]").addEventListener("click", ()=>{
+   const bag = banEditorBag(source);
+   const index = bag?.banReleases.indexOf(item) ?? -1;
+   if(index < 0) return;
+   bag.banReleases.splice(index, 1);
+   syncBanReleaseEditor();
    refreshBanEffectLocations();
   });
  });
- panel.querySelectorAll("[data-ban-linked-delete]").forEach(btn=>btn.addEventListener("click", ()=>{
-  const row = rowAt(Number(btn.dataset.banLinkedDelete));
-  const bag = row && banEditorBag(row.source);
-  if(!bag) return;
-  bag.banReleases.splice(row.index,1);
-  syncBanReleaseEditor();
-  refreshBanEffectLocations();
- }));
  panel.querySelector("[data-ban-linked-add]")?.addEventListener("click", ()=>{
   const bag = banEditorBag("スキル1");
   if(!bag) return;
@@ -15769,7 +15794,7 @@ function countMatchingBulletsForChar(c){
 function hasSpecial(c, x) {
  const d = c.details || {};
  const s = d.specialSkills || d.skills || {};
- return !!s[x]?.enabled;
+ return x === "禁止解除" ? hasDisplayableBanRelease(s[x]) : !!s[x]?.enabled;
 }
 
 
@@ -16121,7 +16146,7 @@ function analyzeSearchMatchSides(c){
    if(selected.char.includes("禁止解除") || selected.char.includes("持続(禁止解除)")){
     const wantNormal = !!document.getElementById("fBanNormal")?.checked;
     const wantDur = !!document.getElementById("fBanDuration")?.checked;
-    const hasNormal = !!(ss && ss["禁止解除"] && ss["禁止解除"].enabled);
+    const hasNormal = hasDisplayableBanRelease(ss?.["禁止解除"]);
     const hasDur = (typeof hasDurationBanRelease === "function") && hasDurationBanRelease(ss);
     if(wantNormal && !wantDur && !hasNormal) return false;
     if(wantDur && !wantNormal && !hasDur) return false;
@@ -20774,7 +20799,7 @@ function effectBagWikiLines(fx, banKinds){
  fx = fx || {};
  const out = [];
  (fx.heals||[]).forEach(h=>{ if(h.percent !== "" && h.percent != null) out.push(`${h.target||"自身"}の体力を${h.percent}%回復`); });
- (fx.banReleases||[]).forEach(b=>out.push(`${b.target||"自身"}の${banKinds || "禁止状態"}から${b.count||1}つ回復${specialTurnsSuffix(b)}`));
+ (fx.banReleases||[]).filter(hasBanReleaseCount).forEach(b=>out.push(`${b.target||"自身"}の${banKinds || "禁止状態"}から${b.count}つ回復${specialTurnsSuffix(b)}`));
  (fx.spiritPowers||[]).forEach(x=>out.push(`${x.target||"自身"}の霊力を${x.amount}上昇`));
  (fx.barriers||[]).forEach(x=>out.push(`${x.target||"自身"}の結界を${x.stacks}枚増加`));
  (fx.barrierHeals||[]).forEach(x=>out.push(`${x.target||"自身"}の結界異常を${x.count}つ回復`));
