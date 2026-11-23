@@ -17774,6 +17774,8 @@ function openDamageCalculator(charId, attackKey, side){
    <details><summary>ランク補正（バフは＋、デバフは−）</summary>
    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0;">
     <button type="button" class="btn-sm" data-rank-preset="max">バフ・デバフをMAX</button>
+    <button type="button" class="btn-sm" data-rank-preset="self">自機バフをMAX</button>
+    <button type="button" class="btn-sm" data-rank-preset="enemy">敵デバフをMAX</button>
     <button type="button" class="btn-sm" data-rank-preset="reset">ランク補正をリセット</button>
    </div>
    <p class="mini">MAX：自機 ＋${DAMAGE_PRESET_MAX_RANK} ／ 敵 −${DAMAGE_PRESET_MAX_RANK}（通常・RankⅡ）</p>
@@ -17868,9 +17870,11 @@ function openDamageCalculator(charId, attackKey, side){
   const rankPreset = ev.target.closest("[data-rank-preset]");
   const killerPreset = ev.target.closest("[data-killer-preset]");
   if(rankPreset){
-   const max = rankPreset.dataset.rankPreset === "max";
+   const preset = rankPreset.dataset.rankPreset;
    DAMAGE_RANK_FIELDS.forEach(([key,label])=>{
-    const rank = max ? (label.startsWith("敵 ") ? -1 : 1) * DAMAGE_PRESET_MAX_RANK : 0;
+    const enemy = label.startsWith("敵 ");
+    if((preset === "self" && enemy) || (preset === "enemy" && !enemy)) return;
+    const rank = preset === "reset" ? 0 : (enemy ? -1 : 1) * DAMAGE_PRESET_MAX_RANK;
     form.elements.namedItem(key).value = rank;
     form.elements.namedItem(key+"2").value = rank;
    });
