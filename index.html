@@ -325,6 +325,28 @@ body.theme-dark .eff-up{color:#ff6e6e}
 body.theme-dark .eff-rise,body.theme-dark .eff-heal{color:#81c784}
 body.theme-dark .eff-down{color:#64b5f6}
 
+.skill-effect-text{color:var(--lw-ink);font-weight:600}
+.spell-effect-phase{margin:8px 0;padding:8px 10px;border:1px solid var(--lw-border);border-radius:8px;color:var(--lw-ink)}
+.spell-effect-phase h4{margin:0 0 4px;font-size:inherit}
+.spell-effect-lines > *{position:relative;padding-inline-start:1em}
+.spell-effect-lines > *::before{content:"・";position:absolute;inset-inline-start:0}
+.spell-effect-lines > .tag{display:table;margin-inline-start:1em}
+.spell-effect-lines > .tag::before{inset-inline-start:-1em;color:var(--lw-ink)}
+.skill-slot-special > :is(.skill-detail-line,.tag){
+ display:block;position:relative;padding-inline-start:1em;margin:2px 0 !important;
+}
+.skill-slot-special > :is(.skill-detail-line,.tag)::before{
+ content:"・";position:absolute;inset-inline-start:0;color:var(--lw-ink);
+}
+.skill-slot-special .tag:not(.hl-match, .xc-partner-link){
+ background:none!important;border:0!important;box-shadow:none!important;color:inherit!important;
+ padding:0;font:inherit;letter-spacing:normal;
+}
+.skill-slot-special > .tag:not(.hl-match){padding-inline-start:1em}
+.skill-slot-special > .tag.hl-match{display:table;margin-inline-start:1em!important}
+.skill-slot-special > .tag.hl-match::before{inset-inline-start:-1em}
+.modal .skill-slot-special > .skill-detail-line{font-weight:400!important}
+.skill-slot-special .skill-detail-line > span:not(.tag){font-size:inherit!important;font-weight:inherit}
 .skill-detail-line{color:inherit;opacity:1}
 .skill-detail-line span{opacity:1 !important;font-weight:700}
 .result .muted, .attack .muted, .bento-tile .muted{opacity:.9;color:inherit}
@@ -4609,6 +4631,7 @@ function syncAccumFromDom(){
  detail.querySelectorAll(".accum-row").forEach(row=>{
   list.push({
    source: row.querySelector("[data-accum-source]")?.value || "スキル",
+   turns: row.querySelector("[data-effect-turns]")?.value || "",
    target: (row.querySelector("[data-accum-target]")?.value === "自身") ? "自身" : "味方全体",
    fromStat: row.querySelector("[data-accum-from]")?.value || "",
    ratio: row.querySelector("[data-accum-ratio]")?.value || "",
@@ -4699,7 +4722,8 @@ function loadPackToForm(pack){
       source: it.source || it.from || "スキル",
       target: tgt,
       stat: it.stat || it.status || it.statName || "",
-      stage: stage
+      stage: stage,
+      turns: it.turns
      };
     });
    }
@@ -8405,7 +8429,7 @@ function formatDamageDownLine(item){
  if(src === "スペカ1") src = "スペルカード1";
  if(src === "スペカ2") src = "スペルカード2";
  if(!srcList.includes(src)) src = "スキル";
- return src + "：" + side + "の" + what + "から受けるダメージを" + n + "%ダウン";
+ return src + "：" + side + "の" + what + "から受けるダメージを" + n + "%ダウン" + specialTurnsSuffix(item);
 }
 function formatDamageDownHtml(ss, matched){
  const list = getDamageDownList(ss);
@@ -8416,13 +8440,11 @@ function formatDamageDownHtml(ss, matched){
   // 他の特殊スキルと同じ：タグ名 + 詳細テキスト
   return `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(name, !!matched, cls)} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`;
  };
- if(!list.length){
-  if(ss && getDamageDownSkill(ss)?.enabled){
-   return `<div class="skill-detail-line" style="margin:6px 0;">${tagWithHl(name, !!matched, cls)}</div>`;
-  }
-  return "";
- }
- const ddObj = (ss && (ss["ダメージ軽減"] || ss["ダメージダウン"])) || null;
+ const ddObj = getDamageDownSkill(ss);
+ if(!ddObj?.enabled) return "";
+ const xcList = ddObj.xcEnabled && Array.isArray(ddObj.xc?.list)
+  ? ddObj.xc.list.filter(item=>item && (item.kind || item.target || item.ratio || specialTurnsSuffix(item))) : [];
+ if(!list.length && !xcList.length) return `<div class="skill-detail-line">${tagWithHl(name, !!matched, cls)}</div>`;
  const parts = [];
  list.forEach(item=>{
   let line = formatDamageDownLine(item);
@@ -8430,8 +8452,8 @@ function formatDamageDownHtml(ss, matched){
   const htmlLine = mkLine(line);
   if(htmlLine) parts.push(htmlLine);
  });
- if(ddObj && ddObj.xcEnabled && ddObj.xc && Array.isArray(ddObj.xc.list)){
-  ddObj.xc.list.forEach(item=>{
+ if(xcList.length){
+  xcList.forEach(item=>{
    let line = formatDamageDownLine(item);
    line = withXChangeOnlySuffix(line, { xChangeOnly:true });
    const htmlLine = mkLine(line);
@@ -8508,7 +8530,26 @@ function resolveCharByPartner(p){
  return null;
 }
 
+function specialTurnsSuffix(effect){
+ const turns = String(effect?.turns ?? "");
+ return /^\d+$/.test(turns) ? "(" + turns + "T)" : "";
+}
 function formatSpecialSkillDetailText(name, d){
+ if(!d?.enabled) return "";
+ if(["持続","スペルゲージ遅延","永続バフ","永続デバフ"].includes(name) || isRank2SkillName(name)){
+  return formatSpecialSkillBaseText(name, d);
+ }
+ const appendTurns = (text, effect)=>{
+  const suffix = specialTurnsSuffix(effect);
+  if(!suffix) return text;
+  return text ? text.split("\n").map(line=>line ? line + suffix : line).join("\n") : suffix;
+ };
+ if(isRowSourceSpecialSkill(name) && Array.isArray(d.list) && d.list.some(specialTurnsSuffix)){
+  return d.list.filter(Boolean).map(item=>appendTurns(formatSpecialSkillBaseText(name, { ...d, list:[item] }), item)).filter(Boolean).join("\n");
+ }
+ return appendTurns(formatSpecialSkillBaseText(name, d), d);
+}
+function formatSpecialSkillBaseText(name, d){
  if(!d || !d.enabled) return "";
  const bits = [];
  if(name === "ファスト" || name === "チャージ"){
@@ -8893,7 +8934,8 @@ function normalizeSpecialSkillsObject(ss){
    d.list = [{
     source: d.source || "スキル",
     stat: d.stat || "",
-    stage: (d.stage != null && d.stage !== "") ? d.stage : (d.rank != null && d.rank !== "" ? d.rank : "")
+    stage: (d.stage != null && d.stage !== "") ? d.stage : (d.rank != null && d.rank !== "" ? d.rank : ""),
+    turns: d.turns
    }];
   }
   if(!d.enabled && d.list.some(it => it && (pickRank2Stat(it) || pickRank2Stage(it) || pickRank2Source(it)))){
@@ -8911,7 +8953,8 @@ function normalizeSpecialSkillsObject(ss){
     source: pickRank2Source(it) || (isRank2SkillName(k) ? "スキル" : ""),
     target: tgt,
     stat: pickRank2Stat(it),
-    stage: pickRank2Stage(it)
+    stage: pickRank2Stage(it),
+    turns: it.turns
    };
   });
   if(d.xc && typeof d.xc === "object"){
@@ -8928,7 +8971,8 @@ function normalizeSpecialSkillsObject(ss){
      source: pickRank2Source(it) || (isRank2SkillName(k) ? "スキル" : ""),
      target: tgt,
      stat: pickRank2Stat(it),
-     stage: pickRank2Stage(it)
+     stage: pickRank2Stage(it),
+     turns: it.turns
     };
    });
    if(d.xc.list.some(it => it && (pickRank2Stat(it) || pickRank2Stage(it)))){
@@ -8958,9 +9002,9 @@ function formatRank2DetailLine(item, skillName){
  const srcLabel = src || "スキル";
  if(!st && !src && !tgt) return "";
  if(isDebuff){
-  return srcLabel + ":" + (tgt || "相手") + "の" + (st || "？") + "Ⅱを" + n + "段階ダウン";
+  return srcLabel + ":" + (tgt || "相手") + "の" + (st || "？") + "Ⅱを" + n + "段階ダウン" + specialTurnsSuffix(item);
  }
- return srcLabel + ":" + (tgt || "自身") + "の" + (st || "？") + "Ⅱを" + n + "段階アップ";
+ return srcLabel + ":" + (tgt || "自身") + "の" + (st || "？") + "Ⅱを" + n + "段階アップ" + specialTurnsSuffix(item);
 }
 
 
@@ -9035,16 +9079,6 @@ function projectSpecialSkills(ss, matches, asXc = false){
   out[name] = projected;
  });
  return out;
-}
-function hasSpecialSkillAssignedToSkill(ss){
- const src = normalizeSpecialSkillsObject(ss || {});
- const matches = sources=>sources.some(source=>/^スキル[123]$/.test(source));
- return [false,true].some(asXc=>Object.keys(projectSpecialSkills(src, matches, asXc)).length);
-}
-function hasSpecialSkillAssignedLocation(ss){
- const src = normalizeSpecialSkillsObject(ss || {});
- const matches = sources=>sources.some(source=>SPECIAL_SPELL_LOC_RE.test(SOURCE_TO_ACT_LOC[source] || ""));
- return [false,true].some(asXc=>Object.keys(projectSpecialSkills(src, matches, asXc)).length);
 }
 const SPECIAL_SPELL_LOC_RE = /^(spell1|spell2|lastWord):(pre|post)$/;
 function formatSpecialSkillsHtml(ss, opts){
@@ -9147,10 +9181,11 @@ function formatSpecialSkillsContent(ss, options){
     }else if(x === "X-Change"){
    const matched = isFilterMatch(x, selected.char);
    const effect = (ss[x].effect && String(ss[x].effect).trim()) ? String(ss[x].effect).trim() : "";
+   const suffix = withXChangeOnlySuffix(specialTurnsSuffix(ss[x]), ss[x]);
    const partners = Array.isArray(ss[x].partners) ? ss[x].partners : [];
    let body = "";
    if(effect){
-    const lines = effect.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean);
+    const lines = effect.split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean).map(line=>withXChangeOnlySuffix(line + specialTurnsSuffix(ss[x]), ss[x]));
     body += lines.map(line =>
      `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`
     ).join("");
@@ -9169,10 +9204,14 @@ function formatSpecialSkillsContent(ss, options){
      }
      return `<span class="tag tag-kind">${esc(label)}</span>`;
     }).filter(Boolean).join(" ");
-    body += `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${effect ? "" : tagWithHl(x, matched, "")} ${links}</div>`;
+    body += `<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${effect ? "" : tagWithHl(x, matched, "") + suffix} ${links}</div>`;
    }
    if(body) parts.push(body);
+   else if(suffix) parts.push(`<div class="skill-detail-line">${tagWithHl(x, matched, "")} ${suffix}</div>`);
    else parts.push(tagWithHl(x, matched, ""));
+   if(ss[x].xcEnabled && ss[x].xc){
+    parts.push(formatSpecialSkillsContent({[x]:{ ...ss[x].xc, enabled:true, xcEnabled:false, xChangeOnly:true }}, { ...options, emptyText:"" }));
+   }
   }else{
    let detail = formatSpecialSkillDetailText(x, ss[x]);
    detail = withXChangeOnlySuffix(detail, ss[x]);
@@ -9184,15 +9223,16 @@ function formatSpecialSkillsContent(ss, options){
     }
    }
 
-   const matched = isFilterMatch(x, selected.char);
+   const matched = isFilterMatch(x, charFilters);
+   const matchesLine = line=>matched || (x === "持続" && charFilters.includes("持続(禁止解除)") && line.includes("禁止状態、つよさ低下"));
    if(detail){
     const lines = String(detail).split(String.fromCharCode(10)).map(s=>s.trim()).filter(Boolean);
     if(lines.length > 1){
      lines.forEach(line=>{
-      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`);
+      parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matchesLine(line), "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(line)}</span></div>`);
      });
     }else{
-     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matched, "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(detail)}</span></div>`);
+     parts.push(`<div class="skill-detail-line" style="margin:6px 0;line-height:1.5;">${tagWithHl(x, matchesLine(detail), "")} <span style="font-size:13px;font-weight:700;opacity:1;">${colorizeEffectText(detail)}</span></div>`);
     }
    }else{
     parts.push(tagWithHl(x, matched, ""));
@@ -9325,6 +9365,11 @@ const SPECIAL_ROW_SOURCE_SKILLS = ["RANKⅡバフ","RANKⅡデバフ","永続バ
 function isRowSourceSpecialSkill(skill){
  return SPECIAL_ROW_SOURCE_SKILLS.includes(skill) || skill === DD_SKILL || skill === DD_SKILL_LEGACY;
 }
+function effectTurnsField(item, attribute){
+ return `<label class="mini" style="display:block;margin-top:6px;">ターン数（T）
+  <input class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例：3" value="${esc(item.turns ?? "")}" ${attribute}>
+ </label>`;
+}
 function specialSourceField(item, panel, skill, index = ""){
  const sources = specialEffectSources(item, panel, getActivationLocations(specialData[skill]));
  const current = sources.length === 1 ? sources[0] : "スキル";
@@ -9334,7 +9379,7 @@ function specialSourceField(item, panel, skill, index = ""){
   <select class="select" aria-label="発動箇所" data-special-source="${index}">
    ${legacyMultiple ? `<option value="" selected disabled>従来の設定：${esc(sources.join("、"))}</option>` : ""}
    ${values.map(source=>`<option value="${esc(source)}" ${!legacyMultiple && source===current?"selected":""}>${esc(source)}</option>`).join("")}
-  </select>`;
+  </select>${["永続バフ","永続デバフ","持続","スペルゲージ遅延"].includes(skill) ? "" : effectTurnsField(item, `data-effect-turns="${index}"`)}`;
 }
 function initSpecialSkills(){
  const e=document.getElementById("specialSkillEditor");
@@ -9647,6 +9692,7 @@ function buildSpecialDetail(skill, e){
       <div class="mini" style="font-weight:700;margin-bottom:6px;">蓄積 #${idx+1}</div>
       <div class="mini">発動箇所</div>
       <select class="select" data-accum-source>${srcOpts}</select>
+      ${effectTurnsField(it, `data-effect-turns="${idx}"`)}
       <div class="mini" style="margin-top:6px">対象</div>
       <select class="select" data-accum-target>
        <option value="味方全体"${tg==="味方全体"?' selected':''}>味方全体</option>
@@ -10607,6 +10653,13 @@ function buildSpecialDetail(skill, e){
   const item = idx === "" ? d : d.list?.[Number(idx)];
   if(item && select.value) item.source = select.value;
  };
+ e.oninput = ev=>{
+  const input = ev.target;
+  if(!input.matches("[data-effect-turns]")) return;
+  const idx = input.dataset.effectTurns;
+  const item = idx === "" ? d : d.list?.[Number(idx)];
+  if(item) item.turns = input.value;
+ };
  bindSpecialInputs(skill,e);
 }
 
@@ -10623,6 +10676,7 @@ function renderRank2List(skill, container, d = getSpecialSkillData(skill), sourc
   d.list[0].stat = d.stat || d.list[0].stat || "";
   d.list[0].stage = (d.stage != null && d.stage !== "") ? d.stage : (d.rank != null && d.rank !== "" ? d.rank : d.list[0].stage);
   if(d.source) d.list[0].source = d.source;
+  if(d.list[0].turns == null) d.list[0].turns = d.turns;
  }
  let html = "";
  d.list.forEach((item, idx)=>{
@@ -10657,6 +10711,7 @@ function renderRank2List(skill, container, d = getSpecialSkillData(skill), sourc
     </select>
     <div class="mini" style="margin-top:6px;font-weight:700;color:#7a1f1f">段階（必須）</div>
     <input class="input" type="number" inputmode="numeric" placeholder="例：2" data-rank2-field="stage" data-rank2-idx="${idx}" value="${item.stage != null && item.stage !== "" ? esc(item.stage) : (item.rank != null && item.rank !== "" ? esc(item.rank) : "")}" style="border:2px solid #c9a24a;font-size:16px">
+    ${effectTurnsField(item, `data-rank2-field="turns" data-rank2-idx="${idx}"`)}
    </div>`;
  });
  html += `<button type="button" class="sub" data-rank2-add style="margin-top:4px">＋ RANKⅡ効果を追加</button>`;
@@ -10845,7 +10900,8 @@ function syncRank2FieldsFromDom(){
     source: (srcField && srcField.value) || "スキル",
     target: (tgtField && tgtField.value) || (skill.includes("デバフ")?"相手":"自身"),
     stat: (statField && statField.value) || "",
-    stage: (stageField && stageField.value) || ""
+    stage: (stageField && stageField.value) || "",
+    turns: item.querySelector('[data-rank2-field="turns"]')?.value || ""
    });
   });
   if(items.length) applyList(skill, items, isXc);
@@ -10954,6 +11010,7 @@ function renderDamageDownList(container, d){
      }
     </div>
     <input class="input" style="margin-top:6px" type="number" placeholder="ダウン倍率 %" value="${esc(item.ratio||"")}" data-dd-ratio="${idx}">
+    ${effectTurnsField(item, `data-dd-turns="${idx}"`)}
    </div>
   `;
  });
@@ -10969,7 +11026,7 @@ function renderDamageDownList(container, d){
    renderDamageDownList(container, d);
   };
  });
- ["source","side","kind","target","ratio"].forEach(field=>{
+ ["source","side","kind","target","ratio","turns"].forEach(field=>{
   const attr = "data-dd-" + field;
   container.querySelectorAll("["+attr+"]").forEach(el=>{
    el.addEventListener(el.tagName === "INPUT" ? "input" : "change", ()=>{
@@ -11932,7 +11989,7 @@ function updateSupportBagItem(prefix, phase, key, idx, field, value){
  const bag = getSupportBag(obj, phase);
  if(bag[key] && bag[key][idx]) bag[key][idx][field] = value;
 }
-function formatSupportEffectsHtml(bag, phaseLabel){
+function formatSupportEffectsHtml(bag){
  if(!bag) return "";
  const bonusTxt = (x)=>{
   if(!x || x.bonusPct==="" || x.bonusPct==null) return "";
@@ -11945,7 +12002,7 @@ function formatSupportEffectsHtml(bag, phaseLabel){
   let line = `${tgt}に結界異常「${x.name}」を${x.stacks||"?"}枚付与`;
   if(x.turns!=="" && x.turns!=null) line += `(${x.turns}T)`;
   line += bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${esc(line)}</span></div>`;
  });
  (bag.ranks||[]).forEach(r=>{
   if(!r || !r.stat || r.stages==="" || r.stages==null) return;
@@ -11954,37 +12011,37 @@ function formatSupportEffectsHtml(bag, phaseLabel){
   let line = `${tgt}の${r.stat}を${r.stages}段階${dir}`;
   if(r.turns!=="" && r.turns!=null) line += `(${r.turns}T)`;
   line += bonusTxt(r);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${colorizeEffectText(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${colorizeEffectText(line)}</span></div>`;
  });
  (bag.banReleases||[]).forEach(x=>{
   if(!x || x.count==="" || x.count==null) return;
   const tgt = x.target || "自身";
   let line = `${tgt}の禁止状態・つよさ低下を${x.count}つ回復` + bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${esc(line)}</span></div>`;
  });
  (bag.heals||[]).forEach(x=>{
   if(!x || x.percent==="" || x.percent==null) return;
   const tgt = x.target || "自身";
   let line = `${tgt}の体力を${x.percent}%回復` + bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${esc(line)}</span></div>`;
  });
  (bag.barriers||[]).forEach(x=>{
   if(!x || x.stacks==="" || x.stacks==null) return;
   const tgt = x.target || "自身";
   let line = `${tgt}の結界を${x.stacks}枚増加` + bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${colorizeEffectText(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${colorizeEffectText(line)}</span></div>`;
  });
  (bag.spiritPowers||[]).forEach(x=>{
   if(!x || x.amount==="" || x.amount==null) return;
   const tgt = x.target || "自身";
   let line = `${tgt}の霊力を${x.amount}上昇` + bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${esc(line)}</span></div>`;
  });
  (bag.barrierHeals||[]).forEach(x=>{
   if(!x || x.count==="" || x.count==null) return;
   const tgt = x.target || "自身";
   let line = `${tgt}の結界異常を${x.count}枚回復` + bonusTxt(x);
-  h += `<div style="margin:3px 0;"><span class="tag tag-buff">${esc(phaseLabel)}</span> <span class="muted">${esc(line)}</span></div>`;
+  h += `<div style="margin:3px 0;"><span>${esc(line)}</span></div>`;
  });
  return h;
 }
@@ -16673,33 +16730,22 @@ function search(skipHistory) {
 function getBuffDebuffHtml(obj, opts) {
   opts = opts || {};
  let h = "";
- // 発動前・発動後効果（補助は常時／通常スペカはデータがあるとき・管理者向けWIP含む）
- if (obj) {
+ if(obj){
   ensureSupportEffects(obj);
-  const preH = formatSupportEffectsHtml(obj.preEffects, "発動前");
-  const postH = formatSupportEffectsHtml(obj.postEffects, "発動後");
-   const specialPre = opts.attackKey && opts.specialSkills
-    ? formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:opts.attackKey+":pre" })
-    : "";
-   const specialPost = opts.attackKey && opts.specialSkills
-    ? formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:opts.attackKey+":post" })
-    : "";
-  const isSupport = obj.range === "補助";
-   let preDisplay = preH;
-   let postDisplay = postH;
-   if (!preDisplay && obj.preEffect && String(obj.preEffect).trim()) {
-    preDisplay += `<div style="margin:4px 0;"><span class="tag tag-buff">発動前</span> <span class="muted">${esc(String(obj.preEffect).trim())}</span></div>`;
+  for(const [phase, label, bag, fallback] of [
+   ["pre", "効果前", obj.preEffects, obj.preEffect],
+   ["post", "効果後", obj.postEffects, obj.postEffect]
+  ]){
+   let lines = formatSupportEffectsHtml(bag);
+   if(!lines && fallback){
+    lines = String(fallback).split(/\r?\n/).map(line=>line.trim().replace(/^・\s*/,"")).filter(Boolean).map(line=>`<div>${esc(line)}</div>`).join("");
    }
-   if (!postDisplay && obj.postEffect && String(obj.postEffect).trim()) {
-    postDisplay += `<div style="margin:4px 0;"><span class="tag tag-buff">発動後</span> <span class="muted">${esc(String(obj.postEffect).trim())}</span></div>`;
+   if(opts.attackKey && opts.specialSkills){
+    lines += formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:opts.attackKey+":"+phase });
    }
-   if(specialPre) preDisplay += `<div class="mini" style="font-weight:700;margin:6px 0 2px;">効果前に発動する特殊スキル</div>${specialPre}`;
-   if(specialPost) postDisplay += `<div class="mini" style="font-weight:700;margin:6px 0 2px;">効果後に発動する特殊スキル</div>${specialPost}`;
-   if (isSupport || preDisplay || postDisplay) {
-    h += preDisplay;
-    h += postDisplay;
-   if (isSupport) return h;
+   if(lines) h += `<section class="spell-effect-phase" data-effect-phase="${phase}"><h4>${label}</h4><div class="spell-effect-lines">${lines}</div></section>`;
   }
+  if(obj.range === "補助") return h;
  }
  let buffs = obj.buffs || (obj.buff && obj.buff.stat ? [obj.buff] : []);
  let debuffs = obj.debuffs || (obj.debuff && obj.debuff.stat ? [obj.debuff] : []);
@@ -17573,11 +17619,7 @@ function openModal(id){
  const body = document.getElementById("modalBody");
  const vm = getViewModel(c);
  const ss = vm.specialSkills || {};
-  const skillSectionVisible = (typeof isAdmin === "function" && isAdmin());   // スキル欄は管理者のみ表示（WIP）
- const unassignedSpecialHtml = formatSpecialSkillsHtml(ss, { excludeLocated:true, excludeSkillSlots:skillSectionVisible, emptyText:"" });
- const assignedSpecialNote = (hasSpecialSkillAssignedLocation(ss) || (skillSectionVisible && hasSpecialSkillAssignedToSkill(ss)))
-  ? '<span class="muted">選択した発動箇所（スキル・スペカ）に表示しています</span>'
-  : '<span class="muted">なし</span>';
+ const specialSkillsHtml = formatSpecialSkillsHtml(ss, { emptyText:'<span class="muted">なし</span>' });
  const sideLabel = vm.rebirth ? (vm.side === "after" ? "転生後" : "転生前") : "";
 
  const showModalTip = vm.rebirth && shouldShowRebirthTip();
@@ -17625,7 +17667,7 @@ function openModal(id){
   <div class="box" style="background:#f9f9f9">
    <div class="title">特殊スキル</div>
    <div>
-     ${unassignedSpecialHtml || assignedSpecialNote}
+     ${specialSkillsHtml}
    </div>
   </div>
 
@@ -20403,7 +20445,7 @@ function formatBgmSkillsTraitsHtml(pack, opts){
   const skills = pack.skills || [];
   const slotHtmls = [1,2,3].map(n => (opts && opts.specialSkills && typeof formatSpecialSkillsHtml === "function")
    ? formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:"skill"+n, emptyText:"" }) : "");
-  if(skills.some((s,i)=>s && (s.name || s.cooldown || slotHtmls[i] || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
+  if(skills.some((s,i)=>s && (s.name || s.cooldown || s.text || slotHtmls[i] || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">スキル</div>`;
    skills.forEach((sk,i)=>{
     if(!sk) return;
@@ -20411,8 +20453,8 @@ function formatBgmSkillsTraitsHtml(pack, opts){
      if(!sk.name && !sk.cooldown && !hasFx && !sk.text && !slotHtmls[i]) return;
     h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
     h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">（再使用ターン数${esc(sk.cooldown)}）</span>`:""}</div>`;
-    skillWikiLines(sk).forEach(x=>{ h += `<div class="muted">・${esc(x)}</div>`; });
-    if(slotHtmls[i]) h += `<div class="skill-slot-special" style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(160,130,70,.35);"><div class="mini" style="font-weight:700;margin-bottom:2px;">発動する特殊スキル</div>${slotHtmls[i]}</div>`;
+    skillWikiLines(sk).forEach(x=>{ h += `<div class="skill-effect-text">・${esc(x)}</div>`; });
+    if(slotHtmls[i]) h += `<div class="skill-slot-special">${slotHtmls[i]}</div>`;
     h += `</div>`;
    });
    h += `</div>`;
