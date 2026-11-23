@@ -324,8 +324,22 @@ body.theme-dark .eff-stat{color:#ffd54f}
 body.theme-dark .eff-up{color:#ff6e6e}
 body.theme-dark .eff-rise,body.theme-dark .eff-heal{color:#81c784}
 body.theme-dark .eff-down{color:#64b5f6}
+/* 詳細の色付き効果も背景との明暗差を確保する */
+#detailModal .eff-stat{color:#725700}
+#detailModal .eff-up{color:#a82020}
+#detailModal .eff-rise,#detailModal .eff-heal{color:#286b2c}
+#detailModal .eff-down{color:#145e9b}
+body.theme-dark #detailModal .eff-stat{color:#ffd54f}
+body.theme-dark #detailModal .eff-up{color:#ff8585}
+body.theme-dark #detailModal .eff-rise,body.theme-dark #detailModal .eff-heal{color:#81c784}
+body.theme-dark #detailModal .eff-down{color:#90caff}
+body.theme-dark #detailModal a{color:#a8ceff}
 
-.skill-effect-text{color:var(--lw-ink);font-weight:600}
+.skill-effect-text,.trait-effect-text{color:var(--lw-ink);font-size:13px;font-weight:600;line-height:1.5}
+.skill-entry,.skill-slot-special{font-size:13px}
+#detailModal #modalBody .muted,#detailModal #modalBody .mini{color:var(--lw-ink)!important;opacity:1}
+.character-bgm{margin-top:4px;font-size:12px;line-height:1.5;color:var(--lw-ink)}
+.character-bgm .bgm-title{font-weight:700}
 .spell-effect-phase{margin:8px 0;padding:8px 10px;border:1px solid var(--lw-border);border-radius:8px;color:var(--lw-ink)}
 .spell-effect-phase h4{margin:0 0 4px;font-size:inherit}
 .spell-effect-lines > *{position:relative;padding-inline-start:1em}
@@ -347,6 +361,14 @@ body.theme-dark .eff-down{color:#64b5f6}
 .skill-slot-special > .tag.hl-match::before{inset-inline-start:-1em}
 .modal .skill-slot-special > .skill-detail-line{font-weight:400!important}
 .skill-slot-special .skill-detail-line > span:not(.tag){font-size:inherit!important;font-weight:inherit}
+#detailModal .skill-slot-special .skill-effect-match{
+ background:linear-gradient(180deg,#ffe9a8,#ffd666);
+ color:#3a2e10!important;border-radius:4px;
+}
+#detailModal .skill-slot-special .skill-effect-match [class*="eff-"]{color:inherit!important}
+body.theme-dark #detailModal .skill-slot-special .skill-effect-match{
+ background:linear-gradient(180deg,#5a4a18,#3d3410);color:#ffe9a8!important
+}
 .skill-detail-line{color:inherit;opacity:1}
 .skill-detail-line span{opacity:1 !important;font-weight:700}
 .result .muted, .attack .muted, .bento-tile .muted{opacity:.9;color:inherit}
@@ -17646,6 +17668,7 @@ function openModal(id){
        return `<span class="feature-tip-wrap" style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;position:relative;">連携：${links.map(x=>linkTagHtml(x)).join("")}${featureTipHtml("link", "連携名を<strong>長押し</strong>すると詳細な効果がわかります。")}</span>`;
      })()}
     </div>
+    ${(typeof formatBgmSkillsTraitsHtml==="function" ? formatBgmSkillsTraitsHtml(vm, { section:"bgm" }) : "")}
    </div>
    <div class="modal-char-actions">
      ${canEdit ? `
@@ -17656,7 +17679,6 @@ function openModal(id){
    </div>
   </div>
   
-  ${(typeof formatBgmSkillsTraitsHtml==="function" ? formatBgmSkillsTraitsHtml(vm, { section:"bgm" }) : "")}
   <div class="box" style="background:#f9f9f9">
    <div class="title">ステータス${sideLabel?`（${sideLabel}）`:""}</div>
    ${vm.statsUnknown && vm.side==="after" ? `<div class="mini" style="margin-bottom:8px;padding:8px 10px;border-radius:8px;background:#fff6e8;border:1px solid #e0c48a;color:#6b4e12;line-height:1.5;">転生後のステータスは現在不明のため、<b>転生前のステータス</b>を表示しています。</div>` : ""}
@@ -20409,6 +20431,23 @@ function bindBgmSkillsTraitsForm(){
   }
  });
 }
+function formatSkillSlotSpecialSkillsHtml(ss, n){
+ const html = formatSpecialSkillsHtml(ss, { activationLocation:"skill"+n, emptyText:"" });
+ const template = document.createElement("template");
+ template.innerHTML = html;
+ template.content.querySelectorAll(".skill-detail-line").forEach(line=>{
+  const label = [...line.children].find(el=>el.classList.contains("tag") && !el.classList.contains("xc-partner-link"));
+  if(!label) return;
+  // 効果文または対応キャラがある場合だけ名前を取り除く。
+  const hasEffect = [...line.children].some(el=>el !== label && (
+   el.classList.contains("xc-partner-link") || (!el.classList.contains("tag") && el.textContent.trim())
+  ));
+  if(!hasEffect) return;
+  if(label.classList.contains("hl-match")) line.classList.add("skill-effect-match","hl-match");
+  label.remove();
+ });
+ return template.innerHTML;
+}
 function formatBgmSkillsTraitsHtml(pack, opts){
  if(!pack) return "";
  const admin = (typeof isAdmin === "function" && isAdmin());
@@ -20421,8 +20460,7 @@ function formatBgmSkillsTraitsHtml(pack, opts){
   const originals = Array.isArray(bgm.originals) ? bgm.originals.filter(v=>String(v||"").trim()) : (bgm.original ? [bgm.original] : []);
    const vocals = Array.isArray(bgm.vocals) ? bgm.vocals.filter(v=>String(v||"").trim()) : (bgm.vocal ? [bgm.vocal] : []);
    if(bgm.title || bgm.circle || bgm.arranger || bgm.lyricist || vocals.length || originals.length || (bgm.links||[]).length){
-   h += `<div class="box" style="background:#f9f9f9"><div class="title">BGM</div>`;
-    if(bgm.title) h += `<div><b>${esc(bgm.title)}</b></div>`;
+   h += `<div class="character-bgm"><div><span class="bgm-title">BGM：</span>${bgm.title ? esc(bgm.title) : "未登録"}</div>`;
     originals.forEach((name, i)=>{ h += `<div class="muted">原曲${i ? (i+1) : ""}：${esc(name)}</div>`; });
     (bgm.links||[]).forEach(lk=>{
      if(!lk || !lk.url) return;
@@ -20444,14 +20482,14 @@ function formatBgmSkillsTraitsHtml(pack, opts){
  if(section==="all" || section==="skillsTraits"){
   const skills = pack.skills || [];
   const slotHtmls = [1,2,3].map(n => (opts && opts.specialSkills && typeof formatSpecialSkillsHtml === "function")
-   ? formatSpecialSkillsHtml(opts.specialSkills, { activationLocation:"skill"+n, emptyText:"" }) : "");
+   ? formatSkillSlotSpecialSkillsHtml(opts.specialSkills, n) : "");
   if(skills.some((s,i)=>s && (s.name || s.cooldown || s.text || slotHtmls[i] || (s.effects && Object.values(s.effects).some(a=>Array.isArray(a)&&a.length))))){
    h += `<div class="box" style="background:#f9f9f9"><div class="title">スキル</div>`;
    skills.forEach((sk,i)=>{
     if(!sk) return;
     const hasFx = sk.effects && Object.values(sk.effects).some(a=>Array.isArray(a)&&a.length);
      if(!sk.name && !sk.cooldown && !hasFx && !sk.text && !slotHtmls[i]) return;
-    h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
+    h += `<div class="skill-entry" style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
     h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">（再使用ターン数${esc(sk.cooldown)}）</span>`:""}</div>`;
     skillWikiLines(sk).forEach(x=>{ h += `<div class="skill-effect-text">・${esc(x)}</div>`; });
     if(slotHtmls[i]) h += `<div class="skill-slot-special">${slotHtmls[i]}</div>`;
@@ -20468,8 +20506,8 @@ function formatBgmSkillsTraitsHtml(pack, opts){
     if(!wl.length && !tr.name) return;
     h += `<div style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.2);border-radius:8px;">`;
     if(tr.name) h += `<div><b>${esc(tr.name)}</b></div>`;
-    wl.forEach(x=>{ h += `<div class="muted">・${esc(x)}</div>`; });
-    if(tr.text && tr.type !== "特殊" && wl.length) h += `<div class="mini" style="color:#666;">${esc(tr.text)}</div>`;
+    wl.forEach(x=>{ h += `<div class="trait-effect-text">・${esc(x)}</div>`; });
+    if(tr.text && tr.type !== "特殊" && wl.length) h += `<div class="trait-effect-text">${esc(tr.text)}</div>`;
     h += `</div>`;
    });
    h += `</div>`;
