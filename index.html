@@ -14589,7 +14589,18 @@ function gamerchParseBulletDetail(detail){
   }
  }
  const spNames = (typeof SPECIALS !== "undefined" ? SPECIALS : []).slice().sort((a,b)=>b.length-a.length);
+ // 前の行にある命中率／CRI率を硬質・斬裂の倍率に流用しない。
+ const ratioLines = rawDetail.normalize("NFKC").split(/\r?\n/);
  for(const sp of spNames){
+  if(sp === "硬質弾" || sp === "斬裂弾"){
+   const prefix = new RegExp(String.raw`(?:^|[\s/、,;|弾])(\d+(?:\.\d+)?)\s*%\s*${sp}`);
+   const suffix = new RegExp(String.raw`${sp}\s*(?:\(\s*|[:：]\s*)?(\d+(?:\.\d+)?)\s*%`);
+   if(s.includes(sp)){
+    const ratio = ratioLines.map(line=>line.match(prefix)?.[1] ?? line.match(suffix)?.[1]).find(v=>v !== undefined);
+    out.specials.push(ratio === undefined ? {name:sp} : {name:sp,ratio});
+   }
+   continue;
+  }
   if(sp === "特攻弾" || sp === "吸収弾" || sp === "衝撃弾" || sp === "粘着弾") continue;
   if(sp === "焼夷弾" || sp === "冷却弾" || sp === "荷電弾" || sp === "噴毒弾" || sp === "煙幕弾") continue;
   const re = new RegExp("(?:(\\d+)%)?" + sp.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
@@ -17618,11 +17629,32 @@ function damageRank(stages, perStage){
  const factor = 1 + Math.abs(stages) * perStage;
  return stages < 0 ? 1 / factor : factor;
 }
+function damageBulletRatioDetail(bullet, prop, name){
+ const own = pickSpecialDetailValue(bullet,null,prop,name);
+ if(String(own).trim()) return own;
+ const legacy = Array.isArray(bullet.specials) && bullet.specials.find(sp=>sp?.name === name);
+ return legacy ? legacy[prop] ?? legacy.ratio ?? legacy.value ?? "" : "";
+}
+function damageBulletRatio(bullet, summary, prop, name){
+ const own = damageBulletRatioDetail(bullet,prop,name);
+ const enabled = isBulletSpecialOn(bullet,name) ||
+  (Array.isArray(bullet.specials) && bullet.specials.some(sp=>sp === name || sp?.name === name));
+ const raw = String(own).trim() ? own : enabled ? summary : "";
+ const input = String(raw).normalize("NFKC").trim();
+ return damageNumber(input.replace(/%$/, "")) ?? (enabled || input ? null : 0);
+}
 function damageRows(attack){
  const pattern = BOOST_PATTERNS.some(([key])=>key===attack.boostPattern) ? stagesFromBoostPattern(attack.boostPattern) : [];
  const bullets = attack.bullets || [];
+ const summaryRatio = (prop,name)=> {
+  // 取り込み時に概要へコピーされた他バレットの倍率は流用しない。
+  if(bullets.some(b=>b && String(damageBulletRatioDetail(b,prop,name)).trim())) return "";
+  return pickSpecialDetailValue(null,attack,prop,name);
+ };
+ const hardSummary = summaryRatio("hardRatio","硬質弾");
+ const sharpSummary = summaryRatio("sharpRatio","斬裂弾");
  const last = bullets.reduce((i,b,j)=>b && (
-  b.name || b.attr || [b.power,b.count,b.accuracy,b.critical].some(v=>damageNumber(v) !== null)
+  b.name || b.attr || b.hardRatio || b.sharpRatio || [b.power,b.count,b.accuracy,b.critical].some(v=>damageNumber(v) !== null)
   || Object.values(b.specials || {}).some(Boolean) || (b.bulletType && b.bulletType !== "通常弾")
  ) ? j : i,-1);
  return bullets.slice(0,last+1).map((b,i)=>{
@@ -17632,8 +17664,8 @@ function damageRows(attack){
   return {
    index:i+1, name:b.name || "バレット"+(i+1), kind:b.kind, stage,
    power:damageNumber(b.power), count:damageNumber(b.count), accuracy:damageNumber(b.accuracy), critical:damageNumber(b.critical),
-   hard:damageNumber(b.hardRatio) ?? (flags["硬質弾"] ? null : 0),
-   sharp:damageNumber(b.sharpRatio) ?? (flags["斬裂弾"] ? null : 0),
+   hard:damageBulletRatio(b,hardSummary,"hardRatio","硬質弾"),
+   sharp:damageBulletRatio(b,sharpSummary,"sharpRatio","斬裂弾"),
    sure:!!flags["必中弾"], pierce:!!flags["貫通弾"], mirror:!!flags["鏡面弾"],
    killer:!!(flags["特攻弾"] || b.specialTarget), killerText:b.specialTarget || "",
    attr:b.attr || "", bulletType:b.bulletType || "",
