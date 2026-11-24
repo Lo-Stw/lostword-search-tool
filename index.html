@@ -3639,7 +3639,7 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
   <div class="mini" style="font-weight:700;margin:14px 0 6px;">Wiki取込（任意）</div>
   <div class="char-extra-wiki" style="margin-bottom:10px;padding:10px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
    <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（スキル）</div>
-   <div class="mini" style="margin-bottom:6px;color:#666;">スキル名〜効果をまとめて貼り付け。Lv.10以降の効果と再使用ターンを採用します。</div>
+   <div class="mini" style="margin-bottom:6px;color:#666;">スキル名〜効果をまとめて貼り付け。Lv.10を転生前、「改」を転生後に取り込みます。改がある場合は転生を有効にします。</div>
    <textarea id="wikiSkillsPaste" class="input" rows="6" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;異変妨害：キューイング（再使用ターン数４）&#10;・自身の霊力を0.50上昇&#10;・…&#10;Lv.10（再使用ターン数４）&#10;・自身の霊力を1.00上昇&#10;…"></textarea>
    <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
     <button type="button" class="btn-sm" id="wikiSkillsImportBtn" style="font-weight:700;">スキルを取り込む</button>
@@ -5125,6 +5125,7 @@ function packFromCharacterSide(c, side){
 function editablePackFromCharacterSide(c, side){
  const pack = packFromCharacterSide(c, side);
  if(Array.isArray(pack.traits)) pack.traits = JSON.parse(JSON.stringify(pack.traits));
+ if(Array.isArray(pack.skills)) pack.skills = JSON.parse(JSON.stringify(pack.skills));
  return pack;
 }
 
@@ -15204,115 +15205,87 @@ function gamerchImportIntoAttack(a, attackKey, raw){
 }
 
 
-/** スキルWiki取込: Lv.10以降の効果のみ採用。上からスキル1〜3 */
+/** Lv.10 と改の列を、それぞれ転生前・転生後のスキルとして取り込む。 */
 function importWikiIntoSkills(text){
- const toHalfDigits = (t)=>String(t).replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
- // 再使用ターン数の全角数字（例：４）を半角へ（スキル名内の数字はそのまま）
- const raw = String(text||"").replace(/(再使用(?:ターン数?|T)?\s*[：:]?\s*)([０-９]+)/g, (m,a,d)=>a+toHalfDigits(d)).trim();
- if(!raw){
-  alert("テキストが空です。");
-  return { ok:false };
- }
- const editingPack = activeCharExtraPack || beforePack;
- if(!editingPack){
-  alert("編集中のキャラがありません。");
-  return { ok:false };
- }
- ensureCharExtra(editingPack);
- const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
-  .map(x => /^[・･]/.test(x) ? toHalfDigits(x).replace(/％/g,"%").replace(/．/g,".") : x);  // 効果行の数値は半角に
- // スキルブロック分割: ・で始まらない行で、かつ効果行でないものをスキル名候補に
+ const toHalfDigits = t=>String(t).replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+ const raw = String(text||"")
+  .replace(/(再使用(?:ターン数?|T)?\s*[：:]?\s*)([０-９]+)/g,(m,prefix,n)=>prefix+toHalfDigits(n))
+  .replace(/(Lv\.?\s*)([０-９]+)/gi,(m,prefix,n)=>prefix+toHalfDigits(n)).trim();
+ if(!raw){ alert("テキストが空です。"); return { ok:false }; }
+ if(!(activeCharExtraPack || beforePack)){ alert("編集中のキャラがありません。"); return { ok:false }; }
+ const CD_RE = /[（(［\[【]?\s*再使用(?:ターン数?|T)?\s*[：:]?\s*(\d+)\s*(?:ターン|T)?\s*[）)］\]】]?/;
+ const lines = raw.replace(/[ \t]+(?=(?:Lv\.?\s*10\b|改\s*[（(［\[【]?\s*再使用))/gi,"\n")
+  .split(/\r?\n|\t+/).map(x=>x.trim()).filter(Boolean)
+  .map(x=>/^[・･]/.test(x) ? toHalfDigits(x).replace(/％/g,"%").replace(/．/g,".") : x);
  const skills = [];
- let cur = null;
- let mode = "pre"; // pre = Lv.10前 / post = Lv.10以降
-
- function flush(){
-  if(cur && cur.name) skills.push(cur);
-  cur = null;
-  mode = "pre";
- }
- function ensureCur(nameLine){
-  if(cur && cur.name) flush();
-  let name = String(nameLine||"").trim();
-  // 名前行から再使用ターンを仮取り（Lv.10側で上書き）
-  let cd = "";
-  // 例：「異変妨害：キューイング（再使用ターン数4）」→ 名前と再使用ターン数に分離
-  const CD_RE = /[（(［\[【]?\s*再使用(?:ターン数?|T)?\s*[：:]?\s*(\d+)\s*(?:ターン|T)?\s*[）)］\]】]?/;
-  const cdm = name.match(CD_RE);
-  if(cdm) cd = cdm[1];
-  name = name.replace(new RegExp(CD_RE.source, "g"), "").replace(/[（(\s：:]+$/,"").trim();
-  name = name.replace(/\s*Lv\.?\s*\d+.*$/,"").trim();
-  cur = { name, cooldown: cd, effects: createEmptyEffectBag(), _preEffects: [], _postEffects: [], _postCd: "" };
-  mode = "pre";
- }
-
+ let cur = null, mode = "pre";
+ const flush=()=>{ if(cur?.name) skills.push(cur); cur=null; mode="pre"; };
+ const addEffect=body=>{ if(cur && body) cur[mode+"Effects"].push(body.replace(/^[・･]\s*/,"").trim()); };
  for(const line of lines){
-  if(!line) continue;
-  // Lv.10 マーカー
-  if(/Lv\.?\s*10\b/i.test(line)){
+  if(/^(?:Lv\.?\s*10\b|改(?=\s|[（(［\[【]|$))/i.test(line)){
    if(!cur) continue;
-   mode = "post";
-   const cdm = line.match(/再使用ターン数\s*[：:】\)]?\s*(\d+)/) || line.match(/再使用ターン数\s*(\d+)/);
-   if(cdm) cur._postCd = cdm[1];
-   // 同じ行に効果が続くことは稀だが名前以外は後続で処理
-   const rest = line.replace(/.*?Lv\.?\s*10\b/i, "").replace(/[（(]?再使用ターン数\s*\d+[）)]?/g, "").trim();
-   if(rest && /^[・･]/.test(rest)){
-    cur._postEffects.push(rest.replace(/^[・･]\s*/, ""));
-   }
+   mode = /^改/.test(line) ? "kai" : "level";
+   cur[mode+"Present"] = true;
+   const cd = line.match(CD_RE); if(cd) cur[mode+"Cd"] = cd[1];
+   const rest = line.replace(/^(?:Lv\.?\s*10\b|改)/i,"").replace(CD_RE,"").trim();
+   if(/^[・･]/.test(rest)) addEffect(rest);
    continue;
   }
-  // 箇条書き効果
-  if(/^[・･]/.test(line)){
-   if(!cur) continue;
-   const body = line.replace(/^[・･]\s*/, "").trim();
-   if(!body) continue;
-   if(mode === "post") cur._postEffects.push(body);
-   else cur._preEffects.push(body);
+  if(/^[・･]/.test(line)){ addEffect(line); continue; }
+  if(/^[（(［\[【]?\s*再使用(?:ターン数?|T)?\s*[：:]?\s*\d+\s*(?:ターン|T)?\s*[）)］\]】]?$/.test(line)){
+   const cd = line.match(CD_RE); if(cur && cd) cur[mode === "pre" ? "cooldown" : mode+"Cd"] = cd[1];
    continue;
   }
-  // 再使用ターンだけの行
-  if(/^[（(［\[【]?\s*再使用(?:ターン数?|T)?\s*[：:]?\s*\d+\s*(?:ターン|T)?\s*[）)］\]】]?$/.test(line)){   // 「再使用ターン数だけ」の行のみ（スキル名＋再使用ターン数の行は対象外）
-   if(cur){
-    const cdm = line.match(/(\d+)/);
-    if(cdm){
-     if(mode === "post") cur._postCd = cdm[1];
-     else if(!cur.cooldown) cur.cooldown = cdm[1];
-    }
-   }
-   continue;
-  }
-  // それ以外 → 次スキル名
-  // 表ヘッダや無視行はスキップ
   if(/^(P\b|属性|弾幕|レベル別|攻撃前|攻撃後)/.test(line)) continue;
-  ensureCur(line);
+  flush();
+  const cd = line.match(CD_RE);
+  const name = line.replace(CD_RE,"").replace(/[（(\s：:]+$/," ").trim();
+  if(name) cur={name,cooldown:cd?cd[1]:"",preEffects:[],levelEffects:[],kaiEffects:[],levelPresent:false,kaiPresent:false,levelCd:"",kaiCd:""};
  }
  flush();
-
- // 最大3件。効果は Lv.10 以降を優先。なければ pre を使わない（仕様: Lv10見えるまで入力しない）
- const out = [createEmptySkill(), createEmptySkill(), createEmptySkill()];
- for(let i=0; i<Math.min(3, skills.length); i++){
-  const s = skills[i];
-  const fxLines = (s._postEffects && s._postEffects.length) ? s._postEffects : [];
-  const bag = createEmptyEffectBag();
-  fxLines.forEach(fx=>{
-   // wikiParsePrePostEffectLine を流用。付与 の有無ゆれを補完
-   let line = fx;
-   if(/結界異常/.test(line) && /枚/.test(line) && !/付与/.test(line)) line = line.replace(/枚/, "枚付与");
-   wikiParsePrePostEffectLine(line, bag);
+ if(!skills.length){ alert("スキル名を検出できませんでした。"); return {ok:false}; }
+ const makeSkill=(item, variant)=>{
+  const bag=createEmptyEffectBag(), unparsed=[];
+  (variant === "kai" ? item.kaiEffects : item.levelEffects).forEach(fx=>{
+   let line=fx;
+   if(/結界異常/.test(line) && /枚/.test(line) && !/付与/.test(line)) line=line.replace(/枚/,"枚付与");
+   if(!wikiParsePrePostEffectLine(line,bag)) unparsed.push(fx);
   });
-  out[i] = {
-   name: s.name || "",
-   cooldown: (s._postCd || s.cooldown || ""),
-    text: "",
-   effects: bag
-  };
+  return {name:item.name,cooldown:(variant === "kai" ? item.kaiCd || item.levelCd : item.levelCd) || item.cooldown || "",text:unparsed.join("\n"),effects:bag};
+ };
+ const hasKai=skills.slice(0,3).some(item=>item.kaiPresent);
+ if(hasKai){
+  const newRebirth = !rebirthEnabled;
+  const selectedSide=rebirthEnabled ? editVariant : "before";
+  if(newRebirth){
+   setRebirthUI(true,"before");
+  }else{
+   const snap=snapshotFormToPack();
+   if(editVariant === "after") afterPack=snap; else beforePack=snap;
+  }
+  if(!beforePack) beforePack=emptyPack();
+  if(!afterPack) afterPack=JSON.parse(JSON.stringify(beforePack));
+  ensureCharExtra(beforePack); ensureCharExtra(afterPack);
+  // 各面を独立させ、改のないスキルは転生後の既存入力を残す。
+  beforePack.skills=JSON.parse(JSON.stringify(beforePack.skills));
+  afterPack.skills=JSON.parse(JSON.stringify(afterPack.skills));
+  skills.slice(0,3).forEach((item,i)=>{
+   if(item.levelPresent) beforePack.skills[i]=makeSkill(item,"level");
+   if(item.kaiPresent) afterPack.skills[i]=makeSkill(item,"kai");
+   else if(newRebirth && item.levelPresent) afterPack.skills[i]=JSON.parse(JSON.stringify(beforePack.skills[i]));
+  });
+  switchEditVariant(selectedSide,true);
+  const paste=document.getElementById("wikiSkillsPaste"); if(paste) paste.value=text;
+ }else{
+  const editingPack=activeCharExtraPack || beforePack;
+  ensureCharExtra(editingPack);
+  const out=[createEmptySkill(),createEmptySkill(),createEmptySkill()];
+  skills.slice(0,3).forEach((item,i)=>{out[i]=makeSkill(item,"level");});
+  editingPack.skills=out;
+  syncBanReleaseEditor();
+  fillBgmSkillsTraitsForm(editingPack);
  }
- editingPack.skills = out;
- syncBanReleaseEditor();
- try{ fillBgmSkillsTraitsForm(editingPack); }catch(e){}
- const n = skills.length;
- const used = out.filter(s=>s.name).length;
- return { ok:true, count: used, totalFound: n };
+ return {ok:true,count:Math.min(3,skills.length),totalFound:skills.length,rebirthImported:hasKai};
 }
 
 function importWikiIntoAttack(attackKey, text){
@@ -20818,7 +20791,7 @@ function fillBgmSkillsTraitsForm(pack){
     : "";
    return `
    <details class="char-extra-entry" data-skill-entry="${i}" ${openSkills.has(i)?"open":""}>
-    <summary><span data-skill-heading="${i}">スキル${i+1}${sk.name ? "："+esc(sk.name) : ""}</span></summary>
+    <summary><span data-skill-heading="${i}">スキル${i+1}${sk.name ? "："+esc(skillDisplayName(sk.name,editVariant,rebirthEnabled)) : ""}</span></summary>
     <div class="char-extra-entry-body">
     <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap;">
      <input class="input" data-skill-name="${i}" placeholder="スキル名" value="${esc(sk.name||"")}" style="flex:1;min-width:140px">
@@ -20826,12 +20799,12 @@ function fillBgmSkillsTraitsForm(pack){
     </div>
     <div id="buff-container-${prefix}">${effectHtml}</div>
      <textarea class="input" data-skill-text="${i}" rows="2" style="margin-top:8px;width:100%;border-radius:10px;" placeholder="補足（効果欄で表せない内容・条件など／任意）">${esc(sk.text||"")}</textarea>
-     <div data-skill-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc([skillWikiHead(sk)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean).join("\n") || "（Wiki表記のプレビュー）")}</div>
+     <div data-skill-preview="${i}" class="mini" style="margin-top:8px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.04);white-space:pre-wrap;color:#555;">${esc([skillWikiHead(sk,editVariant,rebirthEnabled)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean).join("\n") || "（Wiki表記のプレビュー）")}</div>
     </div>
    </details>`;
   }).join("");
   skBox.querySelectorAll("[data-skill-name]").forEach(inp=>{
-   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-name")); pack.skills[i].name = inp.value; const heading=skBox.querySelector(`[data-skill-heading="${i}"]`); if(heading) heading.textContent = `スキル${i+1}${inp.value ? "："+inp.value : ""}`; };
+   inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-name")); pack.skills[i].name = inp.value; const heading=skBox.querySelector(`[data-skill-heading="${i}"]`); if(heading) heading.textContent = `スキル${i+1}${inp.value ? "："+skillDisplayName(inp.value,editVariant,rebirthEnabled) : ""}`; };
   });
   skBox.querySelectorAll("[data-skill-cd]").forEach(inp=>{
    inp.oninput = ()=>{ const i=Number(inp.getAttribute("data-skill-cd")); pack.skills[i].cooldown = inp.value; };
@@ -21020,9 +20993,13 @@ function traitWikiLines(tr, side){
  return bodies.map(b => head + b + tail);
 }
 /** スキル：見出し（スキル名＋再使用ターン）と効果文 */
-function skillWikiHead(sk){
+function skillDisplayName(name, side, hasRebirth){
+ const text=String(name || "");
+ return text && hasRebirth && side === "after" && !/改\s*$/.test(text) ? text + "改" : text;
+}
+function skillWikiHead(sk, side, hasRebirth){
  if(!sk) return "";
- const n = sk.name || "";
+ const n = skillDisplayName(sk.name, side, hasRebirth);
  const cd = (sk.cooldown !== "" && sk.cooldown != null) ? `（再使用ターン数${sk.cooldown}）` : "";
  return n ? (n + cd) : "";
 }
@@ -21039,7 +21016,7 @@ function updateSkillPreviews(){
  box.querySelectorAll("[data-skill-preview]").forEach(el=>{
   const i = Number(el.getAttribute("data-skill-preview"));
   const sk = (pack.skills || [])[i];
-  const lines = sk ? [skillWikiHead(sk)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean) : [];
+  const lines = sk ? [skillWikiHead(sk,editVariant,rebirthEnabled)].concat(skillWikiLines(sk).map(x=>"・"+x)).filter(Boolean) : [];
   el.textContent = lines.join("\n") || "（Wiki表記のプレビュー）";
  });
 }
@@ -21200,8 +21177,8 @@ function bindBgmSkillsTraitsForm(){
     const st = document.getElementById("wikiSkillsImportStatus");
     const r = importWikiIntoSkills(ta ? ta.value : "");
     if(r && r.ok){
-     if(st) st.textContent = "取込完了: スキル"+r.count+"件（検出"+r.totalFound+"）";
-     alert("スキルを取り込みました（"+r.count+"件）");
+     if(st) st.textContent = "取込完了: スキル"+r.count+"件（検出"+r.totalFound+"）"+(r.rebirthImported ? "／転生前・転生後" : "");
+     alert("スキルを取り込みました（"+r.count+"件）"+(r.rebirthImported ? "\nLv.10と改をそれぞれ転生前・転生後に反映しました。" : ""));
     }
    };
   }
@@ -21331,7 +21308,7 @@ function formatBgmSkillsTraitsHtml(pack, opts){
     const hasFx = sk.effects && Object.values(sk.effects).some(a=>Array.isArray(a)&&a.length);
      if(!sk.name && !sk.cooldown && !hasFx && !sk.text && !slotHtmls[i]) return;
     h += `<div class="skill-entry" style="margin:6px 0;padding:8px;border:1px solid rgba(160,130,70,.25);border-radius:8px;">`;
-    h += `<div><b>スキル${i+1}</b> ${esc(sk.name||"")} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">（再使用ターン数${esc(sk.cooldown)}）</span>`:""}</div>`;
+    h += `<div><b>スキル${i+1}</b> ${esc(skillDisplayName(sk.name,pack.side,pack.rebirth))} ${sk.cooldown!==""&&sk.cooldown!=null?`<span class="muted">（再使用ターン数${esc(sk.cooldown)}）</span>`:""}</div>`;
     skillWikiLines(sk).forEach(x=>{
      const text = esc(x);
      const matchedBan = (selected.char||[]).includes("禁止解除") && x.includes("禁止状態");
