@@ -4863,7 +4863,7 @@ function loadPackToForm(pack){
  initEditors();
  try{ updateLinkHelp(); }catch(e){}
   initAbilities();
-  try{ ensureCharExtra(p); fillBgmSkillsTraitsForm(p); bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
+  try{ ensureCharExtra(p); if(rebirthEnabled) syncSharedBgm(p); fillBgmSkillsTraitsForm(p); bindBgmSkillsTraitsForm(); syncAdminWipVisibility(); }catch(e){}
  }
 
 function isPackEmpty(pack){
@@ -4963,6 +4963,7 @@ function switchEditVariant(variant, skipSave){
   if(editVariant === "after") afterPack = snap;
   else beforePack = snap;
  }
+ if(rebirthEnabled) syncSharedBgm(editVariant === "after" ? afterPack : beforePack);
  editVariant = variant === "before" ? "before" : "after";
  const bBtn = document.getElementById("editBeforeBtn");
  const aBtn = document.getElementById("editAfterBtn");
@@ -5028,7 +5029,10 @@ function rawPackFromCharacterSide(c, side){
  const rootBgm = d.bgm || null;
  const rootCharSkills = d.charSkills || d.skillsList || null;
  const rootTraits = d.traits || null;
-  const sideBgm = p => (p && p.bgm && typeof p.bgm === "object") ? p.bgm : rootBgm;
+  // 古いデータは転生前を優先し、空ならルート・転生後から探す。
+  const bgmCandidates = [rb.before?.bgm, rootBgm, rb.after?.bgm];
+  const sharedBgm = bgmCandidates.find(hasBgmContent) || bgmCandidates.find(b => b && typeof b === "object");
+  const sideBgm = () => sharedBgm ? JSON.parse(JSON.stringify(sharedBgm)) : null;
   const sideSkills = p => Array.isArray(p && p.skills) ? p.skills : (Array.isArray(p && p.charSkills) ? p.charSkills : rootCharSkills);
   const sideTraits = p => Array.isArray(p && p.traits) ? p.traits : rootTraits;
 
@@ -5056,7 +5060,7 @@ function rawPackFromCharacterSide(c, side){
    specialSkills: rootSkills,
    abilities: rootAbilities,
     attacks: rootAttacks,
-    bgm: rootBgm,
+    bgm: sideBgm(),
     skills: rootCharSkills,
     traits: rootTraits
   };
@@ -19221,6 +19225,7 @@ async function save(){
   if(rebirthEnabled){
    if(editVariant === "after") afterPack = currentSnap;
    else beforePack = currentSnap;
+   syncSharedBgm(currentSnap);
   }else{
    beforePack = currentSnap;
    afterPack = null;
@@ -20672,6 +20677,19 @@ function createEmptySkill(){
 }
 function createEmptyTrait(){
  return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", reduceRb:"", extraReductions:[], banKinds:"", allReduce:"", yangReduce:"", yangReduceRb:"", yinReduce:"", yinReduceRb:"", trigger:"", hpAtMost:"", text:"", effects: createEmptyEffectBag() };
+}
+function hasBgmContent(bgm){
+ if(!bgm || typeof bgm !== "object") return false;
+ const filled = value => value != null && String(value).trim() !== "";
+ return ["title","circle","arranger","lyricist","vocal","original"].some(key=>filled(bgm[key])) ||
+  ["vocals","originals"].some(key=>Array.isArray(bgm[key]) && bgm[key].some(filled)) ||
+  (Array.isArray(bgm.links) && bgm.links.some(link=>link && filled(link.url)));
+}
+// 編集中は同じBGMオブジェクトを両面で使い、項目の追加・削除も同期する。
+function syncSharedBgm(source){
+ if(!source || !source.bgm) return;
+ if(beforePack) beforePack.bgm = source.bgm;
+ if(afterPack) afterPack.bgm = source.bgm;
 }
 function ensureCharExtra(pack){
  if(!pack) return;
