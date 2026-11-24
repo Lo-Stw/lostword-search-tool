@@ -338,6 +338,7 @@ body.theme-dark #detailModal a{color:#a8ceff}
 .skill-effect-text,.trait-effect-text{color:var(--lw-ink);font-size:13px;font-weight:600;line-height:1.5}
 .skill-entry,.skill-slot-special{font-size:13px}
 .damage-attack-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.damage-index-note{font-size:.75rem;font-weight:400;line-height:1.45}
 .damage-compact-list{display:grid;gap:3px;margin-top:8px}
 .damage-compact-row{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;font-size:12px}
 .damage-compact-row>.damage-index-btn{white-space:nowrap}
@@ -5923,7 +5924,7 @@ function renderAuthBar(msg, msgType){
   }
  }
  document.querySelectorAll(".damage-compact-list").forEach(el=>el.classList.toggle("hidden", !isDamageSortActive()));
- document.querySelectorAll("[data-damage-char]").forEach(btn=>btn.classList.toggle("hidden", !showDamage));
+ document.querySelectorAll("[data-damage-char], .damage-index-note").forEach(el=>el.classList.toggle("hidden", !showDamage));
  if(!showDamage){
   const calculator = document.getElementById("damageCalculator");
   if(calculator.open) calculator.close();
@@ -17570,6 +17571,7 @@ function getOrderedAttacks(attacks){
 
 /* 火力指数：計算サイトの通常戦・期待値を、解放されたバレットごとに合計する。 */
 const DAMAGE_REFERENCE = "https://keisan.site/ja/exec/user/1699596625";
+const DAMAGE_INDEX_CONDITIONS = "自機バフ全項目10段階（通常・RankⅡ）、敵フルブレイク、敵の陽防・陰防を無視";
 const DAMAGE_BASIC = { boost:3, level:100, attackLevel:5, enemyYang:2000, enemyYin:2000, random:1 };
 
 function damageNumber(value){
@@ -17618,7 +17620,7 @@ function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
   const opposite = side === "yang" ? "yin" : "yang";
   const atk = damageNumber(stats[side+"Atk"]), def = damageNumber(stats[side+"Def"]), speed = damageNumber(stats.speed);
   const defenseSide = b.mirror ? opposite : side;
-  const enemyDef = damageNumber(o[defenseSide === "yin" ? "enemyYin" : "enemyYang"]);
+  const enemyDef = o.ignoreEnemyDefense ? 1 : damageNumber(o[defenseSide === "yin" ? "enemyYin" : "enemyYang"]);
   const requirements = {
    "解放P":b.stage, "陰陽":["陽気","陰気"].includes(b.kind) ? 1 : null, "攻撃力":atk,
    "敵防御":enemyDef, "威力":b.power, "弾数":b.count, "命中率":b.sure ? 100 : b.accuracy,
@@ -17635,7 +17637,7 @@ function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
   const addedDefense = b.hard / 100 * (def ?? 0) * rank(side+"DefRank",.3) * debuff * percent(o[side+"DefBonus"]);
   const addedSpeed = b.sharp / 100 * (speed ?? 0) * rank("speedRank",.3) * Math.pow(.875,num(o.freeze)) * percent(o.speedBonus);
   const adjustedAtk = (attackStat+addedDefense+addedSpeed) * probability(1-num(o.statReduction)/100);
-  const enemyModifier = b.pierce ? 1 : percent(o[defenseSide+"EnemyDefBonus"]) *
+  const enemyModifier = (o.ignoreEnemyDefense || b.pierce) ? 1 : percent(o[defenseSide+"EnemyDefBonus"]) *
    (o.fullBreak ? 1 : rank(defenseSide+"EnemyDefRank",.3) * Math.pow(.875,num(o[defenseSide+"EnemyAbnormal"])));
   const enemyFinal = enemyDef * enemyModifier;
   if(enemyFinal <= 0){ missing++; return {state:"missing",absent:["補正後の敵防御は0より大きく"]}; }
@@ -17666,9 +17668,17 @@ function getResultAttacks(view, attackFilterOn){
   return (attack.name || hasBullets || attack.range==="補助") && (!attackFilterOn || checkAttackMatch(attack,label,key));
  });
 }
+function damageIndexSettings(level){
+ const settings = {...DAMAGE_BASIC, level, fullBreak:true, ignoreEnemyDefense:true};
+ DAMAGE_RANK_FIELDS.forEach(([key,label])=>{
+  if(!label.startsWith("自機 ")) return;
+  settings[key] = settings[key+"2"] = DAMAGE_PRESET_MAX_RANK;
+ });
+ return settings;
+}
 function getBaselineDamageIndex(attack, view){
  if(attack.range === "補助" || view.statsUnknown) return null;
- const options = {...DAMAGE_BASIC,level:view.rebirth && view.side==="after" ? 140 : 100};
+ const options = damageIndexSettings(view.rebirth && view.side==="after" ? 140 : 100);
  const calc = calculateAttackDamage(view.stats || {}, damageRows(attack), options);
  return calc.complete ? calc.total : null;
 }
@@ -17677,7 +17687,7 @@ function damageIndexHtml(characterId, attackKey, attack, view){
  const index = getBaselineDamageIndex(attack,view);
  const value = index === null ? "データ不足" : damageDisplay(index);
  return `<button type="button" class="btn-sm damage-index-btn" data-damage-char="${esc(String(characterId))}" data-damage-attack="${esc(attackKey)}" data-damage-side="${esc(view.side || "")}"
-  title="3ブースト・敵防御2000の期待値。クリックで詳細計算">火力指数 ${value}</button>`;
+  title="${DAMAGE_INDEX_CONDITIONS}。クリックで詳細計算">火力指数 ${value}</button>`;
 }
 
 const DAMAGE_STAT_FIELDS = [
@@ -17757,14 +17767,14 @@ function openDamageCalculator(charId, attackKey, side){
  const body = dlg.querySelector(".damage-calculator-body");
  const rows = damageRows(attack);
  if(!rows.length) rows.push(...damageRows({bullets:[{name:"バレット1"}]}));
- const defaults = {...DAMAGE_BASIC,level:getCharRebirth(c).enabled && currentSide==="after" ? 140 : 100};
+ const defaults = damageIndexSettings(getCharRebirth(c).enabled && currentSide==="after" ? 140 : 100);
  const stats = pack.statsUnknown ? {} : pack.stats || {};
  const abilityDamageUp = pack.abilities?.damageUp || {};
  const affinityOptions = Object.entries(DAMAGE_AFFINITY).map(([key,{label}])=>
   `<option value="${key}">${label}（×${new Intl.NumberFormat("ja-JP",{maximumFractionDigits:6}).format(damageAffinityMultiplier(key,abilityDamageUp))}）</option>`).join("");
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
-  <p class="mini">基準：3ブースト、攻撃Lv.5、敵の陽防・陰防2000、等倍、追加補正なし。1体あたりのダメージ期待値です。</p>
+  <p class="mini">火力指数の初期条件：${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.5、属性等倍、追加補正なし。</p>
   <output class="stats-panel damage-total" aria-live="polite"></output>
   <form>
    <div class="damage-grid">
@@ -17775,7 +17785,8 @@ function openDamageCalculator(charId, attackKey, side){
     ${damageField("enemyYin","敵 陰防",2000,1)}
     ${damageField("random","乱数倍率",1,0)}
     <label style="grid-column:1 / -1">全バレットの属性相性<select class="input" name="affinity">${affinityOptions}</select></label>
-    <label class="damage-check"><input type="checkbox" name="fullBreak">フルブレイク</label>
+    <label class="damage-check"><input type="checkbox" name="fullBreak" ${defaults.fullBreak?"checked":""}>フルブレイク</label>
+    <label class="damage-check"><input type="checkbox" name="ignoreEnemyDefense" ${defaults.ignoreEnemyDefense?"checked":""}>敵の陽防・陰防を無視</label>
    </div>
    ${storyCardCalculatorHtml()}
    <details><summary>自機ステータス</summary><div class="damage-grid">${DAMAGE_STAT_FIELDS.map(([key,label,min])=>damageField(key,label,stats[key],min)).join("")}</div></details>
@@ -17788,7 +17799,7 @@ function openDamageCalculator(charId, attackKey, side){
     <button type="button" class="btn-sm" data-rank-preset="reset">ランク補正をリセット</button>
    </div>
    <p class="mini">MAX：自機 ＋${DAMAGE_PRESET_MAX_RANK} ／ 敵 −${DAMAGE_PRESET_MAX_RANK}（通常・RankⅡ）</p>
-   <div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,0,-99,99,1)+damageField(key+"2",label+"Ⅱ",0,-99,99,1)).join("")}</div></details>
+   <div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,defaults[key] ?? 0,-99,99,1)+damageField(key+"2",label+"Ⅱ",defaults[key+"2"] ?? 0,-99,99,1)).join("")}</div></details>
    <details><summary>結界異常・その他の補正</summary><div class="damage-grid">${DAMAGE_ADJUSTMENTS.map(([key,label,min,max,step])=>damageField(key,label,key==="currentHp" ? "" : 0,min,max,step)).join("")}</div></details>
    <h3>バレットごとの内訳</h3>
    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0;">
@@ -17829,6 +17840,8 @@ function openDamageCalculator(charId, attackKey, side){
    const manual = card.querySelector('[name="bulletAffinity"]').value === "manual";
    card.querySelector('[name="element"]').disabled = !manual;
   });
+  const ignoreEnemyDefense = form.elements.namedItem("ignoreEnemyDefense").checked;
+  for(const key of ["enemyYang","enemyYin"]) form.elements.namedItem(key).disabled = ignoreEnemyDefense;
   if([...form.querySelectorAll("input")].some(el=>!el.validity.valid)){
    output.textContent="入力値の範囲を確認してください。";
    bulletCards.forEach(card=>{card.querySelector("[data-bullet-damage]").textContent="";});
@@ -17836,7 +17849,7 @@ function openDamageCalculator(charId, attackKey, side){
   }
   const values = Object.fromEntries(controls.map(el=>[el.name,read(el)]));
   for(const key of Object.keys(DAMAGE_BASIC)){
-   if(values[key] == null){
+   if(values[key] == null && !form.elements.namedItem(key).disabled){
     output.textContent="基本条件の未入力項目を埋めてください。";
     bulletCards.forEach(card=>{card.querySelector("[data-bullet-damage]").textContent="";});
     return;
@@ -18461,7 +18474,7 @@ function openAttackModal(id, attackKey){
     </div>
    </div>
    <div class="box" style="background:#f9f9f9">
-    <div class="title">ショット・スペルカード詳細</div>
+    <div class="title damage-attack-row">ショット・スペルカード詳細${isAdmin() ? `<span class="mini damage-index-note">火力指数：${DAMAGE_INDEX_CONDITIONS}</span>` : ""}</div>
     ${renderAttackDetailHtml(attackKey, attack, { charId: c.id, side: vm.side || (typeof getViewSide==="function" ? getViewSide(c) : ""), specialSkills:vm.specialSkills, view:vm })}
    </div>
   `;
@@ -18542,7 +18555,7 @@ function openModal(id){
   </div>
 
   <div class="box" style="background:#f9f9f9">
-   <div class="title">ショット・スペルカード詳細</div>
+   <div class="title damage-attack-row">ショット・スペルカード詳細${isAdmin() ? `<span class="mini damage-index-note">火力指数：${DAMAGE_INDEX_CONDITIONS}</span>` : ""}</div>
  `;
 
   getOrderedAttacks(vm.attacks).forEach(([k, a]) => {
