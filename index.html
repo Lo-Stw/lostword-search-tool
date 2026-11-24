@@ -3398,6 +3398,8 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
   <button type="button" id="adminSearchAllZentai" class="sub" style="width:auto;">全攻撃が全体</button>
   <button type="button" id="adminSearchIncompleteSkills" class="sub" style="width:auto;">特殊スキル詳細未記入</button>
   <button type="button" id="adminSearchIncompleteSpBullets" class="sub" style="width:auto;">特殊弾詳細未記入</button>
+  <button type="button" id="adminExcludeSpellStats" class="filter" aria-pressed="false" style="width:auto;" title="スペカ1・2・LASTWORDの攻撃バレットの威力・命中・CRIが全て入力済みのキャラを除外。転生前後とも確認し、補助は対象外です。">スペカ数値入力済みを除外</button>
+  <span class="mini" style="flex-basis:100%;">判定：スペカ1・2・LASTWORDの登録済みバレットの威力・命中・CRI。転生前後を確認し、補助は対象外。</span>
   <button type="button" id="adminExportCharsJson" class="sub" style="width:auto;">キャラJSON書き出し</button>
   <button type="button" id="adminReloadSupabase" class="sub" style="width:auto;">Supabaseから再読込</button>
   <span class="mini" id="pendingChangesStatus" style="color:#a05030;font-weight:700;"></span>
@@ -5914,6 +5916,12 @@ function setAuthButtonsDisabled(disabled){
 let authMode = "login"; // login | setPassword
 function renderAuthBar(msg, msgType){
  const showDamage = isAdmin();
+ const excludeSpellBtn = document.getElementById("adminExcludeSpellStats");
+ const clearAdminExclude = !showDamage && excludeSpellBtn?.getAttribute("aria-pressed") === "true";
+ if(clearAdminExclude){
+  excludeSpellBtn.setAttribute("aria-pressed", "false");
+  excludeSpellBtn.classList.remove("selected");
+ }
  const sortEl = document.getElementById("sortMode");
  const damageSort = sortEl?.querySelector('option[value="damage_desc"]');
  if(damageSort){
@@ -5930,6 +5938,7 @@ function renderAuthBar(msg, msgType){
   if(calculator.open) calculator.close();
  }
  try{ syncViewerData(); }catch(e){}
+ if(clearAdminExclude) search(true);
  const bar=document.getElementById("authBar");
  if(!bar) return;
 
@@ -16817,10 +16826,34 @@ function adminMatchIncompleteSpecialSkills(c){
  return false;
 }
 
+// 転生前後の全攻撃スペカにある登録済みバレットを確認する。
+function adminSpellStatsComplete(c){
+ const sides = getCharRebirth(c).enabled ? ["before", "after"] : ["before"];
+ let attackCount = 0;
+ return sides.every(side=>{
+  const attacks = packFromCharacterSide(c, side).attacks || {};
+  return ["spell1", "spell2", "lastWord"].every(key=>{
+   const attack = attacks[key];
+   if(!attack) return false;
+   if(attack.range === "補助") return true;
+   attackCount++;
+   const bullets = (Array.isArray(attack.bullets) ? attack.bullets : []).filter(b=>b &&
+    [b.name,b.count,b.attr,b.power,b.accuracy,b.critical].some(v=>v != null && String(v).trim() !== ""));
+   return bullets.length > 0 && bullets.every(b=>{
+    const [power,accuracy,critical] = [b.power,b.accuracy,b.critical].map(damageNumber);
+    return power !== null && power >= 0 && accuracy !== null && accuracy >= 0 && accuracy <= 100 &&
+     critical !== null && critical >= 0 && critical <= 100;
+   });
+  });
+ }) && attackCount > 0;
+}
+function excludeEnteredSpellStats(){
+ return isAdmin() && document.getElementById("adminExcludeSpellStats")?.getAttribute("aria-pressed") === "true";
+}
 function adminRunDebugSearch(predicate, label){
  if(!isAdmin()){ alert("管理者のみ利用できます"); return; }
  const hits = (data || []).filter(c => {
-  try{ return predicate(c); }catch(e){ return false; }
+  try{ return predicate(c) && (!excludeEnteredSpellStats() || !adminSpellStatsComplete(c)); }catch(e){ return false; }
  });
  try{
   const e = document.getElementById("results");
@@ -16904,6 +16937,7 @@ function search(skipHistory) {
  const hasAttackFilter = selected.attack.length || selected.range.length || selected.attr.length || selected.bullet.length || selected.special.length;
 
  const out = data.filter(c => {
+  if(excludeEnteredSpellStats() && adminSpellStatsComplete(c)) return false;
   const sides = getCharRebirth(c).enabled
    ? [packFromCharacterSide(c,"before"), packFromCharacterSide(c,"after")]
    : [packFromCharacterSide(c,"before")];
@@ -20515,6 +20549,14 @@ document.querySelectorAll("#bottomNav .tab").forEach(b=>{
 // 条件変更だけでは検索しない（「検索する」ボタンで実行）
 (function(){
   const sameBtn = document.getElementById("adminSearchSameStats");
+  const excludeSpellBtn = document.getElementById("adminExcludeSpellStats");
+  if(excludeSpellBtn) excludeSpellBtn.onclick = ()=>{
+   if(!isAdmin()) return;
+   const enabled = excludeSpellBtn.getAttribute("aria-pressed") !== "true";
+   excludeSpellBtn.setAttribute("aria-pressed", String(enabled));
+   excludeSpellBtn.classList.toggle("selected", enabled);
+   search(true);
+  };
 
   if(sameBtn) sameBtn.onclick = ()=> adminRunDebugSearch(adminMatchSameRebirthStats, "転生前後ステータス同一／まだ不明");
   const rangeFixBtn = document.getElementById("adminBulkRangeFix");
@@ -20597,6 +20639,9 @@ document.getElementById("statMax").onclick=()=>{
 };
 
 document.getElementById("reset").onclick=()=>{
+ const excludeSpellBtn = document.getElementById("adminExcludeSpellStats");
+ excludeSpellBtn?.setAttribute("aria-pressed", "false");
+ excludeSpellBtn?.classList.remove("selected");
  Object.keys(selected).forEach(k=>{
    const a = selected[k];
    if(Array.isArray(a)) a.splice(0);
