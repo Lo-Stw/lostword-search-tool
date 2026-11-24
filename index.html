@@ -3691,8 +3691,8 @@ body.theme-dark .bgm-more>summary{background:rgba(255,255,255,.08)}
 <div class="form-acc-body">
 <div class="section" style="margin-bottom:12px;padding:12px;border:1px dashed #8ab4d4;border-radius:10px;background:rgba(240,247,255,.85);">
  <div class="mini" style="font-weight:700;margin-bottom:6px;color:#0056b3;">Wiki取込（能力のみ）</div>
- <div class="mini" style="margin-bottom:6px;color:#666;">能力の文章だけを貼り付けてください。</div>
- <textarea id="wikiAbilityPaste" class="input" rows="4" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;有利属性に与えるダメージを50%アップ&#10;・結界異常「燃焼」「帯電」にかからずに霊力を0.20上昇&#10;・ブースト使用時、味方全体のCRI攻撃を1段階アップ (1T)"></textarea>
+ <div class="mini" style="margin-bottom:6px;color:#666;">1行目に能力名、続けて効果文を貼り付けてください。効果文だけでも取り込めます。</div>
+ <textarea id="wikiAbilityPaste" class="input" rows="4" style="width:100%;border-radius:10px;font-size:12px;line-height:1.45;resize:vertical;" placeholder="例：&#10;魔法を使う程度の能力&#10;有利属性に与えるダメージを50%アップ&#10;・結界異常「燃焼」「帯電」にかからずに霊力を0.20上昇&#10;・ブースト使用時、味方全体のCRI攻撃を1段階アップ (1T)"></textarea>
  <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
   <button type="button" class="btn-sm" id="wikiAbilityImportBtn" style="font-weight:700;">能力を取り込む</button>
   <span class="mini" id="wikiAbilityImportStatus" style="color:#666;"></span>
@@ -4872,6 +4872,7 @@ function isPackEmpty(pack){
  const hasAttacks = pack.attacks && Object.values(pack.attacks).some(a => a && (a.name || (a.bullets||[]).some(b=>b&&b.name)));
  const hasSkills = pack.specialSkills && Object.values(pack.specialSkills).some(s => s && s.enabled);
  const hasAb = pack.abilities && (
+  String(pack.abilities.name || "").trim() ||
   (pack.abilities.boost&&pack.abilities.boost.enabled) ||
   (pack.abilities.graze&&pack.abilities.graze.enabled) ||
   (pack.abilities.conversion&&Object.values(pack.abilities.conversion).some(v=>v===true||(Array.isArray(v)&&v.length)))
@@ -7316,6 +7317,7 @@ function ensureDDSpecial(){
 
 function resetAbilityData(){
  abilityData={
+  name:"",
   conversion:{
    enabled:false, atkRank:false, atkAbnormal:[], defRank:false, defAbnormal:[],
    speedRank:false, speedAbnormal:[], spirit:false, spiritAbnormal:[], spiritValue:"",
@@ -7338,6 +7340,7 @@ function normalizeAbilityData(a){
   resetAbilityData();
   return abilityData;
  }
+ if(typeof a.name !== "string") a.name = "";
  if(!a.damageDown || typeof a.damageDown !== "object") a.damageDown = { good:"", bad:"" };
  if(!a.damageTakenUp || typeof a.damageTakenUp !== "object") a.damageTakenUp = { good:"", bad:"" };
  if(!a.damageUp || typeof a.damageUp !== "object") a.damageUp = { good:"", bad:"" };
@@ -9484,6 +9487,9 @@ function formatAbilitiesHtml(ab, opts){
  const options = opts || {};
  if(!ab) return options.emptyText || "";
  const parts = [];
+ if(typeof ab.name === "string" && ab.name.trim()){
+  parts.push(`<div class="ability-title" style="margin:6px 0;">${esc(ab.name.trim())}</div>`);
+ }
  const conv = ab.conversion || {};
  const imm = ab.immunity || {};
  const dd = ab.damageDown || {};
@@ -11433,6 +11439,8 @@ function initAbilities(){
  const gr = abilityData.graze || {};
 
  e.innerHTML=`
+ <label class="mini" for="abilityName">能力名</label>
+ <input id="abilityName" class="input" type="text" placeholder="能力名" value="${esc(abilityData.name || "")}">
  <div class="ability">
   <div class="ability-title">結界異常変換系</div>
   <label><input type="checkbox" id="convAtk" ${conv.atkRank?"checked":""}> Rank上昇：陽攻・陰攻・CRI攻撃・CRI命中</label>
@@ -11509,6 +11517,7 @@ function initAbilities(){
 }
 
 function bindAbilityUI(){
+ document.getElementById("abilityName").oninput=e=>{ abilityData.name=e.target.value; };
  const checkboxMap={
   convAtk:"atkRank", convDef:"defRank", convSpeed:"speedRank", convSpirit:"spirit", convHeal:"heal",
   immEffect:"effect", immNone:"none", immReflect:"reflect"
@@ -15472,6 +15481,29 @@ function importWikiIntoAbilities(text){
   alert("テキストが空です。");
   return;
  }
+ const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ // 旧形式の効果文だけの貼り付けも判定できるよう、既存パーサーを一時データで試す。
+ const isEffectLine = line=>{
+  if(/^[・･]/.test(line)) return true;
+  if(/程度の能力[」』）)]?$/.test(line)) return false;
+  const saved = abilityData;
+  try{
+   abilityData = JSON.parse(JSON.stringify(saved));
+   return wikiParseAbilityLines([line]).length > 0;
+  } finally { abilityData = saved; }
+ };
+ // Wikiの表をコピーした際に名称と最初の効果がタブ区切りになる場合。
+ const firstCells = lines[0].split(/\t+/).map(x=>x.trim()).filter(Boolean);
+ if(firstCells.length > 1 && isEffectLine(firstCells[1])) lines.splice(0, 1, ...firstCells);
+ const hasName = !isEffectLine(lines[0]);
+ if(hasName) abilityData.name = lines.shift();
+ if(!lines.length){
+  initAbilities();
+  const st = document.getElementById("wikiAbilityImportStatus");
+  if(st) st.textContent = "能力名を取り込みました";
+  alert("能力名を取り込みました。");
+  return;
+ }
  // 取込前に結界異常関連をリセット（前回の誤適用を残さない）
  abilityData.conversion = {
   enabled:false, atkRank:false, atkAbnormal:[], defRank:false, defAbnormal:[],
@@ -15481,8 +15513,8 @@ function importWikiIntoAbilities(text){
  abilityData.immunity = {
   effect:false, effectAbnormal:[], none:false, noneAbnormal:[], reflect:false, reflectAbnormal:[]
  };
- const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  const notes = wikiParseAbilityLines(lines);
+ if(hasName) notes.unshift("能力名 " + abilityData.name);
 
  try{ if(typeof initAbilities === "function") initAbilities(); }catch(e){}
  const st = document.getElementById("wikiAbilityImportStatus");
@@ -20639,7 +20671,7 @@ function createEmptySkill(){
  return { name:"", cooldown:"", text:"", effects: createEmptyEffectBag() };
 }
 function createEmptyTrait(){
- return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", reduceRb:"", extraReductions:[], banKinds:"", yangReduce:"", yangReduceRb:"", yinReduce:"", yinReduceRb:"", trigger:"", text:"", effects: createEmptyEffectBag() };
+ return { name:"", type:"", chance:"", race:"", bulletType:"", reduce:"", reduceRb:"", extraReductions:[], banKinds:"", allReduce:"", yangReduce:"", yangReduceRb:"", yinReduce:"", yinReduceRb:"", trigger:"", hpAtMost:"", text:"", effects: createEmptyEffectBag() };
 }
 function ensureCharExtra(pack){
  if(!pack) return;
@@ -20826,6 +20858,8 @@ function fillBgmSkillsTraitsForm(pack){
    let extra = "";
    if(typ === "ダメージ軽減"){
     extra = `
+     <label class="mini" for="trait-all-reduce-${i}">受けるダメージの軽減率（対象を問わない）</label>
+     <input id="trait-all-reduce-${i}" class="input" data-trait-all-reduce="${i}" type="number" min="0" max="100" step="any" placeholder="軽減率%" value="${esc(tr.allReduce ?? "")}">
      <div class="row3" style="margin-top:6px;">
       <input class="input" data-trait-race="${i}" placeholder="種族（自由入力）" value="${esc(tr.race||"")}">
       <select class="select" data-trait-bullet="${i}"><option value="">弾種</option>${bulletOpts.map(b=>`<option value="${b}" ${tr.bulletType===b?"selected":""}>${b}</option>`).join("")}</select>
@@ -20857,6 +20891,8 @@ function fillBgmSkillsTraitsForm(pack){
    const triggerHtml = typ ? `
      <div style="margin-top:6px;">
       <div class="mini">発動条件（候補から選択／自由入力も可）</div>
+      <label class="mini" for="trait-hp-${i}">体力が何%以下のとき（任意）</label>
+      <input id="trait-hp-${i}" class="input" type="number" min="0" max="100" step="any" data-trait-hp="${i}" placeholder="例：25" value="${esc(tr.hpAtMost ?? "")}">
       <input class="input" list="traitTriggerList" data-trait-trigger="${i}" placeholder="例：攻撃された時 / ターン開始時" value="${esc(tr.trigger||"")}">
      </div>` : "";
    const effectHtml = (typ && typ !== "特殊" && typ !== "ダメージ軽減" && typeof renderSupportEffectBlock === "function")
@@ -20891,6 +20927,13 @@ function fillBgmSkillsTraitsForm(pack){
     const i = Number(sel.getAttribute("data-trait-type"));
     pack.traits[i].type = sel.value;
     fillBgmSkillsTraitsForm(pack);
+   };
+  });
+  trBox.querySelectorAll("[data-trait-hp], [data-trait-all-reduce]").forEach(inp=>{
+   inp.oninput = ()=>{
+    const isHp = inp.hasAttribute("data-trait-hp");
+    const i = Number(inp.getAttribute(isHp ? "data-trait-hp" : "data-trait-all-reduce"));
+    pack.traits[i][isHp ? "hpAtMost" : "allReduce"] = inp.value;
    };
   });
   trBox.querySelectorAll("[data-trait-chance]").forEach(inp=>{
@@ -20973,7 +21016,8 @@ function effectBagWikiLines(fx, banKinds){
 function traitWikiLines(tr, side){
  if(!tr) return [];
  const trig = (tr.trigger === "被弾時") ? "攻撃された時" : (tr.trigger || "");
- const head = trig ? trig + "、" : "";
+ const hp = tr.hpAtMost != null && tr.hpAtMost !== "" ? `体力${tr.hpAtMost}%以下` : "";
+ const head = hp ? hp + (trig ? "で" + trig : "の時") + "、" : (trig ? trig + "、" : "");
  const tail = (tr.chance !== "" && tr.chance != null) ? `［発生率${tr.chance}%］` : "";
  const bodies = [];
  if(tr.type === "ダメージ軽減"){
@@ -20982,6 +21026,7 @@ function traitWikiLines(tr, side){
    if(!who || value === "" || value == null) return;
    bodies.push(`${who}から受けるダメージを${value}%ダウン`);
   };
+  if(tr.allReduce != null && tr.allReduce !== "") bodies.push(`受けるダメージを${tr.allReduce}%ダウン`);
   rd(tr.race, tr.reduce, tr.reduceRb);
   rd(tr.bulletType, tr.reduce, tr.reduceRb);
   rd("陽気", tr.yangReduce, tr.yangReduceRb);
@@ -21061,7 +21106,13 @@ function wikiParseTraitEffectLine(raw, tr){
   if(tr.chance === "" || tr.chance == null) tr.chance = cm[1] || cm[2];
   s = s.replace(cm[0], "").trim();
  }
- // 発動条件（文頭〜最初の「時、」）
+ // 体力条件は他の発動条件と組み合わせられる。
+ const hp = s.match(/^体力\s*(\d+(?:\.\d+)?)\s*%\s*以下(?:の(?:時|とき)\s*[、,，]\s*|で\s*|\s*[、,，]\s*)/);
+ if(hp){
+  if(tr.hpAtMost === "" || tr.hpAtMost == null) tr.hpAtMost = hp[1];
+  s = s.slice(hp[0].length).trim();
+ }
+ // 発動条件（文頭〜最初の「時、」「後、」）
   const tm = s.match(/^(.+?(?:時|後))\s*[、,，]\s*/);
  if(tm){
   if(!tr.trigger) tr.trigger = normalizeTraitTrigger(tm[1]);
@@ -21071,6 +21122,13 @@ function wikiParseTraitEffectLine(raw, tr){
  const setType = (t)=>{ if(!tr.type) tr.type = t; };
  const addNote = (t)=>{ tr.text = tr.text ? (tr.text + " / " + t) : t; };
 
+ // 対象の指定がない軽減。
+ const generalReduction = s.match(/^(?:自身[はがの]?\s*)?受けるダメージ(?:を|が)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:ダウン|軽減|減少|低下|カット|減)/);
+ if(generalReduction){
+  setType("ダメージ軽減");
+  tr.allReduce = generalReduction[1];
+  return true;
+ }
  // ① ダメージ軽減：「〇〇から受けるダメージを40%ダウン」
  {
   const m = s.match(/^(.+?)から(?:受ける|受けた)?ダメージ(?:を|が)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:[（(]\s*(?:転生後\s*[：:]?\s*)?(\d+(?:\.\d+)?)\s*%\s*[）)]\s*)?(?:ダウン|軽減|減少|低下|カット|減)/);   // 例：妖怪から受けるダメージを25%(30%)ダウン（カッコ内＝転生後）
@@ -21135,6 +21193,26 @@ function wikiParseTraitEffectLine(raw, tr){
  addNote(s);
  return false;
 }
+/** 同じ効果行を転生前後の値に展開する。「(3T)」単独は効果ターン。 */
+function wikiTraitVariantLine(raw, after){
+ let changed = false;
+ const s = wikiTraitNorm(raw).replace(/（/g,"(").replace(/）/g,")");
+ const number = String.raw`\d+(?:\.\d+)?`;
+ const unit = "%|T|以下|段階|枚|つ|個|アップ|上昇|増加|回復|ダウン|軽減|減少|低下|カット|減";
+ const value = String.raw`\(\s*(?:転生後\s*[:：]?\s*)?(${number})\s*([%T]?)\s*\)`;
+ const project = (first, firstUnit, groups, finalUnit)=>{
+  changed = true;
+  const last = [...groups.matchAll(new RegExp(value, "gi"))].at(-1);
+  return (after ? last[1] : first) + (firstUnit || finalUnit || last[2]);
+ };
+ const unsignedValue = String.raw`\(\s*(?:転生後\s*[:：]?\s*)?${number}\s*[%T]?\s*\)`;
+ const turns = new RegExp(String.raw`\(\s*(${number})\s*(T)\s*\)\s*((?:${unsignedValue}\s*)+)`, "gi");
+ // 数値の直後に続く括弧だけを別値として読む（例：35(40)(60)%、25%(30%)、0.50(0.75)上昇）。
+ const values = new RegExp(String.raw`(${number})\s*([%T]?)\s*((?:${unsignedValue}\s*)+)([%T]?)(?=\s*(?:${unit}|[)\]、,，。]|$))`, "gi");
+ const line = s.replace(turns, (_, first, u, groups)=>`(${project(first,u,groups,"")})`)
+  .replace(values, (_,first,u,groups,finalUnit)=>project(first,u,groups,finalUnit));
+ return { line, changed };
+}
 function importWikiIntoTraits(text){
  const raw = String(text||"").trim();
  if(!raw){ alert("テキストが空です。"); return { ok:false }; }
@@ -21143,27 +21221,46 @@ function importWikiIntoTraits(text){
  ensureCharExtra(pack);
  const lines = raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  const traits = [];
- let cur = null;
+ const afterTraits = [];
+ let hasVariants = false;
  let unparsed = 0;
  for(const line of lines){
   if(/^[・･]/.test(line)){
-   if(!cur) continue;
-   if(!wikiParseTraitEffectLine(line, cur)) unparsed++;
+   if(!traits.length) continue;
+   const before = wikiTraitVariantLine(line, false);
+   const after = wikiTraitVariantLine(line, true);
+   if(traits.length <= 3 && after.changed) hasVariants = true;
+   const beforeParsed = wikiParseTraitEffectLine(before.line, traits.at(-1));
+   const afterParsed = wikiParseTraitEffectLine(after.line, afterTraits.at(-1));
+   if(!beforeParsed || !afterParsed) unparsed++;
    continue;
   }
   const name = wikiTraitNorm(line);
   if(!name) continue;
   if(/^(特性|特性名|特技|性能|効果|発動条件)$/.test(name)) continue;
-  cur = createEmptyTrait();
-  cur.name = name;
-  traits.push(cur);
+  traits.push({ ...createEmptyTrait(), name });
+  afterTraits.push({ ...createEmptyTrait(), name });
  }
  const out = traits.slice(0,3);
  if(!out.length){ alert("特性を検出できませんでした。特性名の行と「・」で始まる効果行を貼り付けてください。"); return { ok:false }; }
+ const count = out.length;
  while(out.length < 3) out.push(createEmptyTrait());
- pack.traits = out;
- try{ fillBgmSkillsTraitsForm(pack); }catch(e){}
- return { ok:true, count: out.length, totalFound: traits.length, unparsed };
+ if(hasVariants){
+  const side = rebirthEnabled ? editVariant : "before";
+  if(!rebirthEnabled){
+   setRebirthUI(true, "before");
+  }else{
+   const snap = snapshotFormToPack();
+   if(side === "after") afterPack = snap; else beforePack = snap;
+  }
+  beforePack.traits = out;
+  afterPack.traits = afterTraits.slice(0,3);
+  switchEditVariant(side, true);
+ }else{
+  pack.traits = out;
+  fillBgmSkillsTraitsForm(pack);
+ }
+ return { ok:true, count, totalFound: traits.length, unparsed, rebirthImported:hasVariants };
 }
 
 function bindBgmSkillsTraitsForm(){
@@ -21193,8 +21290,8 @@ function bindBgmSkillsTraitsForm(){
     const st = document.getElementById("wikiTraitsImportStatus");
     const r = importWikiIntoTraits(ta ? ta.value : "");
     if(r && r.ok){
-     if(st) st.textContent = "取込完了: 特性"+r.count+"件（検出"+r.totalFound+(r.unparsed?"／未解析"+r.unparsed+"行は「特殊」に補足として保存":"")+"）";
-     alert("特性を取り込みました（"+r.count+"件）");
+     if(st) st.textContent = "取込完了: 特性"+r.count+"件（検出"+r.totalFound+(r.unparsed?"／未解析"+r.unparsed+"行は補足として保存":"")+"）"+(r.rebirthImported?"／転生前・転生後":"");
+     alert("特性を取り込みました（"+r.count+"件）"+(r.rebirthImported ? "\n転生前・転生後に反映しました。" : ""));
     }
    };
   }
@@ -21250,7 +21347,7 @@ function bindBgmSkillsTraitsForm(){
  });
 }
 function formatLocatedSpecialSkillsHtml(ss, location){
- const html = formatSpecialSkillsHtml(ss, { activationLocation:location, hideActivationSource:SPECIAL_SPELL_LOC_RE.test(location), emptyText:"" });
+ const html = formatSpecialSkillsHtml(ss, { activationLocation:location, hideActivationSource:true, emptyText:"" });
  const template = document.createElement("template");
  template.innerHTML = html;
  template.content.querySelectorAll(".skill-detail-line").forEach(line=>{
