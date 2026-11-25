@@ -18289,6 +18289,19 @@ function formatDamageAppliedMap(map, labels){
  });
  return parts.length ? parts.join(" ／ ") : "なし";
 }
+function formNamedElements(form,name){
+ if(!form || !form.elements || typeof form.elements.namedItem !== "function") return [];
+ const found=form.elements.namedItem(name);
+ if(!found) return [];
+ if(typeof found.getAttribute === "function") return [found];
+ if(typeof found.length === "number"){
+  return Array.from(found).filter(el=>el && typeof el.getAttribute === "function");
+ }
+ return [];
+}
+function formNamedElement(form,name){
+ return formNamedElements(form,name)[0] || null;
+}
 function syncDamageFormFields(form, result, opts){
  if(!form || !result) return;
  opts = opts || {};
@@ -18304,9 +18317,9 @@ function syncDamageFormFields(form, result, opts){
  // ランク：全欄を自動値（無ければ0）へ
  (DAMAGE_RANK_FIELDS||[]).forEach(([key])=>{
   [key, key+"2"].forEach(k=>{
-   const el = form.elements.namedItem(k);
+    const els = formNamedElements(form,k);
    const auto = (result.appliedRanks && result.appliedRanks[k]) || 0;
-   setAuto(el, auto);
+    els.forEach(el=>setAuto(el,auto));
   });
  });
  // その他補正・結界異常：調整欄を一通り走査し、自動値を入れる（外したスキル分は0に戻す）
@@ -18314,25 +18327,27 @@ function syncDamageFormFields(form, result, opts){
  const abn = result.appliedAbnormals || {};
  (DAMAGE_ADJUSTMENTS || []).forEach(([key])=>{
   if(key === "currentHp") return; // 手入力専用
-  const el = form.elements.namedItem(key);
-  if(!el) return;
+   const els = formNamedElements(form,key);
+   if(!els.length) return;
   // 自動管理対象：以前セットした欄、または今回値がある欄
   const auto = (bonusMap[key] || 0) + (abn[key] || 0);
   // bonus と abn はキーが被らない想定。被る場合は合算
-  if(force || el.getAttribute("data-auto-managed") === "1" || auto || el.getAttribute("data-user-edit") !== "1"){
-   // user-edit 中は触らない
-   if(!canWrite(el)) return;
-   // 自動対象でなければ（一度も自動で書いていない＆今回0）スキップ
-   if(!force && el.getAttribute("data-auto-managed") !== "1" && !auto && el.getAttribute("data-user-edit") === "1") return;
-   setAuto(el, auto);
-  }
+   els.forEach(el=>{
+    if(force || el.getAttribute("data-auto-managed") === "1" || auto || el.getAttribute("data-user-edit") !== "1"){
+     // user-edit 中は触らない
+     if(!canWrite(el)) return;
+     // 自動対象でなければ（一度も自動で書いていない＆今回0）スキップ
+     if(!force && el.getAttribute("data-auto-managed") !== "1" && !auto && el.getAttribute("data-user-edit") === "1") return;
+     setAuto(el, auto);
+    }
+   });
  });
  // 上記で拾えない bonus/abn キーも反映
  Object.keys({...bonusMap, ...abn}).forEach(k=>{
-  const el = form.elements.namedItem(k);
-  if(!el) return;
+   const els = formNamedElements(form,k);
+   if(!els.length) return;
   const auto = (bonusMap[k] || 0) + (abn[k] || 0);
-  setAuto(el, auto);
+   els.forEach(el=>setAuto(el,auto));
  });
  // 自機ステータス（蓄積など）：base+delta。deltaが消えたらbaseへ戻す
  const base = opts.baseStats || {};
@@ -18352,15 +18367,17 @@ function syncDamageFormFields(form, result, opts){
   if(!k) return;
   if((DAMAGE_RANK_FIELDS||[]).some(([rk])=>k===rk||k===rk+"2")) return;
   if((DAMAGE_ADJUSTMENTS||[]).some(([ak])=>k===ak)) return;
-  const el = form.elements.namedItem(k);
-  if(!el) return;
-  const hasDelta = Object.prototype.hasOwnProperty.call(delta, k) || el.getAttribute("data-auto-managed")==="1";
-  if(!hasDelta && !force) return;
-  const auto = (damageNumber(base[k]) ?? damageNumber(el.getAttribute("data-base-stat")) ?? damageNumber(el.value) ?? 0) + (delta[k] || 0);
-  // base を覚えておく
-  if(el.getAttribute("data-base-stat") == null && base[k] != null) el.setAttribute("data-base-stat", String(base[k]));
-  const baseVal = damageNumber(el.getAttribute("data-base-stat")) ?? damageNumber(base[k]) ?? 0;
-  setAuto(el, baseVal + (delta[k] || 0));
+   const els = formNamedElements(form,k);
+   if(!els.length) return;
+   els.forEach(el=>{
+    const hasDelta = Object.prototype.hasOwnProperty.call(delta, k) || el.getAttribute("data-auto-managed")==="1";
+    if(!hasDelta && !force) return;
+    const auto = (damageNumber(base[k]) ?? damageNumber(el.getAttribute("data-base-stat")) ?? damageNumber(el.value) ?? 0) + (delta[k] || 0);
+    // base を覚えておく
+    if(el.getAttribute("data-base-stat") == null && base[k] != null) el.setAttribute("data-base-stat", String(base[k]));
+    const baseVal = damageNumber(el.getAttribute("data-base-stat")) ?? damageNumber(base[k]) ?? 0;
+    setAuto(el, baseVal + (delta[k] || 0));
+   });
  });
  const sumEl = form.querySelector("[data-applied-summary]");
  if(sumEl){
@@ -18530,8 +18547,7 @@ function openDamageCalculator(charId, attackKey, side){
   immuneNames.forEach(n=>{
    const k = keyMap[n];
    if(!k || !form) return;
-   const el = form.elements.namedItem(k);
-   if(el){ el.value = 0; el.setAttribute("data-auto-val","0"); el.setAttribute("data-ability-immune","1"); el.title = "能力により効果無効／無効"; }
+    formNamedElements(form,k).forEach(el=>{ el.value = 0; el.setAttribute("data-auto-val","0"); el.setAttribute("data-ability-immune","1"); el.title = "能力により効果無効／無効"; });
   });
  }catch(e){}
 
@@ -18547,8 +18563,8 @@ function openDamageCalculator(charId, attackKey, side){
    const manual = card.querySelector('[name="bulletAffinity"]').value === "manual";
    card.querySelector('[name="element"]').disabled = !manual;
   });
-  const ignoreEnemyDefense = form.elements.namedItem("ignoreEnemyDefense").checked;
-  for(const key of ["enemyYang","enemyYin"]) form.elements.namedItem(key).disabled = ignoreEnemyDefense;
+   const ignoreEnemyDefense = !!(formNamedElement(form,"ignoreEnemyDefense")||{}).checked;
+   for(const key of ["enemyYang","enemyYin"]) formNamedElements(form,key).forEach(el=>{ el.disabled = ignoreEnemyDefense; });
   if([...form.querySelectorAll("input")].some(el=>!el.validity.valid)){
    output.textContent="入力値の範囲を確認してください。";
    bulletCards.forEach(card=>{card.querySelector("[data-bullet-damage]").textContent="";});
@@ -18556,7 +18572,8 @@ function openDamageCalculator(charId, attackKey, side){
   }
   const values = Object.fromEntries(controls.map(el=>[el.name,read(el)]));
   for(const key of Object.keys(DAMAGE_BASIC)){
-   if(values[key] == null && !form.elements.namedItem(key).disabled){
+    const field=formNamedElement(form,key);
+    if(values[key] == null && field && !field.disabled){
     output.textContent="基本条件の未入力項目を埋めてください。";
     bulletCards.forEach(card=>{card.querySelector("[data-bullet-damage]").textContent="";});
     return;
@@ -18621,7 +18638,7 @@ function openDamageCalculator(charId, attackKey, side){
   // 2nd pass: フォーム反映済みとして計算（二重加算なし）
    // 能力無効の結界異常は手入力があっても0扱い
   try{
-   abilityNegatedSelfAbnormalKeys(pack.abilities).forEach(k=>{ values[k]=0; const el=form.elements.namedItem(k); if(el) el.value=0; });
+    abilityNegatedSelfAbnormalKeys(pack.abilities).forEach(k=>{ values[k]=0; formNamedElements(form,k).forEach(el=>{el.value=0;}); });
   }catch(e){}
   const result = calculateSkillDamage(pack,configured,slots,{...context,manual:values,stats:syncedStats,affinity:values.affinity,attack,attackKey,effectsSynced:true,abilities:pack.abilities});
 
@@ -18651,9 +18668,8 @@ function openDamageCalculator(charId, attackKey, side){
     const enemy = label.startsWith("敵 ");
     if((preset === "self" && enemy) || (preset === "enemy" && !enemy)) return;
     const rank = preset === "reset" ? 0 : (enemy ? -1 : 1) * DAMAGE_PRESET_MAX_RANK;
-    const el1 = form.elements.namedItem(key); const el2 = form.elements.namedItem(key+"2");
-    if(el1){ el1.value = rank; el1.setAttribute("data-user-edit","1"); }
-    if(el2){ el2.value = rank; el2.setAttribute("data-user-edit","1"); }
+     formNamedElements(form,key).forEach(el=>{el.value=rank;el.setAttribute("data-user-edit","1");});
+     formNamedElements(form,key+"2").forEach(el=>{el.value=rank;el.setAttribute("data-user-edit","1");});
    });
    refresh();
   }else if(killerPreset){
