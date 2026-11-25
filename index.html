@@ -17708,6 +17708,106 @@ function damagePreEffects(attack){
  });
  return {bag,unparsed,registered:lines.length > 0};
 }
+function collectDamageAppliedRanks(pack, slots, context){
+ context = context || {};
+ const missing = new Set();
+ const ranks = {};
+ const permanent = {};
+ const read = (value,label)=>{
+  const n = damageNumber(value);
+  if(n === null || n < 0){ missing.add(label); return null; }
+  return n;
+ };
+ const add = (key,value)=>{
+  if(!key || !value) return;
+  ranks[key] = (ranks[key] || 0) + value;
+ };
+ const rankRow = (row,stat,n,dir,kind)=>{
+  const destination = damageRankDestination(stat, row && row.target);
+  if(!destination) return;
+  const value = read(n, (stat||"")+"の段階");
+  if(value === null) return;
+  const sign = /ダウン|低下|減/.test(String(dir||"")) ? -1 : 1;
+  const extra = damageNumber(row && row.bonusPct);
+  if(extra > 0 && extra < 100) missing.add("確率付きの追加段階");
+  const stages = sign * (value + (extra >= 100 ? 1 : 0));
+  if(kind === "永続") permanent[destination] = (permanent[destination] || 0) + stages;
+  else add(destination + (kind === "Ⅱ" ? "2" : ""), stages);
+ };
+ (slots || []).forEach(i=>{
+  const skill = pack && pack.skills && pack.skills[i];
+  if(!skill) return;
+  (skill.effects && skill.effects.ranks || []).forEach(row=>{
+   rankRow(row, String(row.stat || ""), row.stages, row.dir || "", /Ⅱ|II|Rank[2２]/i.test(String(row.stat||"")) ? "Ⅱ" : "");
+  });
+  if(skill.text && String(skill.text).trim()) missing.add("スキル"+(i+1)+"の自由記述");
+  if(skill.effects && skill.effects.barrierAbnormals && skill.effects.barrierAbnormals.length) missing.add("結界異常とブレイクの連動");
+ });
+ const preLocation = context.attackKey ? context.attackKey+":pre" : "";
+ const usesPre = typeof SPECIAL_SPELL_LOC_RE !== "undefined" && SPECIAL_SPELL_LOC_RE.test(preLocation);
+ const preEffects = usesPre ? damagePreEffects(context.attack) : null;
+ if(preEffects){
+  (preEffects.bag.ranks || []).forEach(row=>{
+   rankRow(row, String(row.stat || ""), row.stages, row.dir || "", /Ⅱ|II|Rank[2２]/i.test(String(row.stat||"")) ? "Ⅱ" : "");
+  });
+  if(preEffects.unparsed) missing.add("スペカ前効果の自由記述");
+  if(preEffects.bag.barrierAbnormals && preEffects.bag.barrierAbnormals.length) missing.add("スペカ前効果：結界異常とブレイクの連動");
+ }
+ const preMatches = sources=>usesPre && sources.some(source=>sourceMatchesActivationLocation(source, preLocation));
+ const selectedSources = sources=>preMatches(sources) || sources.some(source=>(slots||[]).some(i=>sourceMatchesActivationLocation(source,"skill"+(i+1))));
+ const specials = normalizeSpecialSkillsObject(pack && pack.specialSkills);
+ const active = projectSpecialSkills(specials, selectedSources);
+ for(const [name, root] of Object.entries(specials || {})){
+  if(!root || !root.enabled) continue;
+  const effects = Array.isArray(root.list) && root.list.length ? root.list : [root];
+  if((slots||[]).length && effects.some(row=>specialEffectSources(row, root).includes("スキル"))) missing.add(name+"（スキル番号未指定）");
+ }
+ for(const [name, d] of Object.entries(active || {})){
+  if(d.xChangeOnly){ missing.add(name+"（X-Change条件）"); continue; }
+  for(const row of (d.list && d.list.length ? d.list : [d])){
+   if(isRank2SkillName(name) || /^永続[バデ]/.test(name)){
+    rankRow({...row, target: row.target || (name.includes("デバフ") ? "相手" : "自身")}, pickRank2Stat(row), pickRank2Stage(row), name.includes("デバフ")?"ダウン":"アップ", name.startsWith("永続")?"永続":"Ⅱ");
+   }
+  }
+ }
+ // 永続は options.permanent に渡し、表示上は通常欄にも合算して見せる
+ const ranksForDisplay = {...ranks};
+ Object.entries(permanent).forEach(([key,value])=>{
+  ranksForDisplay[key] = (ranksForDisplay[key] || 0) + value;
+ });
+ return { ranks, ranksForDisplay, permanent, missing:[...missing], hasPre:!!(preEffects && (preEffects.registered || Object.keys(projectSpecialSkills(specials, preMatches)).length)) };
+}
+function formatDamageAppliedRanksSummary(ranks){
+ const labels = Object.fromEntries((typeof DAMAGE_RANK_FIELDS !== "undefined" ? DAMAGE_RANK_FIELDS : []).map(([k,l])=>[k,l]));
+ const parts = [];
+ Object.keys(ranks||{}).sort().forEach(key=>{
+  const n = ranks[key];
+  if(!n) return;
+  const base = key.replace(/2$/,"");
+  const is2 = /2$/.test(key);
+  const label = (labels[base] || base) + (is2 ? "Ⅱ" : "");
+  parts.push(label + " " + (n > 0 ? "+"+n : n));
+ });
+ return parts.length ? parts.join(" ／ ") : "なし";
+}
+function syncDamageRankFields(form, ranks, opts){
+ if(!form) return;
+ opts = opts || {};
+ const force = !!opts.force;
+ (DAMAGE_RANK_FIELDS || []).forEach(([key])=>{
+  [key, key+"2"].forEach(k=>{
+   const el = form.elements.namedItem(k);
+   if(!el) return;
+   const auto = (ranks && ranks[k]) || 0;
+   // スキル変更時は自動分を反映。ユーザーが手で触った欄は data-user-rank で保護
+   if(force || el.getAttribute("data-user-rank") !== "1"){
+    el.value = auto;
+    el.setAttribute("data-auto-rank", String(auto));
+   }
+  });
+ });
+}
+
 function calculateSkillDamage(pack, rows, slots, context){
  const options = {level:context.level, boost:context.boost, enemyYang:4000, enemyYin:4000,
   fullBreak:context.fullBreak, ...context.manual, skillScenario:true, sequentialRanks:true};
@@ -17737,31 +17837,26 @@ function calculateSkillDamage(pack, rows, slots, context){
   if(kind === "永続") permanent[destination]=(permanent[destination] || 0)+stages;
   else append(destination+(kind === "Ⅱ" ? "2" : ""),stages);
  };
- slots.forEach(i=>{
-  const skill = pack.skills?.[i];
-  if(!skill) return;
-  (skill.effects?.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : ""));
-  if(skill.text?.trim()) missing.add("スキル"+(i+1)+"の自由記述");
-  if(skill.effects?.barrierAbnormals?.length) missing.add("結界異常とブレイクの連動");
+ const appliedInfo = collectDamageAppliedRanks(pack, slots, context);
+ appliedInfo.missing.forEach(x=>missing.add(x));
+ Object.assign(permanent, appliedInfo.permanent || {});
+ // ランクはフォーム欄と同期した値を使う（スキル・前効果分は欄に反映済み）
+ // ただしフォーム未同期の呼び出しでは applied を加算
+ Object.entries(appliedInfo.ranks || {}).forEach(([key,value])=>{
+  if(context.ranksSynced){
+   // 欄の値がそのまま options に入っている
+  }else{
+   append(key, value);
+  }
  });
  const preLocation = context.attackKey ? context.attackKey+":pre" : "";
  const usesPre = SPECIAL_SPELL_LOC_RE.test(preLocation);
  const preEffects = usesPre ? damagePreEffects(context.attack) : null;
- if(preEffects){
-  (preEffects.bag.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : ""));
-  if(preEffects.unparsed) missing.add("スペカ前効果の自由記述");
-  if(preEffects.bag.barrierAbnormals?.length) missing.add("スペカ前効果：結界異常とブレイクの連動");
- }
  const preMatches = sources=>usesPre && sources.some(source=>sourceMatchesActivationLocation(source,preLocation));
  const selectedSources = sources=>preMatches(sources) || sources.some(source=>slots.some(i=>sourceMatchesActivationLocation(source,"skill"+(i+1))));
  const specials = normalizeSpecialSkillsObject(pack.specialSkills);
  const active = projectSpecialSkills(specials, selectedSources);
  const preSpecials = usesPre ? projectSpecialSkills(specials,preMatches) : {};
- for(const [name,root] of Object.entries(specials)){
-  if(!root?.enabled) continue;
-  const effects = Array.isArray(root.list) && root.list.length ? root.list : [root];
-  if(slots.length && effects.some(row=>specialEffectSources(row,root).includes("スキル"))) missing.add(name+"（スキル番号未指定）");
- }
  const transfers = new Map();
  // 選んだスキルは番号順に使用。同時に有効な大結界は最後の1つだけ。
  let field = null;
@@ -17771,7 +17866,7 @@ function calculateSkillDamage(pack, rows, slots, context){
   for(const row of d.list?.length ? d.list : [d]){
    const label = name+(row.stat ? "："+row.stat : "");
    if(isRank2SkillName(name) || /^永続[バデ]/.test(name)){
-    rankRow({...row,target:row.target || (name.includes("デバフ") ? "相手" : "自身")},pickRank2Stat(row),pickRank2Stage(row),name.includes("デバフ")?"ダウン":"アップ",name.startsWith("永続")?"永続":"Ⅱ");
+    // ランクは collectDamageAppliedRanks 側で集計済み
    }else if(name === "大結界"){
     const sources=specialEffectSources(row,d);
     const slot=preMatches(sources) ? 3 : Math.max(-1,...slots.filter(i=>sources.some(source=>sourceMatchesActivationLocation(source,"skill"+(i+1)))));
@@ -17866,7 +17961,7 @@ function calculateSkillDamage(pack, rows, slots, context){
    bonus:context.manual ? b.bonus : attr+type,
    skillMultiplier:multiplier("ダメージ")*(1+accumulated/100)};
  });
- return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0};
+ return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],hasPre:!!(appliedInfo.hasPre || (preEffects && preEffects.registered) || Object.keys(preSpecials).length>0),appliedRanks:appliedInfo.ranks || {}};
 }
 
 function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
@@ -18094,9 +18189,26 @@ function openDamageCalculator(charId, attackKey, side){
   <form>
    <fieldset>
     <legend>使用するスキル</legend>
-    <div class="damage-grid">${[0,1,2].map(i=>`<label class="damage-check"><input type="checkbox" data-damage-skill="${i}">スキル${i+1}${pack.skills?.[i]?.name ? "："+esc(pack.skills[i].name) : ""}</label>`).join("")}</div>
-    <p class="mini">選んだスキルを同じターンに使用します。手入力のランク補正には、選んだスキルやスペカ前効果を除いた段階を入力してください。</p>
+    <div class="damage-skill-list">${[0,1,2].map(i=>{
+     const sk = pack.skills?.[i];
+     const name = sk?.name ? "："+esc(sk.name) : "";
+     const lines = typeof skillWikiLines === "function" ? skillWikiLines(sk) : [];
+     const body = lines.length
+      ? lines.map(x=>`<div class="mini">・${esc(x)}</div>`).join("")
+      : `<div class="mini" style="color:#888;">効果データなし</div>`;
+     return `<details class="damage-skill-item" style="border:1px solid rgba(160,130,70,.3);border-radius:10px;padding:6px 10px;margin-bottom:6px;background:rgba(255,252,245,.8);">
+      <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+       <label class="damage-check" style="margin:0;" onclick="event.stopPropagation()">
+        <input type="checkbox" data-damage-skill="${i}">スキル${i+1}${name}
+       </label>
+       <span class="mini" style="color:#666;">▼ 効果</span>
+      </summary>
+      <div style="margin:6px 0 2px 8px;">${body}</div>
+     </details>`;
+    }).join("")}</div>
+    <p class="mini">選んだスキルとスペカ前効果のランク補正は、下の「ランク補正」欄に自動反映されます。必要なら欄を直接編集できます。</p>
     <p class="mini" data-manual-pre></p>
+    <p class="mini" data-applied-ranks></p>
     <p class="mini" data-skill-missing></p>
    </fieldset>
    <details><summary>人数と蓄力の条件</summary>
@@ -18120,14 +18232,16 @@ function openDamageCalculator(charId, attackKey, side){
    ${storyCardCalculatorHtml()}
    <details><summary>自機ステータス</summary><div class="damage-grid">${DAMAGE_STAT_FIELDS.map(([key,label,min])=>damageField(key,label,stats[key],min)).join("")}</div></details>
    <p class="mini">能力の与ダメージアップ：有利 +${esc(abilityDamageUp.good || 0)}% ／ 不利 +${esc(abilityDamageUp.bad || 0)}%</p>
-   <details><summary>ランク補正（バフは＋、デバフは−）</summary>
+   <details open><summary>ランク補正（バフは＋、デバフは−）</summary>
    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0;">
     <button type="button" class="btn-sm" data-rank-preset="max">バフ・デバフをMAX</button>
     <button type="button" class="btn-sm" data-rank-preset="self">自機バフをMAX</button>
     <button type="button" class="btn-sm" data-rank-preset="enemy">敵デバフをMAX</button>
     <button type="button" class="btn-sm" data-rank-preset="reset">ランク補正をリセット</button>
+    <button type="button" class="btn-sm" data-rank-preset="auto">スキル・前効果に合わせる</button>
    </div>
-   <p class="mini">MAX：自機 ＋${DAMAGE_PRESET_MAX_RANK} ／ 敵 −${DAMAGE_PRESET_MAX_RANK}（通常・RankⅡ）</p>
+   <p class="mini">MAX：自機 ＋${DAMAGE_PRESET_MAX_RANK} ／ 敵 −${DAMAGE_PRESET_MAX_RANK}（通常・RankⅡ）。スキルON時は自動で反映されます。</p>
+   <p class="mini" data-rank-auto-note></p>
    <div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,0,-10,10,1)+damageField(key+"2",label+"Ⅱ",0,-10,10,1)).join("")}</div></details>
    <details><summary>結界異常・その他の補正</summary><div class="damage-grid">${DAMAGE_ADJUSTMENTS.map(([key,label,min,max,step])=>damageField(key,label,key==="currentHp" ? "" : 0,min,max,step)).join("")}</div></details>
    <h3>バレットごとの内訳</h3>
@@ -18222,8 +18336,24 @@ function openDamageCalculator(charId, attackKey, side){
   });
   const slots = [...form.querySelectorAll("[data-damage-skill]:checked")].map(el=>Number(el.dataset.damageSkill));
   const context = Object.fromEntries([...form.querySelectorAll("[data-skill-context]")].map(el=>[el.dataset.skillContext,Number(el.value)]));
-  const result = calculateSkillDamage(pack,configured,slots,{...context,manual:values,stats:adjustedStats,affinity:values.affinity,attack,attackKey});
+  // スキル・スペカ前のランクを欄へ同期（ユーザーが手編集した欄は維持）
+  const appliedInfo = collectDamageAppliedRanks(pack, slots, {attack, attackKey});
+  syncDamageRankFields(form, appliedInfo.ranks, {force: !!form.dataset.forceRankSync});
+  form.dataset.forceRankSync = "";
+  // 同期後のランク欄だけ再読込
+  DAMAGE_RANK_FIELDS.forEach(([key])=>{
+   [key, key+"2"].forEach(k=>{
+    const el = form.elements.namedItem(k);
+    if(!el) return;
+    values[k] = damageNumber(el.value) ?? 0;
+   });
+  });
+  const result = calculateSkillDamage(pack,configured,slots,{...context,manual:values,stats:adjustedStats,affinity:values.affinity,attack,attackKey,ranksSynced:true});
   preNote.textContent = result.hasPre ? "スペカ前効果：自動計算の対象" : "";
+  const appliedNote = form.querySelector("[data-applied-ranks]");
+  if(appliedNote) appliedNote.textContent = "自動反映ランク：" + formatDamageAppliedRanksSummary(appliedInfo.ranksForDisplay || result.appliedRanks || appliedInfo.ranks);
+  const rankAutoNote = form.querySelector("[data-rank-auto-note]");
+  if(rankAutoNote) rankAutoNote.textContent = "いま反映中：" + formatDamageAppliedRanksSummary(appliedInfo.ranksForDisplay || result.appliedRanks || appliedInfo.ranks);
   missingNote.textContent = result.unsupported.length ? "未反映："+result.unsupported.join("、") : "";
   output.textContent = result.complete ? "ダメージ期待値： "+damageDisplay(result.total)
    : "計算できた弾の小計： "+damageDisplay(result.total)+"（未計算 "+result.missing+" 行）";
@@ -18239,12 +18369,25 @@ function openDamageCalculator(charId, attackKey, side){
   const killerPreset = ev.target.closest("[data-killer-preset]");
   if(rankPreset){
    const preset = rankPreset.dataset.rankPreset;
+   if(preset === "auto"){
+    form.dataset.forceRankSync = "1";
+    form.querySelectorAll("[name$=Rank],[name$=Rank2]").forEach(el=>el.removeAttribute("data-user-rank"));
+    // Rank fields use key names like yangAtkRank
+    DAMAGE_RANK_FIELDS.forEach(([key])=>{
+     const a = form.elements.namedItem(key); const b = form.elements.namedItem(key+"2");
+     if(a) a.removeAttribute("data-user-rank");
+     if(b) b.removeAttribute("data-user-rank");
+    });
+    refresh();
+    return;
+   }
    DAMAGE_RANK_FIELDS.forEach(([key,label])=>{
     const enemy = label.startsWith("敵 ");
     if((preset === "self" && enemy) || (preset === "enemy" && !enemy)) return;
     const rank = preset === "reset" ? 0 : (enemy ? -1 : 1) * DAMAGE_PRESET_MAX_RANK;
-    form.elements.namedItem(key).value = rank;
-    form.elements.namedItem(key+"2").value = rank;
+    const el1 = form.elements.namedItem(key); const el2 = form.elements.namedItem(key+"2");
+    if(el1){ el1.value = rank; el1.setAttribute("data-user-rank","1"); }
+    if(el2){ el2.value = rank; el2.setAttribute("data-user-rank","1"); }
    });
    refresh();
   }else if(killerPreset){
@@ -18263,7 +18406,22 @@ function openDamageCalculator(charId, attackKey, side){
   }
  });
  form.addEventListener("submit",ev=>ev.preventDefault());
- form.addEventListener("input",refresh);
+ form.addEventListener("input",ev=>{
+  const t = ev.target;
+  if(t && t.name && /Rank/.test(t.name) && t.getAttribute("data-auto-rank") != null){
+   const auto = Number(t.getAttribute("data-auto-rank")||0);
+   const cur = damageNumber(t.value);
+   if(cur !== null && cur !== auto) t.setAttribute("data-user-rank","1");
+  }
+  if(t && t.matches && t.matches("[data-damage-skill]")){
+   // スキルON/OFF時は自動ランクを再同期
+   form.dataset.forceRankSync = "1";
+   form.querySelectorAll("input[name]").forEach(el=>{
+    if(el.name && /Rank/.test(el.name)) el.removeAttribute("data-user-rank");
+   });
+  }
+  refresh();
+ });
  refresh();
  if(!dlg.open) dlg.showModal();
  dlg.scrollTop=0;
