@@ -17843,12 +17843,17 @@ function calculateSkillDamage(pack, rows, slots, context){
   if(!name || !(stacks>0)) return;
   const tgt = String(row.target||"");
   const enemy = /相手|敵|対象/.test(tgt);
-  // ダメージ計算式に合わせた割り当て（wikiwiki ダメージ計算）
-  if(name === "燃焼") addAbn(enemy ? "yangEnemyAbnormal" : "yangAbnormal", stacks);
-  else if(name === "毒霧") addAbn(enemy ? "yinEnemyAbnormal" : "yinAbnormal", stacks);
-  else if(name === "帯電") addAbn("paralysis", stacks);
-  else if(name === "凍結") addAbn("freeze", stacks);
-  else if(name === "暗闇") addAbn("smoke", stacks);
+  // 計算欄は自機側と敵側が別。対象に対応する補正だけへ反映する。
+  // 敵の凍結・暗闇、自機の帯電はこの攻撃側火力式では直接扱わない。
+  const abnormalKeys = {
+   "燃焼": { self:"yangAbnormal", enemy:"yangEnemyAbnormal" },
+   "毒霧": { self:"yinAbnormal", enemy:"yinEnemyAbnormal" },
+   "帯電": { enemy:"paralysis" },
+   "凍結": { self:"freeze" },
+   "暗闇": { self:"smoke" }
+  };
+  const key = abnormalKeys[name]?.[enemy ? "enemy" : "self"];
+  if(key) addAbn(key, stacks);
  };
  const rankRow = (row,stat,n,dir,kind)=>{
   const destination = damageRankDestination(stat,row.target);
