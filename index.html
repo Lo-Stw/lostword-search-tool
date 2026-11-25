@@ -15064,7 +15064,9 @@ function importBulletStatsOnly(attackKey, raw){
   });
   changed++;
  });
- show(`${changed}発の数値を取り込みました。`);
+ let mirrored = false;
+ try{ if(changed) mirrored = !!mirrorAttackImportToOtherVariant(attackKey); }catch(e){}
+ show(`${changed}発の数値を取り込みました。` + (mirrored ? "（転生前後へ反映）" : ""));
 }
 
 function refreshAttackEditorAfterImport(attackKey){
@@ -15341,6 +15343,75 @@ function importWikiIntoSkills(text){
  return {ok:true,count:Math.min(3,skills.length),totalFound:skills.length,rebirthImported:hasKai};
 }
 
+
+/** Wiki取込した威力・命中・CRI・発動前後効果などを、転生ありのときもう一方の側にも反映 */
+function mirrorAttackImportToOtherVariant(attackKey){
+ if(!rebirthEnabled) return false;
+ if(!attackKey || !attackData || !attackData[attackKey]) return false;
+ try{
+  const snap = snapshotFormToPack();
+  if(editVariant === "after") afterPack = snap;
+  else beforePack = snap;
+ }catch(e){}
+ if(!beforePack) beforePack = emptyPack();
+ if(!afterPack) afterPack = emptyPack();
+ if(!beforePack.attacks) beforePack.attacks = {};
+ if(!afterPack.attacks) afterPack.attacks = {};
+ const src = JSON.parse(JSON.stringify(attackData[attackKey]));
+ const applyTo = (pack)=>{
+  if(!pack.attacks[attackKey]){
+   pack.attacks[attackKey] = (typeof emptyAttackStructure === "function")
+    ? emptyAttackStructure()
+    : { name:"", bullets:[], preEffects:{}, postEffects:{} };
+  }
+  const dst = pack.attacks[attackKey];
+  // 名称・射程・ブースト・属性など攻撃共通
+  if(src.name) dst.name = src.name;
+  if(src.range) dst.range = src.range;
+  if(src.boostPattern) dst.boostPattern = src.boostPattern;
+  if(Array.isArray(src.attributes)) dst.attributes = src.attributes.slice();
+  if(Array.isArray(src.bulletTypes)) dst.bulletTypes = src.bulletTypes.slice();
+  if(src.hardRatio != null) dst.hardRatio = src.hardRatio;
+  if(src.sharpRatio != null) dst.sharpRatio = src.sharpRatio;
+  if(src.specialTarget != null) dst.specialTarget = src.specialTarget;
+  // 発動前/後効果
+  if(src.preEffects) dst.preEffects = JSON.parse(JSON.stringify(src.preEffects));
+  if(src.postEffects) dst.postEffects = JSON.parse(JSON.stringify(src.postEffects));
+  if(src.preEffect != null) dst.preEffect = src.preEffect;
+  if(src.postEffect != null) dst.postEffect = src.postEffect;
+  // バレット：威力・命中・CRI・弾種などを上書き（構造は維持しつつ数値を揃える）
+  if(!Array.isArray(dst.bullets)) dst.bullets = [];
+  const srcBullets = Array.isArray(src.bullets) ? src.bullets : [];
+  while(dst.bullets.length < Math.max(6, srcBullets.length)){
+   dst.bullets.push(typeof createBulletStructure === "function" ? createBulletStructure(dst.bullets.length+1) : {});
+  }
+  srcBullets.forEach((sb, i)=>{
+   if(!sb) return;
+   if(!dst.bullets[i]) dst.bullets[i] = typeof createBulletStructure === "function" ? createBulletStructure(i+1) : {};
+   const db = dst.bullets[i];
+   ["name","attr","kind","bulletType","count","pStage","power","accuracy","critical","hardRatio","sharpRatio","specialTarget"].forEach(k=>{
+    if(sb[k] !== undefined && sb[k] !== null && sb[k] !== "") db[k] = sb[k];
+   });
+   if(sb.specials && typeof sb.specials === "object"){
+    db.specials = Object.assign({}, db.specials||{}, JSON.parse(JSON.stringify(sb.specials)));
+   }
+   if(Array.isArray(sb.buffs)) db.buffs = JSON.parse(JSON.stringify(sb.buffs));
+   if(Array.isArray(sb.debuffs)) db.debuffs = JSON.parse(JSON.stringify(sb.debuffs));
+   if(Array.isArray(sb.abnormalEntries)) db.abnormalEntries = JSON.parse(JSON.stringify(sb.abnormalEntries));
+  });
+  if(src.specials && typeof src.specials === "object"){
+   dst.specials = Object.assign({}, dst.specials||{}, JSON.parse(JSON.stringify(src.specials)));
+  }
+  if(Array.isArray(src.buffAllowedStats)) dst.buffAllowedStats = src.buffAllowedStats.slice();
+  if(Array.isArray(src.debuffAllowedStats)) dst.debuffAllowedStats = src.debuffAllowedStats.slice();
+ };
+ // 両方に同じ取込結果を入れる（今の編集側も packs に確定）
+ applyTo(beforePack);
+ applyTo(afterPack);
+ // 現在編集中の attackData は既に取込済みなので、もう一方のパックだけでも可だが両方揃える
+ return true;
+}
+
 function importWikiIntoAttack(attackKey, text){
  const a = attackData[attackKey];
  if(!a){
@@ -15361,8 +15432,10 @@ function importWikiIntoAttack(attackKey, text){
    try{ const sel=document.querySelector(`[data-range-select="${attackKey}"]`); if(sel && attackData[attackKey] && attackData[attackKey].range) sel.value = attackData[attackKey].range; }catch(e){}
    try{ refreshAttackEditorAfterImport(attackKey); }catch(e){}
    const st = document.getElementById("wiki-attack-status-"+attackKey);
-   if(st) st.textContent = "Gamerch取込: バレット"+r.count+"発" + (a.name?(" / "+a.name):"");
-   alert("Gamerch形式から取り込みました（バレット"+r.count+"発"+(a.name?(" / "+a.name):"")+"）");
+   let mirrored = false;
+   try{ mirrored = !!mirrorAttackImportToOtherVariant(attackKey); }catch(e){}
+   if(st) st.textContent = "Gamerch取込: バレット"+r.count+"発" + (a.name?(" / "+a.name):"") + (mirrored?"（転生前後へ反映）":"");
+   alert("Gamerch形式から取り込みました（バレット"+r.count+"発"+(a.name?(" / "+a.name):"")+"）"+(mirrored?"\n転生前後の両方に威力・前後効果を反映しました。":""));
    return;
   }
   // 失敗時は従来パーサへフォールスルー
@@ -15514,9 +15587,11 @@ function importWikiIntoAttack(attackKey, text){
 
  const st = document.getElementById("wiki-attack-status-"+attackKey);
  const msg = (nameSet ? "名前・" : "") + "バレット" + list.length + "発" + (usedSpecials.size ? " 特殊"+usedSpecials.size+"種" : "");
- if(st) st.textContent = list.length ? msg + " を取り込みました" : "弾行を見つけられませんでした";
+ let mirrored = false;
+ try{ if(list.length) mirrored = !!mirrorAttackImportToOtherVariant(attackKey); }catch(e){}
+ if(st) st.textContent = list.length ? msg + " を取り込みました" + (mirrored?"（転生前後へ反映）":"") : "弾行を見つけられませんでした";
  if(!list.length) alert("弾の行を見つけられませんでした。Wikiの表（P / 属性 / 弾幕名…）を含めて貼ってください。");
- else alert("取り込みました：\n" + msg);
+ else alert("取り込みました：\n" + msg + (mirrored?"\n転生前後の両方に威力・前後効果を反映しました。":""));
 }
 
 function importWikiIntoAbilities(text){
@@ -18251,10 +18326,11 @@ function openDamageCalculator(charId, attackKey, side){
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
   <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${level}。一覧の指数は属性等倍です。</p>
+  <p class="mini" style="color:#8a3030;font-weight:700;">※早期ヒットには対応していません（通常ヒット想定の計算です）。</p>
   <label>属性相性（火力指数）<select class="input" data-index-affinity>${affinityOptions}</select></label>
   <output class="stats-panel damage-index-total" aria-live="polite"></output>
   <details data-skill-damage>
-  <summary>手動ダメージ計算（スキル・スペカ前効果対応）</summary>
+  <summary>手動ダメージ計算（スキル・スペカ前効果対応／早期ヒット非対応）</summary>
   <output class="stats-panel damage-total" aria-live="polite"></output>
   <form>
    <fieldset>
