@@ -17654,7 +17654,7 @@ function damageRows(attack){
  const hardSummary = summaryRatio("hardRatio","硬質弾");
  const sharpSummary = summaryRatio("sharpRatio","斬裂弾");
  const last = bullets.reduce((i,b,j)=>b && (
-  b.name || b.attr || b.hardRatio || b.sharpRatio || [b.power,b.count,b.accuracy,b.critical].some(v=>damageNumber(v) !== null)
+  b.name || b.attr || b.hardRatio || b.sharpRatio || b.buffs?.length || b.debuffs?.length || [b.power,b.count,b.accuracy,b.critical].some(v=>damageNumber(v) !== null)
   || Object.values(b.specials || {}).some(Boolean) || (b.bulletType && b.bulletType !== "通常弾")
  ) ? j : i,-1);
  return bullets.slice(0,last+1).map((b,i)=>{
@@ -17668,6 +17668,10 @@ function damageRows(attack){
    sharp:damageBulletRatio(b,sharpSummary,"sharpRatio","斬裂弾"),
    sure:!!flags["必中弾"], pierce:!!flags["貫通弾"], mirror:!!flags["鏡面弾"],
    killer:!!(flags["特攻弾"] || b.specialTarget), killerText:b.specialTarget || "",
+   rankEffects:[
+    ...(Array.isArray(b.buffs) ? b.buffs : []).filter(Boolean).map(row=>({...row,dir:"アップ"})),
+    ...(Array.isArray(b.debuffs) ? b.debuffs : []).filter(Boolean).map(row=>({...row,dir:"ダウン"}))
+   ],
    attr:b.attr || "", bulletType:b.bulletType || "",
    element:1, story:0, bonus:0, reduction:0, forceCritical:false
   };
@@ -17677,15 +17681,206 @@ function damageRows(attack){
 function damageAttackLevelMultiplier(attackLevel){
  return 1 + .065*(attackLevel-1);
 }
+const SKILL_DAMAGE_STATS = {体力:"hp",陽攻:"yangAtk",陰攻:"yinAtk",陽防:"yangDef",陰防:"yinDef",速力:"speed",命中:"hit",回避:"evade",CRI命中:"criHit",CRI回避:"criEvade",CRI攻撃:"criAtk",CRI防御:"criDef"};
+
+function damageOwnTarget(target){
+ return !target || ["自身","味方全体","味方単体"].includes(target);
+}
+function damageRankDestination(stat,target){
+ const key = SKILL_DAMAGE_STATS[String(stat).normalize("NFKC").replace(/(?:Rank\s*)?II$|Rank[2２]$/i,"").trim()];
+ if(!key || key === "hp") return null;
+ if(/^(相手|敵|対象)/.test(target || "")){
+  if(/^(yang|yin)Def$/.test(key)) return key.replace(/Def$/,"EnemyDefRank");
+  return ["evade","criEvade","criDef"].includes(key) ? key+"Rank" : null;
+ }
+ return damageOwnTarget(target) && !["evade","criEvade","criDef"].includes(key) ? key+"Rank" : null;
+}
+function calculateSkillDamage(pack, rows, slots, context){
+ const options = {level:context.level, boost:context.boost, enemyYang:4000, enemyYin:4000,
+  fullBreak:context.fullBreak, skillScenario:true, sequentialRanks:true};
+ const stats = {...(pack.statsUnknown ? {} : pack.stats)};
+ const baseStats = {...stats};
+ const missing = new Set();
+ const factors = new Map();
+ const weakness = new Set();
+ const permanent = {};
+ const keep = (type,key,value)=>factors.set(type+":"+key,Math.max(factors.get(type+":"+key) ?? 0,value));
+ const read = (value,label)=>{
+  const n=damageNumber(value);
+  if(n === null || n < 0){ missing.add(label); return null; }
+  return n;
+ };
+ const append = (key,value)=>{ options[key]=(options[key] || 0)+value; };
+ const own = damageOwnTarget;
+ const rankRow = (row,stat,n,dir,kind)=>{
+  const destination = damageRankDestination(stat,row.target);
+  if(!destination) return;
+  const value = read(n,stat+"の段階");
+  if(value === null) return;
+  const sign = /ダウン|低下|減/.test(dir) ? -1 : 1;
+  const extra = damageNumber(row.bonusPct);
+  if(extra > 0 && extra < 100) missing.add("確率付きの追加段階");
+  const stages = sign*(value+(extra >= 100 ? 1 : 0));
+  if(kind === "永続") permanent[destination]=(permanent[destination] || 0)+stages;
+  else append(destination+(kind === "Ⅱ" ? "2" : ""),stages);
+ };
+ slots.forEach(i=>{
+  const skill = pack.skills?.[i];
+  if(!skill) return;
+  (skill.effects?.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : ""));
+  if(skill.text?.trim()) missing.add("スキル"+(i+1)+"の自由記述");
+  if(skill.effects?.barrierAbnormals?.length) missing.add("結界異常とブレイクの連動");
+ });
+ const selectedSources = sources=>sources.some(source=>slots.some(i=>sourceMatchesActivationLocation(source,"skill"+(i+1))));
+ const specials = normalizeSpecialSkillsObject(pack.specialSkills);
+ const active = projectSpecialSkills(specials, selectedSources);
+ for(const [name,root] of Object.entries(specials)){
+  if(!root?.enabled) continue;
+  const effects = Array.isArray(root.list) && root.list.length ? root.list : [root];
+  if(slots.length && effects.some(row=>specialEffectSources(row,root).includes("スキル"))) missing.add(name+"（スキル番号未指定）");
+ }
+ const transfers = new Map();
+ // 選んだスキルは番号順に使用。同時に有効な大結界は最後の1つだけ。
+ let field = null;
+ let fieldSlot = -1;
+ for(const [name, d] of Object.entries(active)){
+  if(d.xChangeOnly){ missing.add(name+"（X-Change条件）"); continue; }
+  for(const row of d.list?.length ? d.list : [d]){
+   const label = name+(row.stat ? "："+row.stat : "");
+   if(isRank2SkillName(name) || /^永続[バデ]/.test(name)){
+    rankRow({...row,target:row.target || (name.includes("デバフ") ? "相手" : "自身")},pickRank2Stat(row),pickRank2Stage(row),name.includes("デバフ")?"ダウン":"アップ",name.startsWith("永続")?"永続":"Ⅱ");
+   }else if(name === "大結界"){
+    const sources=specialEffectSources(row,d);
+    const slot=Math.max(-1,...slots.filter(i=>sources.some(source=>sourceMatchesActivationLocation(source,"skill"+(i+1)))));
+    if(slot>=fieldSlot){
+     field=row;
+     fieldSlot=slot;
+    }
+   }else if(name === "弱点付与"){
+    if(row.attr) weakness.add(row.attr); else missing.add(label);
+   }else if(["属性強化","弾強化","有利属性ダメージアップ","不利属性ダメージアップ"].includes(name)){
+    const key = name === "属性強化" ? row.attr : name === "弾強化" ? row.bullet : name;
+    const n=read(row.ratio,label);
+    if(key && n !== null && own(row.target)) keep(name,key,n);
+    else if(!key) missing.add(label);
+   }else if(name === "共鳴" || name === "団結"){
+    if(row.stat === "霊力") continue; // 蓄力は行動決定時の霊力を入力
+    const n=read(row.value ?? row.per,label);
+    if(!row.stat) missing.add(label);
+    else if(n !== null && own(row.target)) keep(name,row.stat,n*(name === "共鳴" ? context.front : context.yukkuri));
+   }else if(name === "ゾーン" || name === "バディコネクト"){
+    const fixed=damageNumber(row.fixed ?? row.ratio);
+    const per=damageNumber(row.per ?? row.value);
+    const count=name==="ゾーン" ? context.live : row.countKind==="ゆっくり・バディガ" ? context.buddy : context.teamYukkuri;
+    if(!row.stat || (fixed===null && per===null)) missing.add(label);
+    else if(own(row.target) && row.stat !== "霊力") keep(name,row.stat,(fixed ?? 0)+(per ?? 0)*count);
+   }else if(name === "畜力" || name === "蓄力"){
+    const resource = {"体力畜力":context.hp/100,"結界畜力":context.barriers,"霊力畜力":context.spirit}[row.kind];
+    const n=read(row.ratio,label);
+    if(resource === undefined) missing.add(label);
+    else if(n !== null && own(row.target)) keep("蓄力",row.kind,n*resource);
+   }else if(name === "蓄積" || name === "逆相"){
+    const from=SKILL_DAMAGE_STATS[row.fromStat], to=SKILL_DAMAGE_STATS[row.toStat];
+    const value=read(baseStats[from],label+"の参照元");
+    const n=read(name==="蓄積" ? row.ratio : row.upRatio,label);
+    if(value !== null && n !== null && to && own(row.toTarget || row.target)){
+     const key=name+":"+from+":"+to;
+     const previous=transfers.get(key);
+     transfers.set(key,{to,value:Math.max(previous?.value ?? 0,value*n/100)});
+    }
+    if(name==="逆相"){
+     const n=read(row.downRatio,label+"の低下率");
+     if(n!==null && ["陽防","陰防"].includes(row.downStat)) keep("逆相低下",row.downStat,n);
+     else if(row.downStat) missing.add(label+"の低下");
+    }
+   }else if(!["ファスト","チャージ","禁止解除","持続","スキル再使用ターン数短縮","スペルゲージ遅延"].includes(name)){
+    missing.add(label);
+   }
+  }
+ }
+ transfers.forEach(({to,value})=>{ if(damageNumber(stats[to]) !== null) stats[to]=Number(stats[to])+value; });
+ options.permanent = permanent;
+ if(field){
+  options.fieldUp = {};
+  options.fieldDown = {};
+  for(const [kind, keys, label] of [
+   ["up",["陽攻","陰攻","陽防","陰防","速力","威力","命中","CRI命中","CRI攻撃"],"強化"],
+   ["down",["陽防","陰防","回避","CRI回避","CRI防御"],"弱体化"]
+  ]){
+   const stat=field[kind+"Stat"];
+   if(!stat) continue;
+   if(!keys.includes(stat)){ missing.add("大結界："+stat+"の"+label); continue; }
+   const ratio=read(field[kind+"Ratio"],"大結界："+stat+"の"+label+"率");
+   if(ratio!==null && (kind==="up" || ratio<100)) options[kind==="up"?"fieldUp":"fieldDown"][stat]=ratio;
+   else if(ratio!==null) missing.add("大結界："+stat+"の弱体化率（100%未満）");
+  }
+ }
+ const pct=(type,key)=>factors.get(type+":"+key) || 0;
+ const countTypes = ["共鳴","団結","ゾーン","バディコネクト"];
+ const multiplier=key=>countTypes.reduce((m,type)=>m*(1+pct(type,key)/100),1);
+ const accumulated = [...factors].reduce((sum,[key,n])=>sum+(key.startsWith("蓄力:")?n:0),0);
+ for(const [stat,key] of Object.entries(SKILL_DAMAGE_STATS)){
+  const n=(multiplier(stat)-1)*100;
+  if(!n) continue;
+  if(["yangAtk","yinAtk","yangDef","yinDef","speed"].includes(key)) options[key+"Bonus"]=n;
+  else missing.add("人数に応じた補正："+stat);
+ }
+ options.criBaseBonus=countTypes.reduce((n,type)=>n+pct(type,"攻撃時CRI率"),0);
+ options.skillCriMultiplier=multiplier("CRIダメージ");
+ options.skillEnemyDefFactor={
+  yang:1-pct("逆相低下","陽防")/100,
+  yin:1-pct("逆相低下","陰防")/100
+ };
+ const configured = rows.map(b=>{
+  const affinity=weakness.has(b.attr) ? "good" : context.affinity;
+  const ability={...pack.abilities?.damageUp};
+  const conditional=affinity==="good" ? "有利属性ダメージアップ" : affinity==="bad" ? "不利属性ダメージアップ" : "";
+  if(conditional) ability[affinity]=(damageNumber(ability[affinity]) || 0)+pct(conditional,conditional);
+  return {...b,element:damageAffinityMultiplier(affinity,ability),
+   bonus:pct("属性強化",b.attr)+pct("弾強化",b.bulletType),
+   skillMultiplier:multiplier("ダメージ")*(1+accumulated/100)};
+ });
+ return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing]};
+}
+
 function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
  const o = {...DAMAGE_BASIC,...settings};
  const num = (v,fallback=0)=>damageNumber(v) ?? fallback;
  const percent = n=>1+num(n)/100;
  const probability = n=>Math.min(1, Math.max(0,n));
- const rank = (key,k)=>damageRank(num(o[key]),k)*damageRank(num(o[key+"2"]),k);
+ const cap = v=>Math.max(-10,Math.min(10,v));
+ const bulletRanks = {};
+ const rankValue = key=>num(o[key])+num(bulletRanks[key]);
+ const step = (key,skipNormal=false)=> (skipNormal ? 0 : cap(rankValue(key)))+num(o.permanent?.[key]);
+ const up = stat=>percent(o.fieldUp?.[stat]);
+ const down = stat=>1-num(o.fieldDown?.[stat])/100;
+ const stageFactor = (v,k)=>{
+  const factor=1+Math.min(10,Math.abs(v))*k+Math.max(0,Math.abs(v)-10)*k/3;
+  return v<0 ? 1/factor : factor;
+ };
+ const rank = (key,k)=>o.skillScenario
+  ? stageFactor(step(key),k)*damageRank(cap(rankValue(key+"2")),k)
+  : damageRank(rankValue(key),k)*damageRank(rankValue(key+"2"),k);
+ const versus = (left,right,k)=>stageFactor(cap(rankValue(left)-rankValue(right))+num(o.permanent?.[left])-num(o.permanent?.[right]),k) *
+  damageRank(cap(rankValue(left+"2")-rankValue(right+"2")),k);
  let total = 0, missing = 0;
  const breakdown = rows.map(b=>{
   if(b.stage !== null && b.stage > o.boost) return { state:"locked" };
+  if(o.sequentialRanks && b.stage !== null){
+   for(const effect of b.rankEffects || []){
+    const enemyEffect=effect.dir === "ダウン";
+    const key=damageRankDestination(effect.stat,effect.target || (enemyEffect ? "対象" : "自身"));
+    const stages=damageNumber(effect.rank ?? effect.stages);
+    const rate=damageNumber(effect.rate) ?? 100;
+    if(!key || !(stages > 0)) continue;
+    const rankKey=key+(/Ⅱ|II|Rank[2２]/i.test(effect.stat) ? "2" : "");
+    const delta=(enemyEffect ? -1 : 1)*stages*probability(rate/100);
+    // 入力済みの特殊条件（手動で±10を超えた値）は維持する。
+    const current=rankValue(rankKey);
+    const next=Math.min(Math.max(10,current),Math.max(Math.min(-10,current),current+delta));
+    bulletRanks[rankKey]=next-num(o[rankKey]);
+   }
+  }
   const side = b.kind === "陰気" ? "yin" : "yang";
   const opposite = side === "yang" ? "yin" : "yang";
   const atk = damageNumber(stats[side+"Atk"]), def = damageNumber(stats[side+"Def"]), speed = damageNumber(stats.speed);
@@ -17703,22 +17898,30 @@ function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
   if(enemyDef === 0) absent.push("敵防御は1以上");
   if(absent.length){ missing++; return { state:"missing", absent }; }
   const debuff = Math.pow(.875,num(o[side+"Abnormal"]));
-  const attackStat = atk * rank(side+"AtkRank",.3) * debuff * percent(o[side+"AtkBonus"]);
-  const addedDefense = b.hard / 100 * (def ?? 0) * rank(side+"DefRank",.3) * debuff * percent(o[side+"DefBonus"]);
-  const addedSpeed = b.sharp / 100 * (speed ?? 0) * rank("speedRank",.3) * Math.pow(.875,num(o.freeze)) * percent(o.speedBonus);
+  const polarity = side === "yin" ? "陰" : "陽";
+  const attackStat = atk * rank(side+"AtkRank",.3) * debuff * percent(o[side+"AtkBonus"]) * up(polarity+"攻");
+  const addedDefense = b.hard / 100 * (def ?? 0) * rank(side+"DefRank",.3) * debuff * percent(o[side+"DefBonus"]) * up(polarity+"防");
+  const addedSpeed = b.sharp / 100 * (speed ?? 0) * rank("speedRank",.3) * Math.pow(.875,num(o.freeze)) * percent(o.speedBonus) * up("速力");
   const adjustedAtk = (attackStat+addedDefense+addedSpeed) * probability(1-num(o.statReduction)/100);
   const enemyModifier = (o.ignoreEnemyDefense || b.pierce) ? 1 : percent(o[defenseSide+"EnemyDefBonus"]) *
    (o.fullBreak ? 1 : rank(defenseSide+"EnemyDefRank",.3) * Math.pow(.875,num(o[defenseSide+"EnemyAbnormal"])));
-  const enemyFinal = enemyDef * enemyModifier;
+  const enemyKey = defenseSide+"EnemyDefRank";
+  const skillEnemyFactor = !o.skillScenario || b.pierce || o.ignoreEnemyDefense ? 1
+   : down(defenseSide === "yin" ? "陰防" : "陽防") * (o.skillEnemyDefFactor?.[defenseSide] ?? 1)
+    * (o.fullBreak ? stageFactor(step(enemyKey,true),.3) : 1);
+  const enemyFinal = enemyDef * enemyModifier * skillEnemyFactor;
   if(enemyFinal <= 0){ missing++; return {state:"missing",absent:["補正後の敵防御は0より大きく"]}; }
-  const hit = b.sure ? 1 : probability(b.accuracy/100 * rank("hitRank",.2) * Math.pow(.8,num(o.smoke)) /
-   (rank("evadeRank",.2) * (o.fullBreak ? 1 : Math.pow(.8,num(o.paralysis)))));
-  const critical = b.forceCritical ? 1 : probability(b.critical/100 * rank("criHitRank",.2) / rank("criEvadeRank",.2) + num(o.criChanceBonus)/100);
-  const criticalMultiplier = (1 + damageRank(num(o.criAtkRank)-num(o.criDefRank),.3) *
-   damageRank(num(o.criAtkRank2)-num(o.criDefRank2),.3)) * percent(o.criDamageBonus);
-  const base = b.count * b.power * num(o.level) * damageAttackLevelMultiplier(num(o.attackLevel)) * (adjustedAtk/enemyFinal);
+  const hitRank = o.skillScenario ? versus("hitRank","evadeRank",.2) : rank("hitRank",.2)/rank("evadeRank",.2);
+  const hit = b.sure ? 1 : probability(b.accuracy/100 * hitRank * up("命中")/down("回避") * Math.pow(.8,num(o.smoke)) /
+   (o.fullBreak ? 1 : Math.pow(.8,num(o.paralysis))));
+  const criRank = o.skillScenario ? versus("criHitRank","criEvadeRank",.2) : rank("criHitRank",.2)/rank("criEvadeRank",.2);
+  const critical = b.forceCritical ? 1 : probability((b.critical+num(o.criBaseBonus))/100 * criRank * up("CRI命中")/down("CRI回避") + num(o.criChanceBonus)/100);
+  const criDamageRank = o.skillScenario ? versus("criAtkRank","criDefRank",.3) :
+   damageRank(rankValue("criAtkRank")-rankValue("criDefRank"),.3) * damageRank(rankValue("criAtkRank2")-rankValue("criDefRank2"),.3);
+  const criticalMultiplier = (1 + criDamageRank) * percent(o.criDamageBonus) * num(o.skillCriMultiplier,1) * up("CRI攻撃") * percent(o.fieldDown?.["CRI防御"]);
+  const base = b.count * b.power * up("威力") * num(o.level) * damageAttackLevelMultiplier(num(o.attackLevel)) * (adjustedAtk/enemyFinal) * (o.skillScenario ? .4 : 1);
   const value = base * hit * (1+critical*(criticalMultiplier-1)) * (o.fullBreak ? 4 : 1) *
-   num(b.element,1)*percent(b.story)*percent(b.bonus)*probability(1-num(b.reduction)/100)*num(o.random,1) *
+   num(b.element,1)*num(b.skillMultiplier,1)*percent(b.story)*percent(b.bonus)*probability(1-num(b.reduction)/100)*num(o.random,1) *
    percent(o.damageBonus)*probability(1-num(o.damageCut)/100) *
    percent(num(o.hpPower) * (stats.hp > 0 ? probability(num(o.currentHp,stats.hp)/stats.hp) : 0));
   if(!Number.isFinite(value) || value < 0){ missing++; return {state:"missing",absent:["計算条件の範囲"]}; }
@@ -17865,8 +18068,28 @@ function openDamageCalculator(charId, attackKey, side){
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
   <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${defaults.level}。一覧の指数は属性等倍です。</p>
-  <label>火力指数の属性相性<select class="input" data-index-affinity>${affinityOptions}</select></label>
+  <label>属性相性（火力指数・スキル計算）<select class="input" data-index-affinity>${affinityOptions}</select></label>
   <output class="stats-panel damage-index-total" aria-live="polite"></output>
+  <details data-skill-damage>
+   <summary>スキル1〜3を使った場合の火力</summary>
+   <p class="mini">選んだスキルを同じターンに使用した直後の、敵1体への期待値です。敵の陽防・陰防は補正前4000、攻撃Lv.5、乱数は1.00。味方単体への効果は自機に使用したものとします。</p>
+   <div class="damage-grid">${[0,1,2].map(i=>`<label class="damage-check"><input type="checkbox" data-damage-skill="${i}">スキル${i+1}${pack.skills?.[i]?.name ? "："+esc(pack.skills[i].name) : ""}</label>`).join("")}</div>
+   <div class="damage-grid">
+    <label>ブースト<select class="input" data-skill-context="boost">${[0,1,2,3].map(i=>`<option value="${i}" ${i===3?"selected":""}>P${i}</option>`).join("")}</select></label>
+    <label class="damage-check"><input type="checkbox" data-skill-context="fullBreak">フルブレイク後にスキル使用</label>
+   </div>
+   <details><summary>人数と蓄力の条件</summary>
+   <p class="mini">共鳴は2人扱いの仲間も含めます。蓄力の体力・結界・霊力はスキル使用後の行動決定時の値を入力してください。</p>
+   <div class="damage-grid">${[
+    ["front","前衛人数",1,1,6,1],["yukkuri","前衛のゆっくり数",0,0,6,1],["hp","残り体力 (%)",100,0,100,1],
+    ["barriers","結界枚数",5,0,5,1],["spirit","霊力",3,0,5,.01],["live","チームのLIVE(LW)人数",0,0,12,1],
+    ["teamYukkuri","チームのゆっくり数",0,0,12,1],["buddy","チームのゆっくり・バディガ数",0,0,12,1]
+   ].map(([key,label,value,min,max,step])=>`<label>${label}<input class="input" type="number" data-skill-context="${key}" value="${value}" min="${min}" max="${max}" step="${step}" required></label>`).join("")}</div></details>
+   <output class="stats-panel damage-index-total" data-skill-total aria-live="polite"></output>
+   <p class="mini">大結界は発動中の効果を計算します。破界効果は含みません。バレット内のランク効果は、発生するバレットから後続に適用します（確率付きは段階×発生率で近似）。</p>
+   <p class="mini" data-skill-missing></p>
+   <div class="mini" data-skill-breakdown></div>
+  </details>
   <details>
   <summary>手動ダメージ計算（個別に条件を設定）</summary>
   <output class="stats-panel damage-total" aria-live="polite"></output>
@@ -17921,7 +18144,7 @@ function openDamageCalculator(charId, attackKey, side){
      <p class="mini">${esc([b.attr ? b.attr+"属性" : "",b.bulletType].filter(Boolean).join("・"))}</p>
     </div></details>`).join("")}
   </form>
-  <p class="mini">スキル・スペカ前後効果、共鳴・団結、畜力、相性などは条件に合わせて入力してください。弾の途中で効果が変わる場合や擂台固有の計算は自動反映しません。</p>
+  <p class="mini">スペカ前後効果などは手動で入力してください。バレット内のランク効果は、発生するバレットから後続に適用します。確率付きは「段階×発生率」で近似します。</p>
   <p class="mini"><a href="${DAMAGE_REFERENCE}" target="_blank" rel="noopener noreferrer">参考：東方ロストワード ダメージ計算 ver.2</a></p>
   </details>`;
 
@@ -17931,8 +18154,30 @@ function openDamageCalculator(charId, attackKey, side){
   const index = getBaselineDamageIndex(attack, indexView, indexAffinity.value);
   indexOutput.textContent = "火力指数：" + (index === null ? "データ不足" : damageDisplay(index));
  };
- indexAffinity.addEventListener("change",refreshIndex);
+ const skillBox = body.querySelector("[data-skill-damage]");
+ const refreshSkills = ()=>{
+  const out = skillBox.querySelector("[data-skill-total]");
+  const note = skillBox.querySelector("[data-skill-missing]");
+  note.textContent = "";
+  const breakdown = skillBox.querySelector("[data-skill-breakdown]");
+  breakdown.textContent = "";
+  const fields = [...skillBox.querySelectorAll("[data-skill-context]")];
+  if(fields.some(el=>!el.validity.valid)){ out.textContent="入力値の範囲を確認してください。"; return; }
+  const slots = [...skillBox.querySelectorAll("[data-damage-skill]:checked")].map(el=>Number(el.dataset.damageSkill));
+  const context = {level:defaults.level, affinity:indexAffinity.value,...Object.fromEntries(fields.map(el=>
+   [el.dataset.skillContext,el.type==="checkbox" ? el.checked : Number(el.value)]))};
+  const result = calculateSkillDamage(pack,rows,slots,context);
+  out.textContent = (slots.length ? slots.map(i=>"スキル"+(i+1)).join("＋") : "スキル未使用")+
+   "： "+damageDisplay(result.total)+(result.complete ? "" : "（未計算 "+result.missing+" 弾）");
+  note.textContent = result.unsupported.length ? "未反映："+result.unsupported.join("、") : "";
+  breakdown.textContent = result.breakdown.map((row,i)=>"B"+(i+1)+"："+(
+   row.state==="ok" ? damageDisplay(row.value) : row.state==="locked" ? "未解放" : "未計算"
+  )).join(" ／ ");
+ };
+ indexAffinity.addEventListener("change",()=>{refreshIndex();refreshSkills();});
+ skillBox.addEventListener("input",refreshSkills);
  refreshIndex();
+ refreshSkills();
 
  const form = body.querySelector("form");
  const controls = [...form.querySelectorAll("input[name],select[name]")].filter(el=>!el.closest(".damage-bullet"));
@@ -17982,7 +18227,7 @@ function openDamageCalculator(charId, attackKey, side){
    const type = modifiers.get("type:"+b.bulletType) ?? 0;
    b.story = ((1 + attr/100)*(1 + type/100)-1)*100;
   });
-  const result = calculateAttackDamage(adjustedStats, configured, values);
+  const result = calculateAttackDamage(adjustedStats, configured, {...values,sequentialRanks:true});
   output.textContent = result.complete ? "ダメージ期待値： "+damageDisplay(result.total)
    : "計算できた弾の小計： "+damageDisplay(result.total)+"（未計算 "+result.missing+" 行）";
   result.breakdown.forEach((row,i)=>{
