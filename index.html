@@ -17695,10 +17695,23 @@ function damageRankDestination(stat,target){
  }
  return damageOwnTarget(target) && !["evade","criEvade","criDef"].includes(key) ? key+"Rank" : null;
 }
+function damagePreEffects(attack){
+ const structured = attack?.preEffects;
+ if(structured && Object.values(structured).some(list=>Array.isArray(list) && list.length)){
+  return {bag:structured,unparsed:false,registered:true};
+ }
+ const bag = createEmptyEffectBag();
+ const lines = String(attack?.preEffect || "").split(/\r?\n/).map(line=>line.normalize("NFKC").replace(/^\s*[・･]?\s*/,"").trim()).filter(Boolean);
+ let unparsed = false;
+ lines.forEach(line=>{
+  if(!wikiParsePrePostEffectLine(line,bag)) unparsed = true;
+ });
+ return {bag,unparsed,registered:lines.length > 0};
+}
 function calculateSkillDamage(pack, rows, slots, context){
  const options = {level:context.level, boost:context.boost, enemyYang:4000, enemyYin:4000,
-  fullBreak:context.fullBreak, skillScenario:true, sequentialRanks:true};
- const stats = {...(pack.statsUnknown ? {} : pack.stats)};
+  fullBreak:context.fullBreak, ...context.manual, skillScenario:true, sequentialRanks:true};
+ const stats = {...(context.stats || (pack.statsUnknown ? {} : pack.stats))};
  const baseStats = {...stats};
  const missing = new Set();
  const factors = new Map();
@@ -17710,7 +17723,7 @@ function calculateSkillDamage(pack, rows, slots, context){
   if(n === null || n < 0){ missing.add(label); return null; }
   return n;
  };
- const append = (key,value)=>{ options[key]=(options[key] || 0)+value; };
+ const append = (key,value)=>{ options[key]=(damageNumber(options[key]) ?? 0)+value; };
  const own = damageOwnTarget;
  const rankRow = (row,stat,n,dir,kind)=>{
   const destination = damageRankDestination(stat,row.target);
@@ -17731,9 +17744,19 @@ function calculateSkillDamage(pack, rows, slots, context){
   if(skill.text?.trim()) missing.add("スキル"+(i+1)+"の自由記述");
   if(skill.effects?.barrierAbnormals?.length) missing.add("結界異常とブレイクの連動");
  });
- const selectedSources = sources=>sources.some(source=>slots.some(i=>sourceMatchesActivationLocation(source,"skill"+(i+1))));
+ const preLocation = context.attackKey ? context.attackKey+":pre" : "";
+ const usesPre = SPECIAL_SPELL_LOC_RE.test(preLocation);
+ const preEffects = usesPre ? damagePreEffects(context.attack) : null;
+ if(preEffects){
+  (preEffects.bag.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : ""));
+  if(preEffects.unparsed) missing.add("スペカ前効果の自由記述");
+  if(preEffects.bag.barrierAbnormals?.length) missing.add("スペカ前効果：結界異常とブレイクの連動");
+ }
+ const preMatches = sources=>usesPre && sources.some(source=>sourceMatchesActivationLocation(source,preLocation));
+ const selectedSources = sources=>preMatches(sources) || sources.some(source=>slots.some(i=>sourceMatchesActivationLocation(source,"skill"+(i+1))));
  const specials = normalizeSpecialSkillsObject(pack.specialSkills);
  const active = projectSpecialSkills(specials, selectedSources);
+ const preSpecials = usesPre ? projectSpecialSkills(specials,preMatches) : {};
  for(const [name,root] of Object.entries(specials)){
   if(!root?.enabled) continue;
   const effects = Array.isArray(root.list) && root.list.length ? root.list : [root];
@@ -17751,7 +17774,7 @@ function calculateSkillDamage(pack, rows, slots, context){
     rankRow({...row,target:row.target || (name.includes("デバフ") ? "相手" : "自身")},pickRank2Stat(row),pickRank2Stage(row),name.includes("デバフ")?"ダウン":"アップ",name.startsWith("永続")?"永続":"Ⅱ");
    }else if(name === "大結界"){
     const sources=specialEffectSources(row,d);
-    const slot=Math.max(-1,...slots.filter(i=>sources.some(source=>sourceMatchesActivationLocation(source,"skill"+(i+1)))));
+    const slot=preMatches(sources) ? 3 : Math.max(-1,...slots.filter(i=>sources.some(source=>sourceMatchesActivationLocation(source,"skill"+(i+1)))));
     if(slot>=fieldSlot){
      field=row;
      fieldSlot=slot;
@@ -17822,7 +17845,7 @@ function calculateSkillDamage(pack, rows, slots, context){
  for(const [stat,key] of Object.entries(SKILL_DAMAGE_STATS)){
   const n=(multiplier(stat)-1)*100;
   if(!n) continue;
-  if(["yangAtk","yinAtk","yangDef","yinDef","speed"].includes(key)) options[key+"Bonus"]=n;
+  if(["yangAtk","yinAtk","yangDef","yinDef","speed"].includes(key)) options[key+"Bonus"]=((1+(damageNumber(options[key+"Bonus"]) ?? 0)/100)*(1+n/100)-1)*100;
   else missing.add("人数に応じた補正："+stat);
  }
  options.criBaseBonus=countTypes.reduce((n,type)=>n+pct(type,"攻撃時CRI率"),0);
@@ -17832,15 +17855,18 @@ function calculateSkillDamage(pack, rows, slots, context){
   yin:1-pct("逆相低下","陰防")/100
  };
  const configured = rows.map(b=>{
-  const affinity=weakness.has(b.attr) ? "good" : context.affinity;
+  const manualAffinity = b.bulletAffinity === "manual";
+  const affinity=weakness.has(b.attr) ? "good" : b.bulletAffinity && b.bulletAffinity!=="inherit" ? b.bulletAffinity : context.affinity;
   const ability={...pack.abilities?.damageUp};
   const conditional=affinity==="good" ? "有利属性ダメージアップ" : affinity==="bad" ? "不利属性ダメージアップ" : "";
   if(conditional) ability[affinity]=(damageNumber(ability[affinity]) || 0)+pct(conditional,conditional);
-  return {...b,element:damageAffinityMultiplier(affinity,ability),
-   bonus:pct("属性強化",b.attr)+pct("弾強化",b.bulletType),
+  const attr=pct("属性強化",b.attr), type=pct("弾強化",b.bulletType);
+  return {...b,element:manualAffinity && !weakness.has(b.attr) ? b.element : damageAffinityMultiplier(affinity,ability),
+   story:context.manual ? ((1+((b.storyAttr || 0)+attr)/100)*(1+((b.storyType || 0)+type)/100)-1)*100 : b.story,
+   bonus:context.manual ? b.bonus : attr+type,
    skillMultiplier:multiplier("ダメージ")*(1+accumulated/100)};
  });
- return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing]};
+ return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0};
 }
 
 function calculateAttackDamage(stats, rows, settings = DAMAGE_BASIC){
@@ -17940,14 +17966,6 @@ function getResultAttacks(view, attackFilterOn){
   const hasBullets = (attack.bullets||[]).some(b=>b && (b.name || b.attr || b.bulletType));
   return (attack.name || hasBullets || attack.range==="補助") && (!attackFilterOn || checkAttackMatch(attack,label,key));
  });
-}
-function manualDamageSettings(level){
- const settings = {...DAMAGE_BASIC, level, fullBreak:true, ignoreEnemyDefense:true};
- DAMAGE_RANK_FIELDS.forEach(([key,label])=>{
-  if(!label.startsWith("自機 ")) return;
-  settings[key] = settings[key+"2"] = DAMAGE_PRESET_MAX_RANK;
- });
- return settings;
 }
 // 表示・並べ替え・プレビューで同じ固定条件を使う。
 function getBaselineDamageIndex(attack, view, affinity = "neutral"){
@@ -18060,24 +18078,27 @@ function openDamageCalculator(charId, attackKey, side){
  const rows = damageRows(attack);
  if(!rows.length) rows.push(...damageRows({bullets:[{name:"バレット1"}]}));
  const indexView = {...pack, side:currentSide, rebirth:getCharRebirth(c).enabled};
- const defaults = manualDamageSettings(indexView.rebirth && currentSide === "after" ? 140 : 100);
+ const level = indexView.rebirth && currentSide === "after" ? 140 : 100;
  const stats = pack.statsUnknown ? {} : pack.stats || {};
  const abilityDamageUp = pack.abilities?.damageUp || {};
  const affinityOptions = Object.entries(DAMAGE_AFFINITY).map(([key,{label}])=>
   `<option value="${key}">${label}（×${new Intl.NumberFormat("ja-JP",{maximumFractionDigits:6}).format(damageAffinityMultiplier(key,abilityDamageUp))}）</option>`).join("");
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
-  <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${defaults.level}。一覧の指数は属性等倍です。</p>
-  <label>属性相性（火力指数・スキル計算）<select class="input" data-index-affinity>${affinityOptions}</select></label>
+  <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${level}。一覧の指数は属性等倍です。</p>
+  <label>属性相性（火力指数）<select class="input" data-index-affinity>${affinityOptions}</select></label>
   <output class="stats-panel damage-index-total" aria-live="polite"></output>
   <details data-skill-damage>
-   <summary>スキル1〜3を使った場合の火力</summary>
-   <p class="mini">選んだスキルを同じターンに使用した直後の、敵1体への期待値です。敵の陽防・陰防は補正前4000、攻撃Lv.5、乱数は1.00。味方単体への効果は自機に使用したものとします。</p>
-   <div class="damage-grid">${[0,1,2].map(i=>`<label class="damage-check"><input type="checkbox" data-damage-skill="${i}">スキル${i+1}${pack.skills?.[i]?.name ? "："+esc(pack.skills[i].name) : ""}</label>`).join("")}</div>
-   <div class="damage-grid">
-    <label>ブースト<select class="input" data-skill-context="boost">${[0,1,2,3].map(i=>`<option value="${i}" ${i===3?"selected":""}>P${i}</option>`).join("")}</select></label>
-    <label class="damage-check"><input type="checkbox" data-skill-context="fullBreak">フルブレイク後にスキル使用</label>
-   </div>
+  <summary>手動ダメージ計算（スキル・スペカ前効果対応）</summary>
+  <output class="stats-panel damage-total" aria-live="polite"></output>
+  <form>
+   <fieldset>
+    <legend>使用するスキル</legend>
+    <div class="damage-grid">${[0,1,2].map(i=>`<label class="damage-check"><input type="checkbox" data-damage-skill="${i}">スキル${i+1}${pack.skills?.[i]?.name ? "："+esc(pack.skills[i].name) : ""}</label>`).join("")}</div>
+    <p class="mini">選んだスキルを同じターンに使用します。手入力のランク補正には、選んだスキルやスペカ前効果を除いた段階を入力してください。</p>
+    <p class="mini" data-manual-pre></p>
+    <p class="mini" data-skill-missing></p>
+   </fieldset>
    <details><summary>人数と蓄力の条件</summary>
    <p class="mini">共鳴は2人扱いの仲間も含めます。蓄力の体力・結界・霊力はスキル使用後の行動決定時の値を入力してください。</p>
    <div class="damage-grid">${[
@@ -18085,25 +18106,16 @@ function openDamageCalculator(charId, attackKey, side){
     ["barriers","結界枚数",5,0,5,1],["spirit","霊力",3,0,5,.01],["live","チームのLIVE(LW)人数",0,0,12,1],
     ["teamYukkuri","チームのゆっくり数",0,0,12,1],["buddy","チームのゆっくり・バディガ数",0,0,12,1]
    ].map(([key,label,value,min,max,step])=>`<label>${label}<input class="input" type="number" data-skill-context="${key}" value="${value}" min="${min}" max="${max}" step="${step}" required></label>`).join("")}</div></details>
-   <output class="stats-panel damage-index-total" data-skill-total aria-live="polite"></output>
-   <p class="mini">大結界は発動中の効果を計算します。破界効果は含みません。バレット内のランク効果は、発生するバレットから後続に適用します（確率付きは段階×発生率で近似）。</p>
-   <p class="mini" data-skill-missing></p>
-   <div class="mini" data-skill-breakdown></div>
-  </details>
-  <details>
-  <summary>手動ダメージ計算（個別に条件を設定）</summary>
-  <output class="stats-panel damage-total" aria-live="polite"></output>
-  <form>
    <div class="damage-grid">
     <label>ブースト<select class="input" name="boost">${[0,1,2,3].map(i=>`<option value="${i}" ${i===3?"selected":""}>P${i}</option>`).join("")}</select></label>
-    ${damageField("level","自機Lv（転生後は＋40）",defaults.level,1,200,1)}
+    ${damageField("level","自機Lv（転生後は＋40）",level,1,200,1)}
     ${damageField("attackLevel","攻撃Lv",5,1,5,1)}
-    ${damageField("enemyYang","敵 陽防",2000,1)}
-    ${damageField("enemyYin","敵 陰防",2000,1)}
+    ${damageField("enemyYang","敵 陽防",DAMAGE_INDEX_ENEMY_DEFENSE,1)}
+    ${damageField("enemyYin","敵 陰防",DAMAGE_INDEX_ENEMY_DEFENSE,1)}
     ${damageField("random","乱数倍率",1,0)}
     <label style="grid-column:1 / -1">全バレットの属性相性<select class="input" name="affinity">${affinityOptions}</select></label>
-    <label class="damage-check"><input type="checkbox" name="fullBreak" ${defaults.fullBreak?"checked":""}>フルブレイク</label>
-    <label class="damage-check"><input type="checkbox" name="ignoreEnemyDefense" ${defaults.ignoreEnemyDefense?"checked":""}>敵の陽防・陰防を無視</label>
+    <label class="damage-check"><input type="checkbox" name="fullBreak">フルブレイク</label>
+    <label class="damage-check"><input type="checkbox" name="ignoreEnemyDefense">敵の陽防・陰防を無視</label>
    </div>
    ${storyCardCalculatorHtml()}
    <details><summary>自機ステータス</summary><div class="damage-grid">${DAMAGE_STAT_FIELDS.map(([key,label,min])=>damageField(key,label,stats[key],min)).join("")}</div></details>
@@ -18116,7 +18128,7 @@ function openDamageCalculator(charId, attackKey, side){
     <button type="button" class="btn-sm" data-rank-preset="reset">ランク補正をリセット</button>
    </div>
    <p class="mini">MAX：自機 ＋${DAMAGE_PRESET_MAX_RANK} ／ 敵 −${DAMAGE_PRESET_MAX_RANK}（通常・RankⅡ）</p>
-   <div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,defaults[key] ?? 0,-99,99,1)+damageField(key+"2",label+"Ⅱ",defaults[key+"2"] ?? 0,-99,99,1)).join("")}</div></details>
+   <div class="damage-grid">${DAMAGE_RANK_FIELDS.map(([key,label])=>damageField(key,label,0,-10,10,1)+damageField(key+"2",label+"Ⅱ",0,-10,10,1)).join("")}</div></details>
    <details><summary>結界異常・その他の補正</summary><div class="damage-grid">${DAMAGE_ADJUSTMENTS.map(([key,label,min,max,step])=>damageField(key,label,key==="currentHp" ? "" : 0,min,max,step)).join("")}</div></details>
    <h3>バレットごとの内訳</h3>
    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0;">
@@ -18144,7 +18156,7 @@ function openDamageCalculator(charId, attackKey, side){
      <p class="mini">${esc([b.attr ? b.attr+"属性" : "",b.bulletType].filter(Boolean).join("・"))}</p>
     </div></details>`).join("")}
   </form>
-  <p class="mini">スペカ前後効果などは手動で入力してください。バレット内のランク効果は、発生するバレットから後続に適用します。確率付きは「段階×発生率」で近似します。</p>
+  <p class="mini">スペカ後効果と破界効果はこの攻撃には適用しません。バレット内のランク効果は、発生するバレットから後続に適用します。確率付きは「段階×発生率」で近似します。</p>
   <p class="mini"><a href="${DAMAGE_REFERENCE}" target="_blank" rel="noopener noreferrer">参考：東方ロストワード ダメージ計算 ver.2</a></p>
   </details>`;
 
@@ -18154,30 +18166,8 @@ function openDamageCalculator(charId, attackKey, side){
   const index = getBaselineDamageIndex(attack, indexView, indexAffinity.value);
   indexOutput.textContent = "火力指数：" + (index === null ? "データ不足" : damageDisplay(index));
  };
- const skillBox = body.querySelector("[data-skill-damage]");
- const refreshSkills = ()=>{
-  const out = skillBox.querySelector("[data-skill-total]");
-  const note = skillBox.querySelector("[data-skill-missing]");
-  note.textContent = "";
-  const breakdown = skillBox.querySelector("[data-skill-breakdown]");
-  breakdown.textContent = "";
-  const fields = [...skillBox.querySelectorAll("[data-skill-context]")];
-  if(fields.some(el=>!el.validity.valid)){ out.textContent="入力値の範囲を確認してください。"; return; }
-  const slots = [...skillBox.querySelectorAll("[data-damage-skill]:checked")].map(el=>Number(el.dataset.damageSkill));
-  const context = {level:defaults.level, affinity:indexAffinity.value,...Object.fromEntries(fields.map(el=>
-   [el.dataset.skillContext,el.type==="checkbox" ? el.checked : Number(el.value)]))};
-  const result = calculateSkillDamage(pack,rows,slots,context);
-  out.textContent = (slots.length ? slots.map(i=>"スキル"+(i+1)).join("＋") : "スキル未使用")+
-   "： "+damageDisplay(result.total)+(result.complete ? "" : "（未計算 "+result.missing+" 弾）");
-  note.textContent = result.unsupported.length ? "未反映："+result.unsupported.join("、") : "";
-  breakdown.textContent = result.breakdown.map((row,i)=>"B"+(i+1)+"："+(
-   row.state==="ok" ? damageDisplay(row.value) : row.state==="locked" ? "未解放" : "未計算"
-  )).join(" ／ ");
- };
- indexAffinity.addEventListener("change",()=>{refreshIndex();refreshSkills();});
- skillBox.addEventListener("input",refreshSkills);
+ indexAffinity.addEventListener("change",refreshIndex);
  refreshIndex();
- refreshSkills();
 
  const form = body.querySelector("form");
  const controls = [...form.querySelectorAll("input[name],select[name]")].filter(el=>!el.closest(".damage-bullet"));
@@ -18185,6 +18175,9 @@ function openDamageCalculator(charId, attackKey, side){
  const read = el=>el.type==="checkbox" ? el.checked : ["kind","affinity","bulletAffinity"].includes(el.name) ? el.value : damageNumber(el.value);
  const refresh = ()=>{
   const output = body.querySelector(".damage-total");
+  const preNote=form.querySelector("[data-manual-pre]");
+  const missingNote=form.querySelector("[data-skill-missing]");
+  preNote.textContent = missingNote.textContent = "";
   bulletCards.forEach(card=>{
    const manual = card.querySelector('[name="bulletAffinity"]').value === "manual";
    card.querySelector('[name="element"]').disabled = !manual;
@@ -18221,13 +18214,17 @@ function openDamageCalculator(charId, attackKey, side){
    label + " " + (adjustedStats[key] == null ? "未入力" : damageDisplay(adjustedStats[key]))
   ).join(" ／ ");
   configured.forEach(b=>{
-   const affinity = b.bulletAffinity === "inherit" ? values.affinity : b.bulletAffinity;
-   if(affinity !== "manual") b.element = damageAffinityMultiplier(affinity,abilityDamageUp);
    const attr = modifiers.get("attr:"+b.attr) ?? 0;
    const type = modifiers.get("type:"+b.bulletType) ?? 0;
+   b.storyAttr = attr;
+   b.storyType = type;
    b.story = ((1 + attr/100)*(1 + type/100)-1)*100;
   });
-  const result = calculateAttackDamage(adjustedStats, configured, {...values,sequentialRanks:true});
+  const slots = [...form.querySelectorAll("[data-damage-skill]:checked")].map(el=>Number(el.dataset.damageSkill));
+  const context = Object.fromEntries([...form.querySelectorAll("[data-skill-context]")].map(el=>[el.dataset.skillContext,Number(el.value)]));
+  const result = calculateSkillDamage(pack,configured,slots,{...context,manual:values,stats:adjustedStats,affinity:values.affinity,attack,attackKey});
+  preNote.textContent = result.hasPre ? "スペカ前効果：自動計算の対象" : "";
+  missingNote.textContent = result.unsupported.length ? "未反映："+result.unsupported.join("、") : "";
   output.textContent = result.complete ? "ダメージ期待値： "+damageDisplay(result.total)
    : "計算できた弾の小計： "+damageDisplay(result.total)+"（未計算 "+result.missing+" 行）";
   result.breakdown.forEach((row,i)=>{
