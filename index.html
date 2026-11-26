@@ -17841,18 +17841,20 @@ function calculateSkillDamage(pack, rows, slots, context){
   const name = String(row.name||"");
   const stacks = damageNumber(row.stacks) ?? 0;
   if(!name || !(stacks>0)) return;
-  const tgt = String(row.target||"");
+  const tgt = String(row.target || "相手単体");   // 編集画面の既定表示（相手単体）と合わせる。空＝自身扱いで自機に入っていた
   const enemy = /相手|敵|対象/.test(tgt);
   // 計算欄は自機側と敵側が別。対象に対応する補正だけへ反映する。
   // 敵の凍結・暗闇、自機の帯電はこの攻撃側火力式では直接扱わない。
   const abnormalKeys = {
    "燃焼": { self:"yangAbnormal", enemy:"yangEnemyAbnormal" },
    "毒霧": { self:"yinAbnormal", enemy:"yinEnemyAbnormal" },
-   "帯電": { enemy:"paralysis" },
+   "帯電": { self:"selfParalysis", enemy:"paralysis" },
    "凍結": { self:"freeze" },
    "暗闇": { self:"smoke" }
   };
   const key = abnormalKeys[name]?.[enemy ? "enemy" : "self"];
+  // 能力「無効」：自機にはかからない（枚数に入れない）
+  if(!enemy && abilityNoneAbnormalNames(options.abilities).includes(name)) return;
   if(key) addAbn(key, stacks);
  };
  const rankRow = (row,stat,n,dir,kind)=>{
@@ -17961,6 +17963,27 @@ function calculateSkillDamage(pack, rows, slots, context){
    appliedStatsDelta[to]=(appliedStatsDelta[to]||0)+value;
   }
  });
+ // 能力「結界異常変換」：自機の結界異常の枚数に応じてRank上昇（枚数は計算欄・スキル効果と連動）
+ const conversionNotes = [];
+ try{
+  const ab = options.abilities;
+  if(ab){
+   const noneNames = new Set(abilityNoneAbnormalNames(ab));
+   const edited = new Set(context.userEditedKeys || []);
+   const stackOf = name=>{
+    const k = ABNORMAL_SELF_DAMAGE_KEYS[name];
+    if(!k) return null;                       // 帯電など自機の欄がないものは対象外
+    if(noneNames.has(name)) return 0;         // 無効：かからない
+    if(context.effectsSynced) return damageNumber(options[k]) ?? 0;   // フォーム値が最終値
+    return edited.has(k) ? (damageNumber(context.manual?.[k]) ?? 0) : (appliedAbnormals[k] || 0);
+   };
+   abilityConversionGroups(ab).forEach(g=>{
+    let n = 0; const parts = [];
+    g.names.forEach(name=>{ const v = stackOf(name); if(v > 0){ n += v; parts.push(name+v+"枚"); } });
+    if(n > 0){ g.dests.forEach(k=>addRank(k,n)); conversionNotes.push(parts.join("・")+"→"+g.label+" +"+n); }
+   });
+  }
+ }catch(e){}
  options.permanent = permanent;
  if(field){
   options.fieldUp = {};
@@ -18034,37 +18057,63 @@ function calculateSkillDamage(pack, rows, slots, context){
    bonus:context.manual ? b.bonus : attr+type,
    skillMultiplier: context.effectsSynced ? 1 : multiplier("ダメージ")*(1+accumulated/100)};
  });
- return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0,
+ return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],conversionNotes,hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0,
   appliedRanks, appliedBonuses, appliedStatsDelta, appliedAbnormals, permanent};
 }
 
+
+/* ===== 能力の結界異常 ⇔ 火力計算（結界異常欄）の同期 =====
+   無効：かからない → 枚数0固定 ／ 効果無効：枚数は残し、ペナルティだけ無視
+   結界異常変換：指定の結界異常1枚につきRank+1（攻：陽攻・陰攻・CRI攻撃・CRI命中／防：陽防・陰防／速：速力・命中） */
+const ABNORMAL_NAMES_ALL = ["燃焼","毒霧","凍結","暗闇","帯電"];
+function abilityAbnormalNamesOf(flag, list){
+ const arr = Array.isArray(list) ? list.map(x=>String(x||"").trim()).filter(Boolean) : [];
+ return (flag && !arr.length) ? [...ABNORMAL_NAMES_ALL] : arr;
+}
+function abilityNoneAbnormalNames(ab){
+ const imm = (ab && ab.immunity) || {};
+ return abilityAbnormalNamesOf(!!imm.none, imm.noneAbnormal);
+}
+function abilityConversionAllNames(ab){
+ const conv = (ab && ab.conversion) || {};
+ return [
+  ...abilityAbnormalNamesOf(!!conv.atkRank, conv.atkAbnormal),
+  ...abilityAbnormalNamesOf(!!conv.defRank, conv.defAbnormal),
+  ...abilityAbnormalNamesOf(!!conv.speedRank, conv.speedAbnormal),
+  ...abilityAbnormalNamesOf(!!conv.spirit, conv.spiritAbnormal),
+  ...abilityAbnormalNamesOf(!!conv.heal, conv.healAbnormal)
+ ];
+}
+/** 効果（ペナルティ）を受けない結界異常：効果無効・反射・結界異常変換の対象（枚数は付与されうる） */
+function abilityEffectAbnormalNames(ab){
+ const imm = (ab && ab.immunity) || {};
+ return [...new Set([
+  ...abilityAbnormalNamesOf(!!imm.effect, imm.effectAbnormal),
+  ...abilityAbnormalNamesOf(!!imm.reflect, imm.reflectAbnormal),
+  ...abilityConversionAllNames(ab)
+ ])];
+}
+function abilityConversionGroups(ab){
+ const conv = (ab && ab.conversion) || {};
+ return [
+  { label:"攻Rank", names:abilityAbnormalNamesOf(!!conv.atkRank, conv.atkAbnormal), dests:["yangAtkRank","yinAtkRank","criAtkRank","criHitRank"] },
+  { label:"防Rank", names:abilityAbnormalNamesOf(!!conv.defRank, conv.defAbnormal), dests:["yangDefRank","yinDefRank"] },
+  { label:"速Rank", names:abilityAbnormalNamesOf(!!conv.speedRank, conv.speedAbnormal), dests:["speedRank","hitRank"] }
+ ];
+}
 
 /** 能力による結界異常の効果無効・無効 → 自機側の該当ペナルティを無視 */
 const ABNORMAL_SELF_DAMAGE_KEYS = {
   "燃焼":"yangAbnormal",
   "毒霧":"yinAbnormal",
   "凍結":"freeze",
-  "暗闇":"smoke"
-  // 帯電の自機ペナルティは攻撃側火力式に直接は載らない（敵帯電=paralysis）
+  "暗闇":"smoke",
+  "帯電":"selfParalysis"  // 自機の帯電は攻撃側火力式には直接載らない（敵帯電=paralysis）。結界異常変換の枚数として使う
 };
 function abilityImmuneAbnormalNames(ab){
   if(!ab || typeof ab !== "object") return [];
-  const imm = ab.immunity || {};
-  const names = new Set();
-  const addList = (flag, list)=>{
-    const arr = Array.isArray(list) ? list.map(x=>String(x||"").trim()).filter(Boolean) : [];
-    if(flag && !arr.length){
-      // 対象未指定＝全異常
-      ["燃焼","毒霧","凍結","暗闇","帯電"].forEach(n=>names.add(n));
-      return;
-    }
-    arr.forEach(n=>names.add(n));
-  };
-  // 効果無効：異常の効果を受けない（火力計算のペナルティ対象）
-  addList(!!imm.effect, imm.effectAbnormal);
-  // 無効：そもそもかからない → 同様にペナルティなし
-  addList(!!imm.none, imm.noneAbnormal);
-  return [...names];
+  // 無効（かからない）＋ 効果を受けない（効果無効・反射・結界異常変換）
+  return [...new Set([...abilityNoneAbnormalNames(ab), ...abilityEffectAbnormalNames(ab)])];
 }
 function abilityNegatedSelfAbnormalKeys(ab){
   const keys = new Set();
@@ -18230,7 +18279,7 @@ const DAMAGE_RANK_FIELDS = [
 const DAMAGE_ADJUSTMENTS = [
  ["yangAbnormal","自機 燃焼（枚）",0,5,1],["yinAbnormal","自機 毒霧（枚）",0,5,1],
  ["yangEnemyAbnormal","敵 燃焼（枚）",0,5,1],["yinEnemyAbnormal","敵 毒霧（枚）",0,5,1],
- ["freeze","自機 凍結（枚）",0,5,1],["smoke","自機 暗闇（枚）",0,5,1],["paralysis","敵 帯電（枚）",0,5,1],
+ ["freeze","自機 凍結（枚）",0,5,1],["smoke","自機 暗闇（枚）",0,5,1],["selfParalysis","自機 帯電（枚）",0,5,1],["paralysis","敵 帯電（枚）",0,5,1],
  ["yangAtkBonus","自機 陽攻補正 (%)",-99],["yinAtkBonus","自機 陰攻補正 (%)",-99],
  ["yangDefBonus","自機 陽防補正 (%)",-99],["yinDefBonus","自機 陰防補正 (%)",-99],
  ["yangEnemyDefBonus","敵 陽防補正 (%)",-99],["yinEnemyDefBonus","敵 陰防補正 (%)",-99],
@@ -18298,11 +18347,11 @@ function formNamedElements(form,name){
  if(!form || !form.elements || typeof form.elements.namedItem !== "function") return [];
  const found=form.elements.namedItem(name);
  if(!found) return [];
- if(typeof found.getAttribute === "function") return [found];
- if(typeof found.length === "number"){
-  return Array.from(found).filter(el=>el && typeof el.getAttribute === "function");
- }
- return [];
+ const list = typeof found.getAttribute === "function" ? [found]
+  : (typeof found.length === "number" ? Array.from(found).filter(el=>el && typeof el.getAttribute === "function") : []);
+ // バレット内訳の入力欄（power・count など）は対象外。
+ // 自機ステータスの power（総合つよさ）と同名のため、拾うと全バレットの威力が書き換わっていた。
+ return list.filter(el=>!(el.closest && el.closest(".damage-bullet")));
 }
 function formNamedElement(form,name){
  return formNamedElements(form,name)[0] || null;
@@ -18357,16 +18406,13 @@ function syncDamageFormFields(form, result, opts){
  // 自機ステータス（蓄積など）：base+delta。deltaが消えたらbaseへ戻す
  const base = opts.baseStats || {};
  const delta = result.appliedStatsDelta || {};
- const statKeys = new Set([
-  ...Object.keys(base||{}),
-  ...Object.keys(delta||{}),
-  ...((typeof DAMAGE_STAT_FIELDS!=="undefined"?DAMAGE_STAT_FIELDS:[]).map(x=>x[0]))
- ]);
+ const statFieldKeys = (typeof DAMAGE_STAT_FIELDS!=="undefined" ? DAMAGE_STAT_FIELDS : []).map(x=>x[0]);
+ const statKeys = new Set(statFieldKeys);
  // 以前自動反映したステ欄も戻す
  form.querySelectorAll("input[name][data-auto-managed='1']").forEach(el=>{
   if((DAMAGE_RANK_FIELDS||[]).some(([k])=>el.name===k||el.name===k+"2")) return;
   if((DAMAGE_ADJUSTMENTS||[]).some(([k])=>el.name===k)) return;
-  statKeys.add(el.name);
+  if(statFieldKeys.includes(el.name) && !(el.closest && el.closest(".damage-bullet"))) statKeys.add(el.name);
  });
  statKeys.forEach(k=>{
   if(!k) return;
@@ -18423,6 +18469,7 @@ function openDamageCalculator(charId, attackKey, side){
   <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${level}。一覧の指数は属性等倍です。</p>
   <p class="mini" style="color:#8a3030;font-weight:700;">※早期ヒットには対応していません（通常ヒット想定の計算です）。</p>
   <p class="mini" data-ability-immune-note></p>
+   <p class="mini" data-ability-conv-note style="color:#0056b3;font-weight:700;"></p>
   <label>属性相性（火力指数）<select class="input" data-index-affinity>${affinityOptions}</select></label>
   <output class="stats-panel damage-index-total" aria-live="polite"></output>
   <details data-skill-damage>
@@ -18535,24 +18582,27 @@ function openDamageCalculator(charId, attackKey, side){
  refreshIndex();
 
  const form = body.querySelector("form");
- // 能力の結界異常無効を表示・該当欄を0に
+ // 能力の結界異常：無効＝かからない（枚数0固定）／効果無効＝枚数は入力可（ペナルティのみ無視）
  try{
-  const immuneNames = abilityImmuneAbnormalNames(pack.abilities);
+  const noneNames = abilityNoneAbnormalNames(pack.abilities);
+  const effNames = abilityEffectAbnormalNames(pack.abilities).filter(n=>!noneNames.includes(n));
   const note = body.querySelector("[data-ability-immune-note]");
   if(note){
-   if(immuneNames.length){
-    note.textContent = "能力により効果を受けない／かからない結界異常：" + immuneNames.join("・") + "（自機側の該当ペナルティは計算に入れません）";
-    note.style.color = "#0056b3";
-    note.style.fontWeight = "700";
-   }else{
-    note.textContent = "";
-   }
+   const parts = [];
+   if(noneNames.length) parts.push("かからない結界異常（無効）：" + noneNames.join("・") + "（自機の枚数は0固定）");
+   if(effNames.length) parts.push("効果を受けない結界異常（効果無効・変換・反射）：" + effNames.join("・") + "（枚数は入力できます。ペナルティは計算に入れません）");
+   note.textContent = parts.join(" ／ ");
+   if(parts.length){ note.style.color = "#0056b3"; note.style.fontWeight = "700"; }
   }
-  const keyMap = ABNORMAL_SELF_DAMAGE_KEYS;
-  immuneNames.forEach(n=>{
-   const k = keyMap[n];
+  noneNames.forEach(n=>{
+   const k = ABNORMAL_SELF_DAMAGE_KEYS[n];
    if(!k || !form) return;
-    formNamedElements(form,k).forEach(el=>{ el.value = 0; el.setAttribute("data-auto-val","0"); el.setAttribute("data-ability-immune","1"); el.title = "能力により効果無効／無効"; });
+   formNamedElements(form,k).forEach(el=>{ el.value = 0; el.disabled = true; el.setAttribute("data-ability-immune","1"); el.title = "能力により、この結界異常はかかりません（無効）"; });
+  });
+  effNames.forEach(n=>{
+   const k = ABNORMAL_SELF_DAMAGE_KEYS[n];
+   if(!k || !form) return;
+   formNamedElements(form,k).forEach(el=>{ el.setAttribute("data-ability-effect-immune","1"); el.title = "能力により、この結界異常の効果は受けません（枚数は入力可）"; });
   });
  }catch(e){}
 
@@ -18609,8 +18659,9 @@ function openDamageCalculator(charId, attackKey, side){
   });
   const slots = [...form.querySelectorAll("[data-damage-skill]:checked")].map(el=>Number(el.dataset.damageSkill));
   const context = Object.fromEntries([...form.querySelectorAll("[data-skill-context]")].map(el=>[el.dataset.skillContext,Number(el.value)]));
+  const userEditedKeys = [...form.querySelectorAll("input[name][data-user-edit='1']")].filter(el=>!el.closest(".damage-bullet")).map(el=>el.name);
   // 1st pass: 自動分を集計（フォーム未同期）
-  const probe = calculateSkillDamage(pack,configured,slots,{...context,manual:{...values, /* rank/bonus は0扱いしない */ },stats:{...(pack.statsUnknown?{}:pack.stats),...adjustedStats},affinity:values.affinity,attack,attackKey,effectsSynced:false});
+  const probe = calculateSkillDamage(pack,configured,slots,{...context,userEditedKeys,manual:{...values, /* rank/bonus は0扱いしない */ },stats:{...(pack.statsUnknown?{}:pack.stats),...adjustedStats},affinity:values.affinity,attack,attackKey,effectsSynced:false});
   const forceSync = form.dataset.forceEffectSync === "1";
   form.dataset.forceEffectSync = "";
   syncDamageFormFields(form, probe, {force: forceSync, baseStats: pack.statsUnknown?{}:(pack.stats||{})});
@@ -18622,7 +18673,7 @@ function openDamageCalculator(charId, attackKey, side){
    return n;
   };
   [...form.querySelectorAll("input[name],select[name]")].forEach(el=>{
-   if(!el.name) return;
+   if(!el.name || el.closest(".damage-bullet")) return;
    if(el.type==="checkbox") values[el.name] = el.checked;
    else {
     const n = damageNumber(el.value);
@@ -18641,13 +18692,20 @@ function openDamageCalculator(charId, attackKey, side){
    if(key && syncedStats[key] != null) syncedStats[key] += extra;
   });
   // 2nd pass: フォーム反映済みとして計算（二重加算なし）
-   // 能力無効の結界異常は手入力があっても0扱い
-  try{
-    abilityNegatedSelfAbnormalKeys(pack.abilities).forEach(k=>{ values[k]=0; formNamedElements(form,k).forEach(el=>{el.value=0;}); });
-  }catch(e){}
-  const result = calculateSkillDamage(pack,configured,slots,{...context,manual:values,stats:syncedStats,affinity:values.affinity,attack,attackKey,effectsSynced:true,abilities:pack.abilities});
+   // 能力「無効」の結界異常はかからない：欄を0に固定（効果無効は枚数を残し、ペナルティだけ計算側で無視）
+   try{
+     abilityNoneAbnormalNames(pack.abilities).forEach(n=>{
+       const k = ABNORMAL_SELF_DAMAGE_KEYS[n];
+       if(!k) return;
+       values[k] = 0;
+       formNamedElements(form,k).forEach(el=>{ el.value = 0; });
+     });
+   }catch(e){}
+  const result = calculateSkillDamage(pack,configured,slots,{...context,userEditedKeys,manual:values,stats:syncedStats,affinity:values.affinity,attack,attackKey,effectsSynced:true,abilities:pack.abilities});
 
   preNote.textContent = result.hasPre ? "スペカ前効果：自動計算の対象" : "";
+   const convNote = body.querySelector("[data-ability-conv-note]");
+   if(convNote) convNote.textContent = (result.conversionNotes && result.conversionNotes.length) ? "能力・結界異常変換（Rankに自動反映）：" + result.conversionNotes.join(" ／ ") : "";
   missingNote.textContent = result.unsupported.length ? "未反映："+result.unsupported.join("、") : "";
   output.textContent = result.complete ? "ダメージ期待値： "+damageDisplay(result.total)
    : "計算できた弾の小計： "+damageDisplay(result.total)+"（未計算 "+result.missing+" 行）";
