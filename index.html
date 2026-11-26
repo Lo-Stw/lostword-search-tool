@@ -17833,8 +17833,16 @@ function calculateSkillDamage(pack, rows, slots, context){
  const addBonus = (key,value)=>{ if(!key||!value) return; appliedBonuses[key]=(appliedBonuses[key]||0)+value; };
  const addAbn = (key,value)=>{
   if(!key||!(value>0)) return;
-  appliedAbnormals[key]=(appliedAbnormals[key]||0)+value;
-  if(!context.effectsSynced) options[key]=(damageNumber(options[key])??0)+value;
+  const max = typeof abnormalStackMax === "function" ? abnormalStackMax(key) : 5;
+  const cur = appliedAbnormals[key] || 0;
+  const next = Math.min(max, cur + value);
+  const delta = next - cur;
+  if(delta <= 0) return; // 上限超過分は自動加算しない
+  appliedAbnormals[key] = next;
+  if(!context.effectsSynced){
+   const optCur = damageNumber(options[key]) ?? 0;
+   options[key] = Math.min(max, optCur + delta);
+  }
  };
  const applyBarrierAbnormal = (row)=>{
   if(!row) return;
@@ -17972,16 +17980,46 @@ function calculateSkillDamage(pack, rows, slots, context){
    const edited = new Set(context.userEditedKeys || []);
    const stackOf = name=>{
     const k = ABNORMAL_SELF_DAMAGE_KEYS[name];
-    if(!k) return null;                       // 帯電など自機の欄がないものは対象外
-    if(noneNames.has(name)) return 0;         // 無効：かからない
-    if(context.effectsSynced) return damageNumber(options[k]) ?? 0;   // フォーム値が最終値
-    return edited.has(k) ? (damageNumber(context.manual?.[k]) ?? 0) : (appliedAbnormals[k] || 0);
+    if(!k) return null;
+    if(noneNames.has(name)) return 0;
+    const max = typeof abnormalStackMax === "function" ? abnormalStackMax(k) : 5;
+    let v;
+    if(context.effectsSynced) v = damageNumber(options[k]) ?? 0;
+    else v = edited.has(k) ? (damageNumber(context.manual?.[k]) ?? 0) : (appliedAbnormals[k] || 0);
+    return Math.min(max, Math.max(0, v||0));
    };
    abilityConversionGroups(ab).forEach(g=>{
     let n = 0; const parts = [];
     g.names.forEach(name=>{ const v = stackOf(name); if(v > 0){ n += v; parts.push(name+v+"枚"); } });
     if(n > 0){ g.dests.forEach(k=>addRank(k,n)); conversionNotes.push(parts.join("・")+"→"+g.label+" +"+n); }
    });
+  }
+ }catch(e){}
+ // 能力ブースト／グレイズバフ：使用回数×1段階（最大3）
+ const boostGrazeNotes = [];
+ try{
+  const ab = options.abilities;
+  const mapStatToRank = (stat)=>{
+   const dest = damageRankDestination(String(stat||""), "自身");
+   return dest || null;
+  };
+  const applyUseBuff = (kind, count, conf)=>{
+   if(!conf || !(count > 0)) return;
+   const has = conf.enabled || (conf.stat && String(conf.stat).trim());
+   if(!has) return;
+   // 自身 or 味方全体なら自機に適用
+   const tgt = String(conf.target || "自身");
+   if(/相手|敵/.test(tgt)) return;
+   const stages = Math.min(3, Math.max(0, Math.floor(count)));
+   if(!stages) return;
+   const dest = mapStatToRank(conf.stat);
+   if(!dest){ missing.add(kind+"バフのステータス"); return; }
+   addRank(dest, stages);
+   boostGrazeNotes.push(kind+" "+stages+"回→"+String(conf.stat)+" +"+stages);
+  };
+  if(ab){
+   applyUseBuff("ブースト", damageNumber(context.boost ?? options.boost) ?? 0, ab.boost);
+   applyUseBuff("グレイズ", damageNumber(context.graze) ?? 0, ab.graze);
   }
  }catch(e){}
  options.permanent = permanent;
@@ -18057,7 +18095,7 @@ function calculateSkillDamage(pack, rows, slots, context){
    bonus:context.manual ? b.bonus : attr+type,
    skillMultiplier: context.effectsSynced ? 1 : multiplier("ダメージ")*(1+accumulated/100)};
  });
- return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],conversionNotes,hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0,
+ return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],conversionNotes,boostGrazeNotes,hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0,
   appliedRanks, appliedBonuses, appliedStatsDelta, appliedAbnormals, permanent};
 }
 
@@ -18276,10 +18314,16 @@ const DAMAGE_RANK_FIELDS = [
  ["hitRank","自機 命中"],["evadeRank","敵 回避"],["criHitRank","自機 CRI命中"],["criEvadeRank","敵 CRI回避"],
  ["criAtkRank","自機 CRI攻撃"],["criDefRank","敵 CRI防御"]
 ];
+const ABNORMAL_MAX_SELF = 5;
+const ABNORMAL_MAX_ENEMY = 7;
+const ABNORMAL_ENEMY_KEYS = new Set(["yangEnemyAbnormal","yinEnemyAbnormal","paralysis"]);
+function abnormalStackMax(key){
+ return ABNORMAL_ENEMY_KEYS.has(key) ? ABNORMAL_MAX_ENEMY : ABNORMAL_MAX_SELF;
+}
 const DAMAGE_ADJUSTMENTS = [
  ["yangAbnormal","自機 燃焼（枚）",0,5,1],["yinAbnormal","自機 毒霧（枚）",0,5,1],
- ["yangEnemyAbnormal","敵 燃焼（枚）",0,5,1],["yinEnemyAbnormal","敵 毒霧（枚）",0,5,1],
- ["freeze","自機 凍結（枚）",0,5,1],["smoke","自機 暗闇（枚）",0,5,1],["selfParalysis","自機 帯電（枚）",0,5,1],["paralysis","敵 帯電（枚）",0,5,1],
+ ["yangEnemyAbnormal","敵 燃焼（枚）",0,7,1],["yinEnemyAbnormal","敵 毒霧（枚）",0,7,1],
+ ["freeze","自機 凍結（枚）",0,5,1],["smoke","自機 暗闇（枚）",0,5,1],["selfParalysis","自機 帯電（枚）",0,5,1],["paralysis","敵 帯電（枚）",0,7,1],
  ["yangAtkBonus","自機 陽攻補正 (%)",-99],["yinAtkBonus","自機 陰攻補正 (%)",-99],
  ["yangDefBonus","自機 陽防補正 (%)",-99],["yinDefBonus","自機 陰防補正 (%)",-99],
  ["yangEnemyDefBonus","敵 陽防補正 (%)",-99],["yinEnemyDefBonus","敵 陰防補正 (%)",-99],
@@ -18361,10 +18405,14 @@ function syncDamageFormFields(form, result, opts){
  opts = opts || {};
  const force = !!opts.force;
  const canWrite = el => force || !el || el.getAttribute("data-user-edit") !== "1";
- const setAuto = (el, auto)=>{
+ const setAuto = (el, auto, key)=>{
   if(!el || !canWrite(el)) return;
-  el.value = auto;
-  el.setAttribute("data-auto-val", String(auto));
+  let v = auto;
+  if(key && typeof abnormalStackMax === "function" && /Abnormal$|^(freeze|smoke|paralysis|selfParalysis)$/.test(key)){
+   v = Math.min(abnormalStackMax(key), Math.max(0, Number(auto)||0));
+  }
+  el.value = v;
+  el.setAttribute("data-auto-val", String(v));
   el.setAttribute("data-auto-managed", "1");
  };
  const rankLabels = Object.fromEntries((DAMAGE_RANK_FIELDS||[]).map(([k,l])=>[k,l]));
@@ -18373,7 +18421,7 @@ function syncDamageFormFields(form, result, opts){
   [key, key+"2"].forEach(k=>{
     const els = formNamedElements(form,k);
    const auto = (result.appliedRanks && result.appliedRanks[k]) || 0;
-    els.forEach(el=>setAuto(el,auto));
+    els.forEach(el=>setAuto(el,auto,k));
   });
  });
  // その他補正・結界異常：調整欄を一通り走査し、自動値を入れる（外したスキル分は0に戻す）
@@ -18388,11 +18436,9 @@ function syncDamageFormFields(form, result, opts){
   // bonus と abn はキーが被らない想定。被る場合は合算
    els.forEach(el=>{
     if(force || el.getAttribute("data-auto-managed") === "1" || auto || el.getAttribute("data-user-edit") !== "1"){
-     // user-edit 中は触らない
      if(!canWrite(el)) return;
-     // 自動対象でなければ（一度も自動で書いていない＆今回0）スキップ
      if(!force && el.getAttribute("data-auto-managed") !== "1" && !auto && el.getAttribute("data-user-edit") === "1") return;
-     setAuto(el, auto);
+     setAuto(el, auto, key);
     }
    });
  });
@@ -18401,7 +18447,7 @@ function syncDamageFormFields(form, result, opts){
    const els = formNamedElements(form,k);
    if(!els.length) return;
   const auto = (bonusMap[k] || 0) + (abn[k] || 0);
-   els.forEach(el=>setAuto(el,auto));
+   els.forEach(el=>setAuto(el,auto,k));
  });
  // 自機ステータス（蓄積など）：base+delta。deltaが消えたらbaseへ戻す
  const base = opts.baseStats || {};
@@ -18434,12 +18480,19 @@ function syncDamageFormFields(form, result, opts){
  if(sumEl){
   const bits = [];
   const rsum = formatDamageAppliedMap(result.appliedRanks, rankLabels);
-  if(rsum !== "なし") bits.push("ランク "+rsum);
+  if(rsum !== "なし") bits.push("【ランク】 "+rsum);
   const bsum = formatDamageAppliedMap(bonusMap, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
-  if(bsum !== "なし") bits.push("補正 "+bsum);
+  if(bsum !== "なし") bits.push("【補正%】 "+bsum);
   const asum = formatDamageAppliedMap(abn, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
-  if(asum !== "なし") bits.push("結界異常 "+asum);
-  sumEl.textContent = bits.length ? ("自動反映：" + bits.join(" ｜ ")) : "";
+  if(asum !== "なし") bits.push("【結界異常】 "+asum);
+  const cn = result.conversionNotes || [];
+  if(cn.length) bits.push("【結界異常変換】 "+cn.join(" ／ "));
+  const bn = result.boostGrazeNotes || [];
+  if(bn.length) bits.push("【ブースト/グレイズ】 "+bn.join(" ／ "));
+  const sd = result.appliedStatsDelta || {};
+  const ssum = formatDamageAppliedMap(sd, Object.fromEntries((DAMAGE_STAT_FIELDS||[]).map(x=>[x[0],x[1]])));
+  if(ssum !== "なし") bits.push("【ステータス加算】 "+ssum);
+  sumEl.innerHTML = bits.length ? bits.map(x=>`<div>${x}</div>`).join("") : "<div>自動反映なし</div>";
  }
  const rankNote = form.querySelector("[data-rank-auto-note]");
  if(rankNote) rankNote.textContent = "自動：" + formatDamageAppliedMap(result.appliedRanks, rankLabels);
@@ -18506,7 +18559,10 @@ function openDamageCalculator(charId, attackKey, side){
     }).join("")}</div>
     <p class="mini">選んだスキル・スペカ前効果・特殊スキルの補正は、下のランク補正／その他の補正／自機ステータスに自動反映されます（手編集も可）。</p>
     <p class="mini" data-manual-pre></p>
-    <p class="mini" data-applied-summary></p>
+    <details data-applied-breakdown style="margin:6px 0;border:1px solid rgba(160,130,70,.28);border-radius:10px;padding:6px 10px;background:rgba(255,252,245,.9);">
+     <summary class="mini" style="cursor:pointer;font-weight:700;color:#5c4a7a;">自動反映の内訳（開閉）</summary>
+     <div class="mini" data-applied-summary style="margin-top:6px;line-height:1.6;"></div>
+    </details>
     <p class="mini" data-skill-missing></p>
    </fieldset>
    <details><summary>人数と蓄力の条件</summary>
@@ -18518,6 +18574,8 @@ function openDamageCalculator(charId, attackKey, side){
    ].map(([key,label,value,min,max,step])=>`<label>${label}<input class="input" type="number" data-skill-context="${key}" value="${value}" min="${min}" max="${max}" step="${step}" required></label>`).join("")}</div></details>
    <div class="damage-grid">
     <label>ブースト<select class="input" name="boost">${[0,1,2,3].map(i=>`<option value="${i}" ${i===3?"selected":""}>P${i}</option>`).join("")}</select></label>
+    <label>グレイズ使用数<select class="input" name="graze" data-skill-context-extra="graze">${[0,1,2,3].map(i=>`<option value="${i}">${i}枚</option>`).join("")}</select></label>
+    <p class="mini" style="grid-column:1/-1;color:#0056b3;">※能力にブーストバフ／グレイズバフがある場合、使用数×1段階アップが自動適用されます（各最大3）。</p>
     ${damageField("level","自機Lv（転生後は＋40）",level,1,200,1)}
     ${damageField("attackLevel","攻撃Lv",5,1,5,1)}
     ${damageField("enemyYang","敵 陽防",DAMAGE_INDEX_ENEMY_DEFENSE,1)}
@@ -18659,6 +18717,10 @@ function openDamageCalculator(charId, attackKey, side){
   });
   const slots = [...form.querySelectorAll("[data-damage-skill]:checked")].map(el=>Number(el.dataset.damageSkill));
   const context = Object.fromEntries([...form.querySelectorAll("[data-skill-context]")].map(el=>[el.dataset.skillContext,Number(el.value)]));
+  const boostEl = form.elements.namedItem("boost");
+  const grazeEl = form.elements.namedItem("graze");
+  if(boostEl) context.boost = Number(boostEl.value)||0;
+  if(grazeEl) context.graze = Number(grazeEl.value)||0;
   const userEditedKeys = [...form.querySelectorAll("input[name][data-user-edit='1']")].filter(el=>!el.closest(".damage-bullet")).map(el=>el.name);
   // 1st pass: 自動分を集計（フォーム未同期）
   const probe = calculateSkillDamage(pack,configured,slots,{...context,userEditedKeys,manual:{...values, /* rank/bonus は0扱いしない */ },stats:{...(pack.statsUnknown?{}:pack.stats),...adjustedStats},affinity:values.affinity,attack,attackKey,effectsSynced:false});
@@ -18676,7 +18738,11 @@ function openDamageCalculator(charId, attackKey, side){
    if(!el.name || el.closest(".damage-bullet")) return;
    if(el.type==="checkbox") values[el.name] = el.checked;
    else {
-    const n = damageNumber(el.value);
+    let n = damageNumber(el.value);
+    if(n !== null && typeof abnormalStackMax === "function" && /Abnormal$|^(freeze|smoke|paralysis|selfParalysis)$/.test(el.name)){
+     n = Math.min(abnormalStackMax(el.name), Math.max(0, n));
+     if(String(el.value) !== String(n)) el.value = n;
+    }
     if(n !== null) values[el.name] = n;
     else if(el.value !== "") values[el.name] = el.value;
    }
@@ -18755,12 +18821,16 @@ function openDamageCalculator(charId, attackKey, side){
   const t = ev.target;
   if(t && t.matches && t.matches("[data-damage-skill]")){
    form.dataset.forceEffectSync = "1";
-   // スキルON/OFF時は自動欄を必ず巻き戻す
-   form.querySelectorAll("input[name]").forEach(el=>{
-    el.removeAttribute("data-user-edit");
-   });
+   form.querySelectorAll("input[name]").forEach(el=>{ el.removeAttribute("data-user-edit"); });
    refresh();
    return;
+  }
+  if(t && (t.name==="boost" || t.name==="graze")){
+   form.dataset.forceEffectSync = "1";
+   // ブースト/グレイズ変更時は能力バフ分のランクを再同期（手編集ランクは維持しない）
+   form.querySelectorAll("input[name]").forEach(el=>{
+    if(el.name && /Rank/.test(el.name)) el.removeAttribute("data-user-edit");
+   });
   }
   if(t && t.name){
    const auto = t.getAttribute("data-auto-val");
