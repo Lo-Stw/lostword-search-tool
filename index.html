@@ -17812,7 +17812,7 @@ function calculateSkillDamage(pack, rows, slots, context){
  const factors = new Map();
  const weakness = new Set();
  const permanent = {};
- const keep = (type,key,value)=>factors.set(type+":"+key,Math.max(factors.get(type+":"+key) ?? 0,value));
+ const keep = (type,key,value)=>factors.set(type+":"+key,Math.max(factors.get(type+":"+key) ?? 0, damageCleanNumber(value)));
  const read = (value,label)=>{
   const n=damageNumber(value);
   if(n === null || n < 0){ missing.add(label); return null; }
@@ -17824,13 +17824,32 @@ function calculateSkillDamage(pack, rows, slots, context){
  const appliedBonuses = {}; // yangAtkBonus 等
  const appliedStatsDelta = {}; // 蓄積などでステに足した分
  const appliedAbnormals = {};
- const addRank = (key,value)=>{
-  if(!key||!value) return;
-  appliedRanks[key]=(appliedRanks[key]||0)+value;
-  // effectsSynced 時はフォーム欄の値が options に入っているので二重加算しない
-  if(!context.effectsSynced) append(key,value);
+ const appliedBreakdown = []; // {source, lines:[]}
+ const breakdownPush = (source, line)=>{
+  if(!source || !line) return;
+  let g = appliedBreakdown.find(x=>x.source===source);
+  if(!g){ g={source, lines:[]}; appliedBreakdown.push(g); }
+  if(!g.lines.includes(line)) g.lines.push(line);
  };
- const addBonus = (key,value)=>{ if(!key||!value) return; appliedBonuses[key]=(appliedBonuses[key]||0)+value; };
+ const rankKeyLabel = (key)=>{
+  const base = String(key||"").replace(/2$/,"");
+  const is2 = /2$/.test(key||"");
+  const labels = Object.fromEntries((DAMAGE_RANK_FIELDS||[]).map(([k,l])=>[k,l]));
+  return (labels[base]||base) + (is2?"Ⅱ":"");
+ };
+ const addRank = (key,value,source)=>{
+  if(!key||!value) return;
+  const v = damageCleanNumber(value);
+  if(!v) return;
+  appliedRanks[key]=(appliedRanks[key]||0)+v;
+  if(source){
+   const sign = v>0?"+":"";
+   breakdownPush(source, rankKeyLabel(key)+" "+sign+v+"段階");
+  }
+  // effectsSynced 時はフォーム欄の値が options に入っているので二重加算しない
+  if(!context.effectsSynced) append(key,v);
+ };
+ const addBonus = (key,value)=>{ if(!key||!value) return; const v=damageCleanNumber(value); if(!v) return; appliedBonuses[key]=damageCleanNumber((appliedBonuses[key]||0)+v); };
  const addAbn = (key,value)=>{
   if(!key||!(value>0)) return;
   const max = typeof abnormalStackMax === "function" ? abnormalStackMax(key) : 5;
@@ -17863,7 +17882,16 @@ function calculateSkillDamage(pack, rows, slots, context){
   const key = abnormalKeys[name]?.[enemy ? "enemy" : "self"];
   // 能力「無効」：自機にはかからない（枚数に入れない）
   if(!enemy && abilityNoneAbnormalNames(options.abilities).includes(name)) return;
-  if(key) addAbn(key, stacks);
+  if(key){
+   const before = appliedAbnormals[key]||0;
+   addAbn(key, stacks);
+   const after = appliedAbnormals[key]||0;
+   if(after > before){
+    const labels = Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]]));
+    const src = applyBarrierAbnormal._source || "結界異常";
+    breakdownPush(src, (labels[key]||key)+" +"+(after-before)+"枚");
+   }
+  }
  };
  const rankRow = (row,stat,n,dir,kind)=>{
   const destination = damageRankDestination(stat,row.target);
@@ -17876,24 +17904,29 @@ function calculateSkillDamage(pack, rows, slots, context){
   const stages = sign*(value+(extra >= 100 ? 1 : 0));
   if(kind === "永続"){
    permanent[destination]=(permanent[destination] || 0)+stages;
-   // 永続は options.permanent 経由のみ（フォーム欄とは別）
-  }else addRank(destination+(kind === "Ⅱ" ? "2" : ""),stages);
+  }else addRank(destination+(kind === "Ⅱ" ? "2" : ""),stages, rankRow._source || "");
  };
+ // rankRow に source を付ける呼び出し側で rankRow._source をセット
+
  slots.forEach(i=>{
   const skill = pack.skills?.[i];
   if(!skill) return;
+  const skSrc = "スキル"+(i+1)+(skill.name ? "「"+String(skill.name).trim()+"」" : "");
+  rankRow._source = skSrc;
   (skill.effects?.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : ""));
+  rankRow._source = "";
   if(skill.text?.trim()) missing.add("スキル"+(i+1)+"の自由記述");
-  // 結界異常は補正欄へ反映（ブレイク連動は不要）
+  applyBarrierAbnormal._source = skSrc;
   (skill.effects?.barrierAbnormals||[]).forEach(row=>applyBarrierAbnormal(row));
+  applyBarrierAbnormal._source = "";
  });
  const preLocation = context.attackKey ? context.attackKey+":pre" : "";
  const usesPre = SPECIAL_SPELL_LOC_RE.test(preLocation);
  const preEffects = usesPre ? damagePreEffects(context.attack) : null;
  if(preEffects){
-  (preEffects.bag.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : ""));
+  rankRow._source="スペカ前効果"; (preEffects.bag.ranks || []).forEach(row=>rankRow(row,String(row.stat || ""),row.stages,row.dir || "",/Ⅱ|II|Rank[2２]/i.test(row.stat || "") ? "Ⅱ" : "")); rankRow._source="";
   if(preEffects.unparsed) missing.add("スペカ前効果の自由記述");
-  (preEffects.bag.barrierAbnormals||[]).forEach(row=>applyBarrierAbnormal(row));
+  applyBarrierAbnormal._source="スペカ前効果"; (preEffects.bag.barrierAbnormals||[]).forEach(row=>applyBarrierAbnormal(row)); applyBarrierAbnormal._source="";
  }
  const preMatches = sources=>usesPre && sources.some(source=>sourceMatchesActivationLocation(source,preLocation));
  const selectedSources = sources=>preMatches(sources) || sources.some(source=>slots.some(i=>sourceMatchesActivationLocation(source,"skill"+(i+1))));
@@ -17914,7 +17947,7 @@ function calculateSkillDamage(pack, rows, slots, context){
   for(const row of d.list?.length ? d.list : [d]){
    const label = name+(row.stat ? "："+row.stat : "");
    if(isRank2SkillName(name) || /^永続[バデ]/.test(name)){
-    rankRow({...row,target:row.target || (name.includes("デバフ") ? "相手" : "自身")},pickRank2Stat(row),pickRank2Stage(row),name.includes("デバフ")?"ダウン":"アップ",name.startsWith("永続")?"永続":"Ⅱ");
+    rankRow._source="特殊スキル「"+name+"」"; rankRow({...row,target:row.target || (name.includes("デバフ") ? "相手" : "自身")},pickRank2Stat(row),pickRank2Stage(row),name.includes("デバフ")?"ダウン":"アップ",name.startsWith("永続")?"永続":"Ⅱ"); rankRow._source="";
    }else if(name === "大結界"){
     const sources=specialEffectSources(row,d);
     const slot=preMatches(sources) ? 3 : Math.max(-1,...slots.filter(i=>sources.some(source=>sourceMatchesActivationLocation(source,"skill"+(i+1)))));
@@ -17991,7 +18024,7 @@ function calculateSkillDamage(pack, rows, slots, context){
    abilityConversionGroups(ab).forEach(g=>{
     let n = 0; const parts = [];
     g.names.forEach(name=>{ const v = stackOf(name); if(v > 0){ n += v; parts.push(name+v+"枚"); } });
-    if(n > 0){ g.dests.forEach(k=>addRank(k,n)); conversionNotes.push(parts.join("・")+"→"+g.label+" +"+n); }
+    if(n > 0){ g.dests.forEach(k=>addRank(k,n,"結界異常変換")); conversionNotes.push(parts.join("・")+"→"+g.label+" +"+n); breakdownPush("結界異常変換", parts.join("・")+" → "+g.label+" +"+n+"段階"); }
    });
   }
  }catch(e){}
@@ -18014,8 +18047,9 @@ function calculateSkillDamage(pack, rows, slots, context){
    if(!stages) return;
    const dest = mapStatToRank(conf.stat);
    if(!dest){ missing.add(kind+"バフのステータス"); return; }
-   addRank(dest, stages);
+   addRank(dest, stages, kind+"バフ");
    boostGrazeNotes.push(kind+" "+stages+"回→"+String(conf.stat)+" +"+stages);
+   breakdownPush(kind+"バフ", String(conf.stat)+" +"+stages+"段階（"+stages+"回）");
   };
   if(ab){
    applyUseBuff("ブースト", damageNumber(context.boost ?? options.boost) ?? 0, ab.boost);
@@ -18044,17 +18078,21 @@ function calculateSkillDamage(pack, rows, slots, context){
  const accumulated = [...factors].reduce((sum,[key,n])=>sum+(key.startsWith("蓄力:")?n:0),0);
 
  for(const [stat,key] of Object.entries(SKILL_DAMAGE_STATS)){
-  const n=(multiplier(stat)-1)*100;
+  const n=damageCleanNumber((multiplier(stat)-1)*100);
   if(!n) continue;
   if(["yangAtk","yinAtk","yangDef","yinDef","speed"].includes(key)){
-   // フォーム同期済みなら options 上の Bonus はフォーム値を使い、内部 factors からは載せない
    if(context.effectsSynced){
-    // 表示用に記録のみ
     addBonus(key+"Bonus", n);
    }else{
-    const next = ((1+(damageNumber(options[key+"Bonus"]) ?? 0)/100)*(1+n/100)-1)*100;
+    const next = damageCleanNumber(((1+(damageNumber(options[key+"Bonus"]) ?? 0)/100)*(1+n/100)-1)*100);
     addBonus(key+"Bonus", n);
     options[key+"Bonus"]=next;
+   }
+   if(n){
+    const lab = {yangAtk:"陽攻",yinAtk:"陰攻",yangDef:"陽防",yinDef:"陰防",speed:"速力"}[key]||key;
+    const srcs = [];
+    for(const type of countTypes){ const p=pct(type,stat); if(p) srcs.push(type+damageCleanNumber(p)+"%"); }
+    breakdownPush(srcs.length?srcs.join("+"):"人数補正", lab+"補正 +"+damageCleanNumber(n)+"%");
    }
   }else missing.add("人数に応じた補正："+stat);
  }
@@ -18068,11 +18106,11 @@ function calculateSkillDamage(pack, rows, slots, context){
  options.skillCriMultiplier=context.effectsSynced ? 1 : multiplier("CRIダメージ");
  if(context.effectsSynced){
   // CRIダメージ%は criDamageBonus 欄へ
-  const criDmg = (multiplier("CRIダメージ")-1)*100;
-  if(criDmg) addBonus("criDamageBonus", criDmg);
+  const criDmg = damageCleanNumber((multiplier("CRIダメージ")-1)*100);
+  if(criDmg){ addBonus("criDamageBonus", criDmg); breakdownPush("共鳴等","CRI倍率補正 +"+criDmg+"%"); }
  }else{
-  const criDmg = (multiplier("CRIダメージ")-1)*100;
-  if(criDmg){ addBonus("criDamageBonus", criDmg); options.criDamageBonus=(damageNumber(options.criDamageBonus)||0)+criDmg; }
+  const criDmg = damageCleanNumber((multiplier("CRIダメージ")-1)*100);
+  if(criDmg){ addBonus("criDamageBonus", criDmg); options.criDamageBonus=damageCleanNumber((damageNumber(options.criDamageBonus)||0)+criDmg); breakdownPush("共鳴等","CRI倍率補正 +"+criDmg+"%"); }
  }
  options.skillEnemyDefFactor={
   yang:1-pct("逆相低下","陽防")/100,
@@ -18096,7 +18134,7 @@ function calculateSkillDamage(pack, rows, slots, context){
    skillMultiplier: context.effectsSynced ? 1 : multiplier("ダメージ")*(1+accumulated/100)};
  });
  return {...calculateAttackDamage(stats,configured,options),unsupported:[...missing],conversionNotes,boostGrazeNotes,hasPre:!!preEffects?.registered || Object.keys(preSpecials).length>0,
-  appliedRanks, appliedBonuses, appliedStatsDelta, appliedAbnormals, permanent};
+  appliedRanks, appliedBonuses, appliedStatsDelta, appliedAbnormals, permanent, appliedBreakdown};
 }
 
 
@@ -18377,10 +18415,19 @@ function damageAffinityMultiplier(affinity, ability){
 }
 
 
+function damageCleanNumber(n){
+ if(!Number.isFinite(n)) return n;
+ // 浮動小数点ノイズを除去（20 が 19.999999… になる問題）
+ const r = Math.round(n * 1e6) / 1e6;
+ if(Math.abs(r - Math.round(r)) < 1e-6) return Math.round(r);
+ if(Math.abs(r * 10 - Math.round(r * 10)) < 1e-6) return Math.round(r * 10) / 10;
+ if(Math.abs(r * 100 - Math.round(r * 100)) < 1e-6) return Math.round(r * 100) / 100;
+ return r;
+}
 function formatDamageAppliedMap(map, labels){
  const parts = [];
  Object.keys(map||{}).sort().forEach(key=>{
-  const n = map[key];
+  const n = damageCleanNumber(map[key]);
   if(!n) return;
   const label = (labels && labels[key]) || key;
   parts.push(label + " " + (n>0?"+"+n:n));
@@ -18476,23 +18523,28 @@ function syncDamageFormFields(form, result, opts){
     setAuto(el, baseVal + (delta[k] || 0));
    });
  });
+ const totalEl = form.querySelector("[data-applied-total]");
  const sumEl = form.querySelector("[data-applied-summary]");
+ const totalParts = [];
+ const rsum = formatDamageAppliedMap(result.appliedRanks, rankLabels);
+ if(rsum !== "なし") totalParts.push(rsum);
+ const bsum = formatDamageAppliedMap(bonusMap, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
+ if(bsum !== "なし") totalParts.push(bsum);
+ const asum = formatDamageAppliedMap(abn, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
+ if(asum !== "なし") totalParts.push(asum);
+ if(totalEl) totalEl.textContent = totalParts.length ? ("累計：" + totalParts.join(" ／ ")) : "累計：自動反映なし";
  if(sumEl){
-  const bits = [];
-  const rsum = formatDamageAppliedMap(result.appliedRanks, rankLabels);
-  if(rsum !== "なし") bits.push("【ランク】 "+rsum);
-  const bsum = formatDamageAppliedMap(bonusMap, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
-  if(bsum !== "なし") bits.push("【補正%】 "+bsum);
-  const asum = formatDamageAppliedMap(abn, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
-  if(asum !== "なし") bits.push("【結界異常】 "+asum);
-  const cn = result.conversionNotes || [];
-  if(cn.length) bits.push("【結界異常変換】 "+cn.join(" ／ "));
-  const bn = result.boostGrazeNotes || [];
-  if(bn.length) bits.push("【ブースト/グレイズ】 "+bn.join(" ／ "));
-  const sd = result.appliedStatsDelta || {};
-  const ssum = formatDamageAppliedMap(sd, Object.fromEntries((DAMAGE_STAT_FIELDS||[]).map(x=>[x[0],x[1]])));
-  if(ssum !== "なし") bits.push("【ステータス加算】 "+ssum);
-  sumEl.innerHTML = bits.length ? bits.map(x=>`<div>${x}</div>`).join("") : "<div>自動反映なし</div>";
+  const bd = result.appliedBreakdown || [];
+  if(bd.length){
+   sumEl.innerHTML = bd.map(g=>`<div style="margin:0 0 8px;"><div style="font-weight:700;color:#5c4a7a;">${esc(g.source)}</div>${(g.lines||[]).map(l=>`<div>・${esc(l)}</div>`).join("")}</div>`).join("");
+  }else{
+   // フォールバック（ソース別が空のとき）
+   const bits = [];
+   if(rsum !== "なし") bits.push("<div><b>ランク</b> "+esc(rsum)+"</div>");
+   if(bsum !== "なし") bits.push("<div><b>補正%</b> "+esc(bsum)+"</div>");
+   if(asum !== "なし") bits.push("<div><b>結界異常</b> "+esc(asum)+"</div>");
+   sumEl.innerHTML = bits.length ? bits.join("") : "<div>内訳なし</div>";
+  }
  }
  const rankNote = form.querySelector("[data-rank-auto-note]");
  if(rankNote) rankNote.textContent = "自動：" + formatDamageAppliedMap(result.appliedRanks, rankLabels);
@@ -18545,7 +18597,19 @@ function openDamageCalculator(charId, attackKey, side){
      }catch(e){}
      const bodyParts = [];
      if(lines.length) bodyParts.push(lines.map(x=>`<div class="mini">・${esc(x)}</div>`).join(""));
-     if(specialHtml) bodyParts.push(`<div class="mini" style="font-weight:700;margin-top:6px;">発動する特殊スキル</div>${specialHtml}`);
+     if(specialHtml){
+      // 特殊スキルも通常効果と同じ「・」表示に揃える（見出しは付けない）
+      const tmp = document.createElement("div");
+      tmp.innerHTML = specialHtml;
+      tmp.querySelectorAll(".skill-detail-line").forEach(line=>{
+       const text = (line.textContent||"").replace(/\s+/g," ").trim();
+       if(text) bodyParts.push(`<div class="mini">・${esc(text)}</div>`);
+      });
+      if(!tmp.querySelectorAll(".skill-detail-line").length){
+       const t = (tmp.textContent||"").replace(/\s+/g," ").trim();
+       if(t) bodyParts.push(`<div class="mini">・${esc(t)}</div>`);
+      }
+     }
      const body = bodyParts.length ? bodyParts.join("") : `<div class="mini" style="color:#888;">効果データなし</div>`;
      return `<details class="damage-skill-item" style="border:1px solid rgba(160,130,70,.3);border-radius:10px;padding:6px 10px;margin-bottom:6px;background:rgba(255,252,245,.85);">
       <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -18559,9 +18623,10 @@ function openDamageCalculator(charId, attackKey, side){
     }).join("")}</div>
     <p class="mini">選んだスキル・スペカ前効果・特殊スキルの補正は、下のランク補正／その他の補正／自機ステータスに自動反映されます（手編集も可）。</p>
     <p class="mini" data-manual-pre></p>
+    <div class="mini" data-applied-total style="margin:6px 0;padding:8px 10px;border:1px solid rgba(160,130,70,.28);border-radius:10px;background:rgba(255,252,245,.95);line-height:1.55;font-weight:700;"></div>
     <details data-applied-breakdown style="margin:6px 0;border:1px solid rgba(160,130,70,.28);border-radius:10px;padding:6px 10px;background:rgba(255,252,245,.9);">
-     <summary class="mini" style="cursor:pointer;font-weight:700;color:#5c4a7a;">自動反映の内訳（開閉）</summary>
-     <div class="mini" data-applied-summary style="margin-top:6px;line-height:1.6;"></div>
+     <summary class="mini" style="cursor:pointer;font-weight:700;color:#5c4a7a;">内訳を見る</summary>
+     <div class="mini" data-applied-summary style="margin-top:6px;line-height:1.65;"></div>
     </details>
     <p class="mini" data-skill-missing></p>
    </fieldset>
