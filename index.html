@@ -17837,17 +17837,28 @@ function calculateSkillDamage(pack, rows, slots, context){
   const labels = Object.fromEntries((DAMAGE_RANK_FIELDS||[]).map(([k,l])=>[k,l]));
   return (labels[base]||base) + (is2?"Ⅱ":"");
  };
+ const RANK_STAGE_CAP = 10;
+ const clampStage = (v)=>{
+  const n = damageCleanNumber(v);
+  if(!Number.isFinite(n) || !n) return 0;
+  return Math.max(-RANK_STAGE_CAP, Math.min(RANK_STAGE_CAP, n));
+ };
  const addRank = (key,value,source)=>{
   if(!key||!value) return;
-  const v = damageCleanNumber(value);
+  let v = damageCleanNumber(value);
   if(!v) return;
-  appliedRanks[key]=(appliedRanks[key]||0)+v;
+  // 合計が±10を超えないように切り詰め
+  const cur = appliedRanks[key] || 0;
+  const next = clampStage(cur + v);
+  const delta = damageCleanNumber(next - cur);
+  if(!delta) return;
+  appliedRanks[key] = next;
   if(source){
-   const sign = v>0?"+":"";
-   breakdownPush(source, rankKeyLabel(key)+" "+sign+v+"段階");
+   const sign = delta>0?"+":"";
+   const note = Math.abs(v) > Math.abs(delta) ? "（上限10）" : "";
+   breakdownPush(source, rankKeyLabel(key)+" "+sign+delta+"段階"+note);
   }
-  // effectsSynced 時はフォーム欄の値が options に入っているので二重加算しない
-  if(!context.effectsSynced) append(key,v);
+  if(!context.effectsSynced) append(key,delta);
  };
  const addBonus = (key,value)=>{ if(!key||!value) return; const v=damageCleanNumber(value); if(!v) return; appliedBonuses[key]=damageCleanNumber((appliedBonuses[key]||0)+v); };
  const addAbn = (key,value)=>{
@@ -17903,7 +17914,16 @@ function calculateSkillDamage(pack, rows, slots, context){
   if(extra > 0 && extra < 100) missing.add("確率付きの追加段階");
   const stages = sign*(value+(extra >= 100 ? 1 : 0));
   if(kind === "永続"){
-   permanent[destination]=(permanent[destination] || 0)+stages;
+   const cur = permanent[destination] || 0;
+   const next = Math.max(-10, Math.min(10, cur + stages));
+   const delta = next - cur;
+   if(delta){
+    permanent[destination] = next;
+    const src = rankRow._source || "永続";
+    const sign = delta>0?"+":"";
+    const note = Math.abs(stages) > Math.abs(delta) ? "（上限10）" : "";
+    breakdownPush(src, rankKeyLabel(destination)+" "+sign+delta+"段階（永続）"+note);
+   }
   }else addRank(destination+(kind === "Ⅱ" ? "2" : ""),stages, rankRow._source || "");
  };
  // rankRow に source を付ける呼び出し側で rankRow._source をセット
@@ -18056,7 +18076,11 @@ function calculateSkillDamage(pack, rows, slots, context){
    applyUseBuff("グレイズ", damageNumber(context.graze) ?? 0, ab.graze);
   }
  }catch(e){}
- options.permanent = permanent;
+ options.permanent = {};
+ Object.keys(permanent).forEach(k=>{
+  const v = Math.max(-10, Math.min(10, damageCleanNumber(permanent[k])||0));
+  if(v) options.permanent[k] = v;
+ });
  if(field){
   options.fieldUp = {};
   options.fieldDown = {};
@@ -18458,6 +18482,11 @@ function syncDamageFormFields(form, result, opts){
   if(key && typeof abnormalStackMax === "function" && /Abnormal$|^(freeze|smoke|paralysis|selfParalysis)$/.test(key)){
    v = Math.min(abnormalStackMax(key), Math.max(0, Number(auto)||0));
   }
+  // ランクは±10まで
+  if(key && /Rank/.test(key)){
+   const n = Number(v);
+   if(Number.isFinite(n)) v = Math.max(-10, Math.min(10, n));
+  }
   el.value = v;
   el.setAttribute("data-auto-val", String(v));
   el.setAttribute("data-auto-managed", "1");
@@ -18528,6 +18557,9 @@ function syncDamageFormFields(form, result, opts){
  const totalParts = [];
  const rsum = formatDamageAppliedMap(result.appliedRanks, rankLabels);
  if(rsum !== "なし") totalParts.push(rsum);
+ const permMap = result.permanent || {};
+ const psum = formatDamageAppliedMap(permMap, rankLabels);
+ if(psum !== "なし") totalParts.push("永続 "+psum);
  const bsum = formatDamageAppliedMap(bonusMap, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
  if(bsum !== "なし") totalParts.push(bsum);
  const asum = formatDamageAppliedMap(abn, Object.fromEntries((DAMAGE_ADJUSTMENTS||[]).map(x=>[x[0],x[1]])));
@@ -18806,6 +18838,10 @@ function openDamageCalculator(charId, attackKey, side){
     let n = damageNumber(el.value);
     if(n !== null && typeof abnormalStackMax === "function" && /Abnormal$|^(freeze|smoke|paralysis|selfParalysis)$/.test(el.name)){
      n = Math.min(abnormalStackMax(el.name), Math.max(0, n));
+     if(String(el.value) !== String(n)) el.value = n;
+    }
+    if(n !== null && /Rank/.test(el.name||"")){
+     n = Math.max(-10, Math.min(10, n));
      if(String(el.value) !== String(n)) el.value = n;
     }
     if(n !== null) values[el.name] = n;
