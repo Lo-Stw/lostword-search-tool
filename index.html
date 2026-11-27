@@ -4438,7 +4438,7 @@ function bindSpecialFilterLongPress(){
 const SPECIAL_SKILLS=[
 "ファスト","チャージ","RANKⅡバフ","RANKⅡデバフ","畜力","蓄積","共鳴","X-Change","禁止解除",
 "有利属性ダメージアップ","不利属性ダメージアップ","属性強化","弾強化","弱点付与","団結",
-"バディコネクト","ゾーン","スキル再使用ターン数短縮","大結界","秘密封印","逆相","スペルゲージ遅延",
+"バディコネクト","ゾーン","響奏","スキル再使用ターン数短縮","大結界","秘密封印","逆相","スペルゲージ遅延",
 "全体耐性ダウン","持続","永続バフ","永続デバフ","ダメージ軽減"
 ];
 
@@ -8977,6 +8977,25 @@ if(name === "蓄積"){
   }).filter(Boolean);
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
+ if(name === "響奏"){
+  const list = Array.isArray(d.list) && d.list.length
+   ? d.list
+   : [{ stat:d.stat, value:d.value, target:d.target, dir:d.dir }];
+  const parts = list.map(it=>{
+   if(!it || !it.stat) return "";
+   const tg = it.target === "自身" ? "自身" : "味方全体";
+   const n = (it.value !== "" && it.value != null) ? String(it.value) : "n";
+   const down = /ダウン|低下|減/.test(String(it.dir||""));
+   if(it.stat === "霊力"){
+    return tg + "の霊力を" + n + "%×チーム内の仲間の式の種類に応じて" + (down ? "ダウン" : "上昇");
+   }
+   if(it.stat === "攻撃時CRI率"){
+    return tg + "の攻撃時CRI率を" + n + "%×チーム内の仲間の式の種類に応じて" + (down ? "ダウン" : "アップ");
+   }
+   return tg + "の与える" + it.stat + "を" + n + "%×チーム内の仲間の式の種類に応じて" + (down ? "ダウン" : "アップ");
+  }).filter(Boolean);
+  return parts.length ? parts.join(String.fromCharCode(10)) : "";
+ }
  if(name === "団結"){
   const list = Array.isArray(d.list) && d.list.length
    ? d.list
@@ -9586,7 +9605,7 @@ function collectDamageDownFromSides(sides){
 ========================================================= */
 
 const SPECIAL_ROW_SOURCE_SKILLS = ["RANKⅡバフ","RANKⅡデバフ","永続バフ","永続デバフ",
- "畜力","蓄積","共鳴","属性強化","弾強化","団結","逆相","持続"];
+ "畜力","蓄積","共鳴","響奏","属性強化","弾強化","団結","逆相","持続"];
 function isRowSourceSpecialSkill(skill){
  return SPECIAL_ROW_SOURCE_SKILLS.includes(skill) || skill === DD_SKILL || skill === DD_SKILL_LEGACY;
 }
@@ -10090,6 +10109,104 @@ function buildSpecialDetail(skill, e){
     if(!Array.isArray(d.list)) d.list = [];
     d.list.push({ source:"スキル", stat:"", value:"", target:"味方全体" });
     renderRes();
+   });
+   break;
+  case "響奏":
+   if(!Array.isArray(d.list) || !d.list.length){
+    d.list = [{
+     stat: d.stat || "",
+     value: (d.value != null && d.value !== "") ? d.value : "10",
+     target: (d.target === "自身" || d.target === "味方全体") ? d.target : "味方全体",
+     dir: d.dir || "アップ"
+    }];
+   }
+   e.innerHTML =
+    '<div class="mini" style="margin-bottom:6px;">編成内の異なる「式」の種類数×基礎倍率。複数行追加可。</div>' +
+    '<div id="kyosoList"></div>' +
+    '<button type="button" class="btn-sm" data-kyoso-add style="margin-top:6px;">＋ 響奏を追加</button>';
+   const kyosoBox = e.querySelector("#kyosoList");
+   const KYOSO_STATS = ["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力"];
+   const renderKyoso = ()=>{
+    if(!Array.isArray(d.list)) d.list = [];
+    if(!d.list.length) d.list.push({ source:"スキル", stat:"", value:"10", target:"味方全体", dir:"アップ" });
+    kyosoBox.innerHTML = d.list.map((it, idx)=>{
+     const st = it.stat || "";
+     const tg = (it.target === "自身") ? "自身" : "味方全体";
+     const dir = /ダウン|低下|減/.test(String(it.dir||"")) ? "ダウン" : (st === "霊力" ? (it.dir === "上昇" || it.dir === "アップ" || !it.dir ? "上昇" : "ダウン") : (it.dir === "ダウン" ? "ダウン" : "アップ"));
+     const ph = st === "霊力" ? "基礎量" : "基礎倍率 %";
+     const statOpts = KYOSO_STATS.map(x=>`<option value="${x}" ${st===x?"selected":""}>${x}</option>`).join("");
+     const dirOpts = st === "霊力"
+      ? `<option value="上昇" ${dir==="上昇"||dir==="アップ"?"selected":""}>上昇</option><option value="ダウン" ${dir==="ダウン"?"selected":""}>ダウン</option>`
+      : `<option value="アップ" ${dir!=="ダウン"?"selected":""}>アップ</option><option value="ダウン" ${dir==="ダウン"?"selected":""}>ダウン</option>`;
+     return `<div class="res-row" data-kyoso-idx="${idx}" style="border:1px solid #e0d6c8;border-radius:8px;padding:8px;margin-bottom:8px;background:#faf8f5;">
+      <div class="mini" style="font-weight:700;margin-bottom:6px;">響奏 #${idx+1}</div>
+      ${specialSourceField(it, d, skill, idx)}
+      <div class="mini">対象</div>
+      <select class="select" data-kyoso-target>
+       <option value="味方全体" ${tg==="味方全体"?"selected":""}>味方全体</option>
+       <option value="自身" ${tg==="自身"?"selected":""}>自身</option>
+      </select>
+      <div class="mini" style="margin-top:6px;">強化／弱化するもの</div>
+      <select class="select" data-kyoso-stat>
+       <option value="">選択</option>
+       ${statOpts}
+      </select>
+      <div class="mini" style="margin-top:6px;">アップ／ダウン</div>
+      <select class="select" data-kyoso-dir>${dirOpts}</select>
+      <div class="mini" style="margin-top:6px;">${st==="霊力"?"基礎上昇量（式1種類あたり）":"基礎倍率 %（式1種類あたり）"}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+       <input class="input" type="number" placeholder="${ph}" data-kyoso-value value="${esc(it.value||"")}" style="flex:1;min-width:100px;">
+       <button type="button" class="btn-sm" data-kyoso-del>削除</button>
+      </div>
+      <div class="mini" style="margin-top:6px;color:#666;">表記例：式の種類×この値（最大6種類→最大×6）</div>
+     </div>`;
+    }).join("");
+    const first = d.list[0] || {};
+    d.stat = first.stat || "";
+    d.value = first.value != null ? first.value : "";
+    d.target = first.target === "自身" ? "自身" : "味方全体";
+    d.dir = first.dir || "アップ";
+    kyosoBox.querySelectorAll(".res-row").forEach(row=>{
+     const idx = Number(row.getAttribute("data-kyoso-idx"));
+     const sync = ()=>{
+      if(!d.list[idx]) return;
+      d.list[idx].target = row.querySelector("[data-kyoso-target]")?.value || "味方全体";
+      d.list[idx].stat = row.querySelector("[data-kyoso-stat]")?.value || "";
+      d.list[idx].dir = row.querySelector("[data-kyoso-dir]")?.value || "アップ";
+      d.list[idx].value = row.querySelector("[data-kyoso-value]")?.value || "";
+      const srcEl = row.querySelector("[data-special-source], [data-rank2-source], select[data-res-source]");
+      // source via specialSourceField
+      const srcSel = row.querySelector("select[data-special-source], select[data-source]");
+      if(srcSel) d.list[idx].source = srcSel.value;
+      if(idx === 0){
+       d.stat = d.list[0].stat;
+       d.value = d.list[0].value;
+       d.target = d.list[0].target;
+       d.dir = d.list[0].dir;
+      }
+     };
+     row.querySelector("[data-kyoso-target]")?.addEventListener("change", sync);
+     row.querySelector("[data-kyoso-stat]")?.addEventListener("change", ()=>{ sync(); renderKyoso(); });
+     row.querySelector("[data-kyoso-dir]")?.addEventListener("change", sync);
+     row.querySelector("[data-kyoso-value]")?.addEventListener("input", sync);
+     row.querySelectorAll("select").forEach(sel=>{
+      if(sel.matches("[data-kyoso-target],[data-kyoso-stat],[data-kyoso-dir]")) return;
+      sel.addEventListener("change", sync);
+     });
+     row.querySelector("[data-kyoso-del]")?.addEventListener("click", (ev)=>{
+      ev.preventDefault();
+      d.list.splice(idx, 1);
+      if(!d.list.length) d.list.push({ source:"スキル", stat:"", value:"10", target:"味方全体", dir:"アップ" });
+      renderKyoso();
+     });
+    });
+   };
+   renderKyoso();
+   e.querySelector("[data-kyoso-add]")?.addEventListener("click", (ev)=>{
+    ev.preventDefault();
+    if(!Array.isArray(d.list)) d.list = [];
+    d.list.push({ source:"スキル", stat:"", value:"10", target:"味方全体", dir:"アップ" });
+    renderKyoso();
    });
    break;
   case "ファスト":
@@ -17991,6 +18108,15 @@ function calculateSkillDamage(pack, rows, slots, context){
     const n=read(row.value ?? row.per,label);
     if(!row.stat) missing.add(label);
     else if(n !== null && own(row.target)) keep(name,row.stat,n*(name === "共鳴" ? (context.front||0) : (context.yukkuri||0)));
+   }else if(name === "響奏"){
+    if(row.stat === "霊力") continue; // 霊力は火力式外
+    const n=read(row.value ?? row.per,label);
+    const styles = Math.max(0, Math.min(6, Math.floor(damageNumber(context.styles) ?? 0)));
+    if(!row.stat) missing.add(label);
+    else if(n !== null && own(row.target)){
+     const sign = /ダウン|低下|減/.test(String(row.dir||"")) ? -1 : 1;
+     keep(name, row.stat, sign * n * styles);
+    }
    }else if(name === "ゾーン" || name === "バディコネクト"){
     const fixed=damageNumber(row.fixed ?? row.ratio);
     const per=damageNumber(row.per ?? row.value);
@@ -18101,7 +18227,7 @@ function calculateSkillDamage(pack, rows, slots, context){
   }
  }
  const pct=(type,key)=>factors.get(type+":"+key) || 0;
- const countTypes = ["共鳴","団結","ゾーン","バディコネクト"];
+ const countTypes = ["共鳴","団結","ゾーン","バディコネクト","響奏"];
  const multiplier=key=>countTypes.reduce((m,type)=>m*(1+pct(type,key)/100),1);
  const accumulated = [...factors].reduce((sum,[key,n])=>sum+(key.startsWith("蓄力:")?n:0),0);
 
@@ -18687,8 +18813,11 @@ function openDamageCalculator(charId, attackKey, side){
    <div class="damage-grid">${[
     ["front","前衛人数",1,1,6,1],["yukkuri","前衛のゆっくり数",0,0,6,1],["hp","残り体力 (%)",100,0,100,1],
     ["barriers","結界枚数",5,0,5,1],["spirit","霊力",5,0,5,.01],["live","チームのLIVE(LW)人数",0,0,12,1],
-    ["teamYukkuri","チームのゆっくり数",0,0,12,1],["buddy","チームのゆっくり・バディガ数",0,0,12,1]
-   ].map(([key,label,value,min,max,step])=>`<label>${label}<input class="input" type="number" data-skill-context="${key}" value="${value}" min="${min}" max="${max}" step="${step}" required></label>`).join("")}</div></details>
+    ["teamYukkuri","チームのゆっくり数",0,0,12,1],["buddy","チームのゆっくり・バディガ数",0,0,12,1],
+    ["styles","編成内の式の種類数（響奏）",1,1,6,1]
+   ].map(([key,label,value,min,max,step])=>`<label>${label}<input class="input" type="number" data-skill-context="${key}" value="${value}" min="${min}" max="${max}" step="${step}" required></label>`).join("")}</div>
+   <p class="mini">響奏：編成6人まで。式の種類が1つなら×1、全員異なる式なら×6（基礎倍率×種類数）。</p>
+   </details>
    <div class="damage-grid">
     <label>ブースト<select class="input" name="boost">${[0,1,2,3].map(i=>`<option value="${i}" ${i===3?"selected":""}>P${i}</option>`).join("")}</select></label>
     <label>グレイズ使用数<select class="input" name="graze" data-skill-context-extra="graze">${[0,1,2,3].map(i=>`<option value="${i}">${i}枚</option>`).join("")}</select></label>
