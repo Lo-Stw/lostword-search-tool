@@ -18603,11 +18603,13 @@ function openDamageCalculator(charId, attackKey, side){
   `<option value="${key}">${label}（×${new Intl.NumberFormat("ja-JP",{maximumFractionDigits:6}).format(damageAffinityMultiplier(key,abilityDamageUp))}）</option>`).join("");
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
-  <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${level}。一覧の指数は属性等倍です。</p>
+  <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${level}。一覧の指数は有利属性想定です（無属性弾は常に等倍）。</p>
   <p class="mini" style="color:#8a3030;font-weight:700;">※早期ヒットには対応していません（通常ヒット想定の計算です）。</p>
   <p class="mini" data-ability-immune-note></p>
    <p class="mini" data-ability-conv-note style="color:#0056b3;font-weight:700;"></p>
   <label>属性相性（火力指数）<select class="input" data-index-affinity>${affinityOptions}</select></label>
+  <label class="damage-check" style="display:flex;align-items:center;gap:6px;margin:6px 0;"><input type="checkbox" data-index-killer>特攻有（特攻弾は確定CRIで火力指数を計算）</label>
+  <p class="mini" style="color:#666;">※無属性バレットは弱点・耐性の対象外のため、有利／不利を選んでも等倍のままです。</p>
   <output class="stats-panel damage-index-total" aria-live="polite"></output>
   <details data-skill-damage>
   <summary>手動ダメージ計算（スキル・スペカ前効果対応／早期ヒット非対応）</summary>
@@ -18728,12 +18730,15 @@ function openDamageCalculator(charId, attackKey, side){
   </details>`;
 
  const indexAffinity = body.querySelector("[data-index-affinity]");
+ const indexKiller = body.querySelector("[data-index-killer]");
  const indexOutput = body.querySelector(".damage-index-total");
  const refreshIndex = ()=>{
-  const index = getBaselineDamageIndex(attack, indexView, indexAffinity.value);
+  const withKiller = !!(indexKiller && indexKiller.checked);
+  const index = getBaselineDamageIndex(attack, indexView, indexAffinity ? indexAffinity.value : "good", withKiller);
   indexOutput.textContent = "火力指数：" + (index === null ? "データ不足" : damageDisplay(index));
  };
- indexAffinity.addEventListener("change",refreshIndex);
+ if(indexAffinity) indexAffinity.addEventListener("change",refreshIndex);
+ if(indexKiller) indexKiller.addEventListener("change",refreshIndex);
  refreshIndex();
 
  const form = body.querySelector("form");
