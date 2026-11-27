@@ -17761,7 +17761,11 @@ function damageRows(attack){
    hard:damageBulletRatio(b,hardSummary,"hardRatio","硬質弾"),
    sharp:damageBulletRatio(b,sharpSummary,"sharpRatio","斬裂弾"),
    sure:!!flags["必中弾"], pierce:!!flags["貫通弾"], mirror:!!flags["鏡面弾"],
-   killer:!!(flags["特攻弾"] || b.specialTarget), killerText:b.specialTarget || "",
+   killer:!!(
+    flags["特攻弾"] || b.specialTarget || b.killer
+    || (typeof flags === "object" && Object.keys(flags).some(k=>/特攻/.test(k) && flags[k]))
+    || (Array.isArray(b.specialList) && b.specialList.some(x=>/特攻/.test(String(x||""))))
+   ), killerText:b.specialTarget || "",
    rankEffects:[
     ...(Array.isArray(b.buffs) ? b.buffs : []).filter(Boolean).map(row=>({...row,dir:"アップ"})),
     ...(Array.isArray(b.debuffs) ? b.debuffs : []).filter(Boolean).map(row=>({...row,dir:"ダウン"}))
@@ -18335,14 +18339,13 @@ function getResultAttacks(view, attackFilterOn){
  });
 }
 // 表示・並べ替え・プレビューで同じ固定条件を使う。
-function getBaselineDamageIndex(attack, view, affinity = "neutral"){
+function getBaselineDamageIndex(attack, view, affinity = "good", withKiller = false){
  if(attack.range === "補助" || view.statsUnknown) return null;
  const rows = damageRows(attack);
  if(!rows.length) return null;
  const stats = view.stats || {};
  const level = view.rebirth && view.side === "after" ? 140 : 100;
  const spellCorrection = damageAttackLevelMultiplier(DAMAGE_BASIC.attackLevel);
- const affinityMultiplier = damageAffinityMultiplier(affinity, view.abilities?.damageUp);
  let total = 0;
  for(const b of rows){
   if(!["陽気","陰気"].includes(b.kind)) return null;
@@ -18352,8 +18355,13 @@ function getBaselineDamageIndex(attack, view, affinity = "neutral"){
   const defense = b.hard > 0 ? damageNumber(stats[side+"Def"]) : 0;
   if([atk,speed,defense,b.power,b.count,b.critical,b.sharp,b.hard].some(v=>v === null || v < 0)) return null;
   const boostedAttack = atk*4 + speed*4*b.sharp/100 + defense*4*b.hard/100;
-  const cri = Math.min(1, b.critical*3/100);
+  // 特攻有：特攻弾は確定CRI。特攻弾が1つも無い場合は全弾確定CRI（ユーザー操作の反映を優先）
+  const anyKiller = rows.some(x=>x && x.killer);
+  const forceCri = !!(withKiller && (b.killer || !anyKiller));
+  const cri = forceCri ? 1 : Math.min(1, (b.critical||0)*3/100);
   const expectedCri = (1-cri) + 5*cri;
+  // 無属性は有利/不利を掛けない
+  const affinityMultiplier = damageAffinityMultiplier(affinity, view.abilities?.damageUp, b.attr);
   total += b.power*b.count * boostedAttack/DAMAGE_INDEX_ENEMY_DEFENSE * 4 * expectedCri
    * level * .4 * spellCorrection * affinityMultiplier;
  }
@@ -18432,7 +18440,14 @@ const DAMAGE_AFFINITY = {
 };
 const DAMAGE_PRESET_MAX_RANK = 10;
 
-function damageAffinityMultiplier(affinity, ability){
+function isNeutralAttr(attr){
+ // 明示的な「無／無属性」のみ。属性未設定は等倍固定にしない（有利/不利を適用する）
+ const a = String(attr||"").replace(/属性$/," ").trim();
+ return a === "無";
+}
+function damageAffinityMultiplier(affinity, ability, attr){
+ if(isNeutralAttr(attr)) return 1;
+
  const base = DAMAGE_AFFINITY[affinity]?.multiplier ?? 1;
  const bonus = affinity === "good" || affinity === "bad" ? damageNumber(ability?.[affinity]) ?? 0 : 0;
  return base * (1 + bonus / 100);
@@ -18599,8 +18614,11 @@ function openDamageCalculator(charId, attackKey, side){
  const level = indexView.rebirth && currentSide === "after" ? 140 : 100;
  const stats = pack.statsUnknown ? {} : pack.stats || {};
  const abilityDamageUp = pack.abilities?.damageUp || {};
- const affinityOptions = Object.entries(DAMAGE_AFFINITY).map(([key,{label}])=>
-  `<option value="${key}">${label}（×${new Intl.NumberFormat("ja-JP",{maximumFractionDigits:6}).format(damageAffinityMultiplier(key,abilityDamageUp))}）</option>`).join("");
+ const affinityOptions = Object.entries(DAMAGE_AFFINITY).map(([key,{label}])=>{
+  const mul = DAMAGE_AFFINITY[key].multiplier;
+  const mulLabel = new Intl.NumberFormat("ja-JP",{maximumFractionDigits:6}).format(mul);
+  return `<option value="${key}" ${key==="good"?"selected":""}>${label}（×${mulLabel}）</option>`;
+ }).join("");
  const name = attack.name || ATTACKS.find(([key])=>key===attackKey)?.[1] || "";
  body.innerHTML = `<p class="damage-attack-title">${esc(c.character || "")} ／ ${esc(name)}</p>
   <p class="mini">${DAMAGE_INDEX_CONDITIONS}。3ブースト、攻撃Lv.${DAMAGE_BASIC.attackLevel}、自機Lv.${level}。一覧の指数は有利属性想定です（無属性弾は常に等倍）。</p>
@@ -18737,8 +18755,15 @@ function openDamageCalculator(charId, attackKey, side){
   const index = getBaselineDamageIndex(attack, indexView, indexAffinity ? indexAffinity.value : "good", withKiller);
   indexOutput.textContent = "火力指数：" + (index === null ? "データ不足" : damageDisplay(index));
  };
- if(indexAffinity) indexAffinity.addEventListener("change",refreshIndex);
- if(indexKiller) indexKiller.addEventListener("change",refreshIndex);
+ if(indexAffinity){
+  indexAffinity.value = "good";
+  indexAffinity.addEventListener("change", refreshIndex);
+  indexAffinity.addEventListener("input", refreshIndex);
+ }
+ if(indexKiller){
+  indexKiller.addEventListener("change", refreshIndex);
+  indexKiller.addEventListener("input", refreshIndex);
+ }
  refreshIndex();
 
  const form = body.querySelector("form");
