@@ -8986,13 +8986,18 @@ if(name === "蓄積"){
    const tg = it.target === "自身" ? "自身" : "味方全体";
    const n = (it.value !== "" && it.value != null) ? String(it.value) : "n";
    const down = /ダウン|低下|減/.test(String(it.dir||""));
+   const verb = down ? "ダウン" : (it.stat === "霊力" ? "上昇" : "アップ");
    if(it.stat === "霊力"){
-    return tg + "の霊力を" + n + "%×チーム内の仲間の式の種類に応じて" + (down ? "ダウン" : "上昇");
+    return tg + "の霊力を" + n + "%×チーム内の仲間の式の種類に応じて" + verb;
    }
    if(it.stat === "攻撃時CRI率"){
-    return tg + "の攻撃時CRI率を" + n + "%×チーム内の仲間の式の種類に応じて" + (down ? "ダウン" : "アップ");
+    return tg + "の攻撃時CRI率を" + n + "%×チーム内の仲間の式の種類に応じて" + verb;
    }
-   return tg + "の与える" + it.stat + "を" + n + "%×チーム内の仲間の式の種類に応じて" + (down ? "ダウン" : "アップ");
+   if(it.stat === "ダメージ" || it.stat === "CRIダメージ"){
+    return tg + "の与える" + it.stat + "を" + n + "%×チーム内の仲間の式の種類に応じて" + verb;
+   }
+   // 陽攻・CRI防御などの各ステータス
+   return tg + "の" + it.stat + "を" + n + "%×チーム内の仲間の式の種類に応じて" + verb;
   }).filter(Boolean);
   return parts.length ? parts.join(String.fromCharCode(10)) : "";
  }
@@ -10125,7 +10130,7 @@ function buildSpecialDetail(skill, e){
     '<div id="kyosoList"></div>' +
     '<button type="button" class="btn-sm" data-kyoso-add style="margin-top:6px;">＋ 響奏を追加</button>';
    const kyosoBox = e.querySelector("#kyosoList");
-   const KYOSO_STATS = ["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力"];
+   const KYOSO_STATS = ["ダメージ","CRIダメージ","霊力","攻撃時CRI率","速力","陽攻","陰攻","陽防","陰防","命中","回避","注目","CRI攻撃","CRI防御","CRI命中","CRI回避"];
    const renderKyoso = ()=>{
     if(!Array.isArray(d.list)) d.list = [];
     if(!d.list.length) d.list.push({ source:"スキル", stat:"", value:"10", target:"味方全体", dir:"アップ" });
